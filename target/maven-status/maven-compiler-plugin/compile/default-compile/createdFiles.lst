@@ -1,0 +1,4 @@
+com\otakulog\entity\Anime.class
+com\otakulog\controller\AnimeController.class
+com\otakulog\repository\AnimeRepository.class
+com\otakulog\OtakuLogApplication.class

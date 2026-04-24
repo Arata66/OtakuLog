@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>追番列表 | OtakuLog</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Microsoft YaHei', 'SimHei', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 40px 20px;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+            animation: slideIn 0.5s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px 20px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        .table-wrapper {
+            padding: 30px;
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        thead tr {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            font-weight: bold;
+            text-align: left;
+        }
+
+        th {
+            padding: 15px;
+            font-size: 1.1em;
+        }
+
+        tbody tr {
+            border-bottom: 1px solid #e0e0e0;
+            transition: all 0.3s ease;
+        }
+
+        tbody tr:hover {
+            background: #f5f5ff;
+            transform: scale(1.02);
+        }
+
+        td {
+            padding: 15px;
+            font-size: 1em;
+        }
+
+        .status {
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-weight: bold;
+            font-size: 0.9em;
+            display: inline-block;
+        }
+
+        .status.watching {
+            background: #4CAF50;
+            color: white;
+        }
+
+        .status.finished {
+            background: #2196F3;
+            color: white;
+        }
+
+        .status.planning {
+            background: #FF9800;
+            color: white;
+        }
+
+        .status.dropped {
+            background: #F44336;
+            color: white;
+        }
+
+        .score {
+            font-weight: bold;
+            color: #ff6b6b;
+            font-size: 1.2em;
+        }
+
+        .season {
+            background: #f0f0f0;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.9em;
+        }
+
+        tbody tr:nth-child(odd) {
+            background: #fafafa;
+        }
+
+        tbody tr:last-child {
+            border-bottom: none;
+        }
+
+        .footer {
+            text-align: center;
+            padding: 20px;
+            color: #999;
+            font-size: 0.9em;
+            border-top: 1px solid #e0e0e0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎌 追番列表</h1>
+            <p>动漫追踪系统 OtakuLog</p>
+        </div>
+
+        <div class="table-wrapper">
+            <table>
+                <thead>
+                    <tr>
+                        <th>番号</th>
+                        <th>作品名</th>
+                        <th>季度</th>
+                        <th>看番状态</th>
+                        <th>评分</th>
+                        <th>集数</th>
+                        <th>备注</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>#001</td>
+                        <td>咒术回战</td>
+                        <td><span class="season">2020秋</span></td>
+                        <td><span class="status finished">已完成</span></td>
+                        <td><span class="score">9.2</span></td>
+                        <td>24 / 24</td>
+                        <td>乐</td>
+                    </tr>
+                    <tr>
+                        <td>#002</td>
+                        <td>进击的巨人</td>
+                        <td><span class="season">2013冬</span></td>
+                        <td><span class="status finished">已完成</span></td>
+                        <td><span class="score">9.5</span></td>
+                        <td>139 / 139</td>
+                        <td>神作</td>
+                    </tr>
+                    <tr>
+                        <td>#003</td>
+                        <td>鬼灭之刃</td>
+                        <td><span class="season">2019春</span></td>
+                        <td><span class="status watching">在看</span></td>
+                        <td><span class="score">9.1</span></td>
+                        <td>26 / 26+</td>
+                        <td>剧场版系列中</td>
+                    </tr>
+                    <tr>
+                        <td>#004</td>
+                        <td>死神</td>
+                        <td><span class="season">2004秋</span></td>
+                        <td><span class="status watching">在看</span></td>
+                        <td><span class="score">8.6</span></td>
+                        <td>366 / 366+</td>
+                        <td>经典长番</td>
+                    </tr>
+                    <tr>
+                        <td>#005</td>
+                        <td>某科学的超电磁炮</td>
+                        <td><span class="season">2009冬</span></td>
+                        <td><span class="status finished">已完成</span></td>
+                        <td><span class="score">8.4</span></td>
+                        <td>24 / 24</td>
+                        <td>系列新作中</td>
+                    </tr>
+                    <tr>
+                        <td>#006</td>
+                        <td>暗杀教室</td>
+                        <td><span class="season">2015冬</span></td>
+                        <td><span class="status finished">已完成</span></td>
+                        <td><span class="score">8.9</span></td>
+                        <td>47 / 47</td>
+                        <td>温馨结局</td>
+                    </tr>
+                    <tr>
+                        <td>#007</td>
+                        <td>Re:从零开始的异世界生活</td>
+                        <td><span class="season">2016夏</span></td>
+                        <td><span class="status planning">计划中</span></td>
+                        <td><span class="score">8.7</span></td>
+                        <td>50 / 50+</td>
+                        <td>第四季更新中</td>
+                    </tr>
+                    <tr>
+                        <td>#008</td>
+                        <td>某作品</td>
+                        <td><span class="season">2024春</span></td>
+                        <td><span class="status dropped">弃番</span></td>
+                        <td><span class="score">5.2</span></td>
+                        <td>4 / 12</td>
+                        <td>不符合口味</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="footer">
+            <p>📊 总计: 8 部作品 | 你的追番列表</p>
+        </div>
+    </div>
+</body>
+</html>
