@@ -193,7 +193,6 @@ A: 确保 `spring.jpa.hibernate.ddl-auto=update`，然后重启应用
 
 ## 👨‍💻 开发者信息
 
-- **开发者** - 大二计算机专业学生
 - **项目用途** - 项目式学习，练习Spring Boot全栈开发
 
 ## 📄 许可证
