@@ -683,19 +683,21 @@
                             <input type="text" class="edit-input" th:value="${anime.remark}" style="display:none;">
                         </td>
                         <td>
-                            <button class="btn-edit" th:onclick="'toggleEdit(' + ${anime.id} + ')'" title="编辑">
-                                ✏️ 编辑
-                            </button>
-                            <button class="btn-prev" th:onclick="'prevEpisode(' + ${anime.id} + ', this)'" title="上一集">
-                                ⬅️ 上集
-                            </button>
-                            <button class="btn-next" th:onclick="'nextEpisode(' + ${anime.id} + ', this)'" title="看下一集">
-                                ➕ 下一集
-                            </button>
-                            <button class="btn-delete" th:onclick="'deleteAnime(' + ${anime.id} + ')'" title="删除">
-                                🗑️ 删除
-                            </button>
+                            <div class="normal-actions">
+                                <button class="btn-edit" th:onclick="'toggleEdit(' + ${anime.id} + ')'" title="编辑">
+                                    ✏️ 编辑
+                                </button>
+                                <button class="btn-prev" th:onclick="'prevEpisode(' + ${anime.id} + ', this)'" title="上一集">
+                                    ⬅️ 上集
+                                </button>
+                                <button class="btn-next" th:onclick="'nextEpisode(' + ${anime.id} + ', this)'" title="看下一集">
+                                    ➕ 下一集
+                                </button>
+                            </div>
                             <div class="edit-actions" style="display:none; margin-top: 8px;">
+                                <button class="btn-delete" th:onclick="'deleteAnime(' + ${anime.id} + ')'" title="删除">
+                                    🗑️ 删除
+                                </button>
                                 <button class="btn-save" th:onclick="'saveEdit(' + ${anime.id} + ')'" title="保存">
                                     💾 保存
                                 </button>
@@ -796,30 +798,22 @@
 
         function toggleEdit(animeId) {
             const row = document.getElementById(`anime-row-${animeId}`);
-            const editBtn = row.querySelector('.btn-edit');
+            const normalActions = row.querySelector('.normal-actions');
             const editActions = row.querySelector('.edit-actions');
             const editableFields = row.querySelectorAll('[class^="editable-"]');
             
-            // 检查是否正在编辑
-            const isEditing = editActions.style.display !== 'none';
+            // 进入编辑模式
+            editableFields.forEach(field => {
+                const displayText = field.querySelector('.display-text');
+                const editInput = field.querySelector('.edit-input');
+                if (displayText && editInput) {
+                    displayText.style.display = 'none';
+                    editInput.style.display = 'inline-block';
+                }
+            });
             
-            if (isEditing) {
-                // 取消编辑
-                cancelEdit(animeId);
-            } else {
-                // 进入编辑模式
-                editableFields.forEach(field => {
-                    const displayText = field.querySelector('.display-text');
-                    const editInput = field.querySelector('.edit-input');
-                    if (displayText && editInput) {
-                        displayText.style.display = 'none';
-                        editInput.style.display = 'inline-block';
-                    }
-                });
-                
-                editBtn.style.display = 'none';
-                editActions.style.display = 'block';
-            }
+            normalActions.style.display = 'none';
+            editActions.style.display = 'block';
         }
 
         function saveEdit(animeId) {
@@ -866,7 +860,7 @@
 
         function cancelEdit(animeId) {
             const row = document.getElementById(`anime-row-${animeId}`);
-            const editBtn = row.querySelector('.btn-edit');
+            const normalActions = row.querySelector('.normal-actions');
             const editActions = row.querySelector('.edit-actions');
             const editableFields = row.querySelectorAll('[class^="editable-"]');
             
@@ -880,7 +874,7 @@
                 }
             });
             
-            editBtn.style.display = 'block';
+            normalActions.style.display = 'block';
             editActions.style.display = 'none';
         }
 
