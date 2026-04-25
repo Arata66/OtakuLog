@@ -105,6 +105,18 @@
             font-size: 0.85em;
             display: inline-block;
             letter-spacing: 0.3px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            user-select: none;
+        }
+
+        .status:hover {
+            opacity: 0.8;
+            transform: scale(1.05);
+        }
+
+        .status-cell {
+            position: relative;
         }
 
         .status.watching {
@@ -157,6 +169,89 @@
             border-top: 1px solid #f0f0f0;
             background: #fafafa;
         }
+
+        .stats-panel {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        }
+
+        .stats-title {
+            font-size: 1.1em;
+            font-weight: 600;
+            color: #2c2c2c;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+        }
+
+        .stat-item {
+            background: #f9f9f9;
+            padding: 15px;
+            border-radius: 6px;
+            border-left: 3px solid #888;
+            text-align: center;
+        }
+
+        .stat-label {
+            font-size: 0.85em;
+            color: #888;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .stat-value {
+            font-size: 1.8em;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .stat-item.total {
+            border-left-color: #333;
+        }
+
+        .stat-item.watching {
+            border-left-color: #1976d2;
+        }
+
+        .stat-item.watching .stat-value {
+            color: #1976d2;
+        }
+
+        .stat-item.finished {
+            border-left-color: #7b1fa2;
+        }
+
+        .stat-item.finished .stat-value {
+            color: #7b1fa2;
+        }
+
+        .stat-item.planning {
+            border-left-color: #e65100;
+        }
+
+        .stat-item.planning .stat-value {
+            color: #e65100;
+        }
+
+        .stat-item.dropped {
+            border-left-color: #c62828;
+        }
+
+        .stat-item.dropped .stat-value {
+            color: #c62828;
+        }
+
 
         .empty-message {
             text-align: center;
@@ -404,6 +499,32 @@
             background: #c0392b;
         }
 
+        .status-select {
+            position: absolute;
+            top: 0;
+            left: 0;
+            padding: 5px 12px;
+            border: 1px solid #999;
+            border-radius: 4px;
+            font-size: 0.85em;
+            background: white;
+            color: #333;
+            cursor: pointer;
+            font-weight: 600;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+            z-index: 10;
+        }
+
+        .status-select.hidden {
+            display: none !important;
+        }
+
+        .status-select:focus {
+            outline: none;
+            box-shadow: 0 0 4px rgba(51, 51, 51, 0.3);
+            border-color: #333;
+        }
+
         .editable-name .edit-input,
         .editable-season .edit-input,
         .editable-score .edit-input,
@@ -458,6 +579,33 @@
                     </select>
                     
                     <button class="btn-reset" onclick="resetSearch()">🔄 重置</button>
+                </div>
+            </div>
+
+            <!-- 统计面板 -->
+            <div class="stats-panel">
+                <div class="stats-title">📊 统计信息</div>
+                <div class="stats-grid">
+                    <div class="stat-item total">
+                        <div class="stat-label">总数</div>
+                        <div class="stat-value" id="stat-total">0</div>
+                    </div>
+                    <div class="stat-item watching">
+                        <div class="stat-label">追中</div>
+                        <div class="stat-value" id="stat-watching">0</div>
+                    </div>
+                    <div class="stat-item finished">
+                        <div class="stat-label">已完成</div>
+                        <div class="stat-value" id="stat-finished">0</div>
+                    </div>
+                    <div class="stat-item planning">
+                        <div class="stat-label">计划</div>
+                        <div class="stat-value" id="stat-planning">0</div>
+                    </div>
+                    <div class="stat-item dropped">
+                        <div class="stat-label">放弃</div>
+                        <div class="stat-value" id="stat-dropped">0</div>
+                    </div>
                 </div>
             </div>
 
@@ -516,8 +664,14 @@
                             <span class="season display-text" th:text="${anime.season}"></span>
                             <input type="text" class="edit-input" th:value="${anime.season}" style="display:none;">
                         </td>
-                        <td>
-                            <span th:class="'status ' + ${anime.status}" th:text="${anime.status}"></span>
+                        <td class="status-cell">
+                            <span th:class="'status ' + ${anime.status}" th:text="${anime.status == 'watching' ? 'Watching' : anime.status == 'finished' ? 'Finished' : anime.status == 'planning' ? 'Planning' : 'Dropped'}" th:onclick="'openStatusSelect(' + ${anime.id} + ')'"></span>
+                            <select class="status-select hidden" th:id="'status-select-' + ${anime.id}" th:onchange="'changeStatus(' + ${anime.id} + ')'" style="display:none;">
+                                <option th:value="'watching'" th:selected="${anime.status == 'watching'}">Watching</option>
+                                <option th:value="'finished'" th:selected="${anime.status == 'finished'}">Finished</option>
+                                <option th:value="'planning'" th:selected="${anime.status == 'planning'}">Planning</option>
+                                <option th:value="'dropped'" th:selected="${anime.status == 'dropped'}">Dropped</option>
+                            </select>
                         </td>
                         <td class="editable-score">
                             <span class="score display-text" th:text="${anime.score}"></span>
@@ -825,7 +979,12 @@
                         <input type="text" class="edit-input" value="${anime.season}" style="display:none;">
                     </td>
                     <td>
-                        <span class="status ${anime.status}">${anime.status}</span>
+                        <select class="status-select" id="status-select-${anime.id}" onchange="changeStatus(${anime.id})" title="点击修改状态">
+                            <option value="watching" ${anime.status === 'watching' ? 'selected' : ''}>追中</option>
+                            <option value="finished" ${anime.status === 'finished' ? 'selected' : ''}>已完成</option>
+                            <option value="planning" ${anime.status === 'planning' ? 'selected' : ''}>计划</option>
+                            <option value="dropped" ${anime.status === 'dropped' ? 'selected' : ''}>放弃</option>
+                        </select>
                     </td>
                     <td class="editable-score">
                         <span class="score display-text">${anime.score}</span>
@@ -849,6 +1008,13 @@
                         <button class="btn-delete" onclick="deleteAnime(${anime.id})" title="删除">
                             🗑️ 删除
                         </button>
+                        <select class="status-select" id="status-select-${anime.id}" onchange="changeStatus(${anime.id})" title="切换状态">
+                            <option value="">修改状态</option>
+                            <option value="watching">追中</option>
+                            <option value="finished">已完成</option>
+                            <option value="planning">计划</option>
+                            <option value="dropped">放弃</option>
+                        </select>
                         <div class="edit-actions" style="display:none; margin-top: 8px;">
                             <button class="btn-save" onclick="saveEdit(${anime.id})" title="保存">
                                 💾 保存
@@ -870,10 +1036,81 @@
             location.reload();
         }
 
+        // Open status select dropdown when clicking on status badge
+        function openStatusSelect(animeId) {
+            const select = document.getElementById(`status-select-${animeId}`);
+            select.classList.remove('hidden');
+            select.style.display = 'block';
+            select.focus();
+            
+            // Close select when focus is lost
+            select.addEventListener('blur', function() {
+                setTimeout(() => {
+                    select.classList.add('hidden');
+                    select.style.display = 'none';
+                }, 100);
+            }, { once: true });
+        }
+
+        // 改变番剧状态
+        function changeStatus(animeId) {
+            const select = document.getElementById(`status-select-${animeId}`);
+            const status = select.value;
+
+            // 如果选择了"修改状态"（空值），不做任何操作
+            if (!status) {
+                return;
+            }
+
+            // 调用后端API更新状态
+            fetch(`/api/anime/${animeId}/status`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded'
+                },
+                body: `status=${encodeURIComponent(status)}`
+            })
+            .then(response => response.text())
+            .then(data => {
+                if (data === 'success') {
+                    // 状态更新成功，重置下拉框并刷新页面
+                    select.value = '';
+                    location.reload();
+                } else {
+                    alert('修改状态失败');
+                    select.value = '';
+                }
+            })
+            .catch(error => {
+                console.error('修改状态出错：', error);
+                alert('修改状态出错');
+                select.value = '';
+            });
+        }
+
+        // 获取并更新统计数据
+        function updateStats() {
+            fetch('/api/anime/stats')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('stat-total').textContent = data.total || 0;
+                    document.getElementById('stat-watching').textContent = data.watching || 0;
+                    document.getElementById('stat-finished').textContent = data.finished || 0;
+                    document.getElementById('stat-planning').textContent = data.planning || 0;
+                    document.getElementById('stat-dropped').textContent = data.dropped || 0;
+                })
+                .catch(error => {
+                    console.error('获取统计数据出错：', error);
+                });
+        }
+
         // 初始化：给搜索框和筛选框添加事件监听
         document.addEventListener('DOMContentLoaded', function() {
             const searchInput = document.getElementById('searchName');
             const filterSelect = document.getElementById('filterStatus');
+
+            // 页面加载时获取统计数据
+            updateStats();
 
             // 搜索框实时搜索（输入时触发）
             if (searchInput) {

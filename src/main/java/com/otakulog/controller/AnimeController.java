@@ -13,6 +13,8 @@ import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import java.util.List;
 import java.util.Optional;
+import java.util.Map;
+import java.util.HashMap;
 
 @Controller
 public class AnimeController {
@@ -193,6 +195,59 @@ public class AnimeController {
         } catch (Exception e) {
             e.printStackTrace();
             return animeRepository.findAll();
+        }
+    }
+
+    @GetMapping("/api/anime/stats")
+    @ResponseBody
+    public Map<String, Object> getStats() {
+        try {
+            List<Anime> allAnime = animeRepository.findAll();
+            
+            Map<String, Object> stats = new HashMap<>();
+            
+            // 总数
+            int total = allAnime.size();
+            
+            // 各状态计数
+            long watching = allAnime.stream().filter(a -> "watching".equals(a.getStatus())).count();
+            long finished = allAnime.stream().filter(a -> "finished".equals(a.getStatus())).count();
+            long planning = allAnime.stream().filter(a -> "planning".equals(a.getStatus())).count();
+            long dropped = allAnime.stream().filter(a -> "dropped".equals(a.getStatus())).count();
+            
+            stats.put("total", total);
+            stats.put("watching", watching);
+            stats.put("finished", finished);
+            stats.put("planning", planning);
+            stats.put("dropped", dropped);
+            
+            return stats;
+        } catch (Exception e) {
+            e.printStackTrace();
+            return new HashMap<>();
+        }
+    }
+
+    @PostMapping("/api/anime/{id}/status")
+    @ResponseBody
+    public String updateStatus(
+            @PathVariable Long id,
+            @RequestParam String status) {
+        
+        try {
+            Optional<Anime> optionalAnime = animeRepository.findById(id);
+            
+            if (optionalAnime.isPresent()) {
+                Anime anime = optionalAnime.get();
+                anime.setStatus(status);
+                animeRepository.save(anime);
+                return "success";
+            }
+            
+            return "not_found";
+        } catch (Exception e) {
+            e.printStackTrace();
+            return "failed";
         }
     }
 
