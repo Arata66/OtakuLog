@@ -318,6 +318,28 @@
             background: #c0392b;
         }
 
+        .btn-delete {
+            background: #e74c3c;
+            color: white;
+            border: none;
+            padding: 6px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.85em;
+            transition: all 0.2s ease;
+            display: inline-block;
+            margin-left: 5px;
+        }
+
+        .btn-delete:hover {
+            background: #c0392b;
+        }
+
+        .btn-cancel:hover {
+            background: #c0392b;
+        }
+
         .editable-name .edit-input,
         .editable-season .edit-input,
         .editable-score .edit-input,
@@ -432,6 +454,9 @@
                             </button>
                             <button class="btn-next" th:onclick="'nextEpisode(' + ${anime.id} + ', this)'" title="看下一集">
                                 ➕ 下一集
+                            </button>
+                            <button class="btn-delete" th:onclick="'deleteAnime(' + ${anime.id} + ')'" title="删除">
+                                🗑️ 删除
                             </button>
                             <div class="edit-actions" style="display:none; margin-top: 8px;">
                                 <button class="btn-save" th:onclick="'saveEdit(' + ${anime.id} + ')'" title="保存">
@@ -620,6 +645,28 @@
             
             editBtn.style.display = 'block';
             editActions.style.display = 'none';
+        }
+
+        function deleteAnime(animeId) {
+            // 确认删除
+            if (confirm('确定要删除这个番剧吗？')) {
+                fetch(`/api/anime/${animeId}`, {
+                    method: 'DELETE'
+                })
+                .then(response => response.text())
+                .then(data => {
+                    if (data === 'success') {
+                        // 删除成功，刷新页面
+                        location.reload();
+                    } else {
+                        alert('删除失败：' + data);
+                    }
+                })
+                .catch(error => {
+                    console.error('删除出错：', error);
+                    alert('删除出错');
+                });
+            }
         }
     </script>
 </body>

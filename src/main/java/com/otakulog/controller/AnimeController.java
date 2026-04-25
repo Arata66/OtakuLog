@@ -7,6 +7,7 @@ import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -131,6 +132,24 @@ public class AnimeController {
                 anime.setRemark(remark != null ? remark : "");
                 
                 animeRepository.save(anime);
+                return "success";
+            }
+            
+            return "not_found";
+        } catch (Exception e) {
+            e.printStackTrace();
+            return "failed";
+        }
+    }
+
+    @DeleteMapping("/api/anime/{id}")
+    @ResponseBody
+    public String deleteAnime(@PathVariable Long id) {
+        try {
+            Optional<Anime> optionalAnime = animeRepository.findById(id);
+            
+            if (optionalAnime.isPresent()) {
+                animeRepository.deleteById(id);
                 return "success";
             }
             
