@@ -165,6 +165,70 @@
             font-size: 1.1em;
         }
 
+        .search-filter {
+            background: white;
+            padding: 20px;
+            border-bottom: 1px solid #e0e0e0;
+            margin-bottom: 20px;
+            border-radius: 8px;
+        }
+
+        .search-group {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        .search-group label {
+            font-weight: 600;
+            color: #555;
+            font-size: 0.9em;
+            margin: 0;
+        }
+
+        .search-input,
+        .filter-select {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 0.9em;
+            background: white;
+            color: #333;
+            transition: all 0.2s ease;
+        }
+
+        .search-input {
+            width: 200px;
+        }
+
+        .filter-select {
+            width: 130px;
+        }
+
+        .search-input:focus,
+        .filter-select:focus {
+            outline: none;
+            border-color: #888;
+            box-shadow: 0 0 4px rgba(136, 136, 136, 0.2);
+        }
+
+        .btn-reset {
+            background: #888;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.85em;
+            transition: all 0.2s ease;
+        }
+
+        .btn-reset:hover {
+            background: #666;
+        }
+
         .add-anime-form {
             background: #fafafa;
             padding: 25px;
@@ -378,6 +442,25 @@
         </div>
 
         <div class="table-wrapper">
+            <!-- 搜索/筛选框 -->
+            <div class="search-filter">
+                <div class="search-group">
+                    <label for="searchName">🔍 搜索番剧：</label>
+                    <input type="text" id="searchName" placeholder="输入番剧名称..." class="search-input">
+                    
+                    <label for="filterStatus" style="margin-left: 20px;">筛选状态：</label>
+                    <select id="filterStatus" class="filter-select">
+                        <option value="">全部</option>
+                        <option value="watching">追中</option>
+                        <option value="finished">已完成</option>
+                        <option value="planning">计划</option>
+                        <option value="dropped">放弃</option>
+                    </select>
+                    
+                    <button class="btn-reset" onclick="resetSearch()">🔄 重置</button>
+                </div>
+            </div>
+
             <div class="add-anime-form">
                 <h3>📝 添加新番</h3>
                 <form id="animeForm" onsubmit="addAnime(event)">
@@ -668,6 +751,140 @@
                 });
             }
         }
+
+        // 搜索/筛选函数
+        function performSearch() {
+            const name = document.getElementById('searchName').value.trim();
+            const status = document.getElementById('filterStatus').value;
+
+            // 构建查询参数
+            let url = '/api/anime/search?';
+            if (name) {
+                url += 'name=' + encodeURIComponent(name);
+            }
+            if (status) {
+                url += (name ? '&' : '') + 'status=' + encodeURIComponent(status);
+            }
+
+            // 调用后端搜索API
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    updateTableWithResults(data);
+                })
+                .catch(error => {
+                    console.error('搜索出错：', error);
+                    alert('搜索出错');
+                });
+        }
+
+        // 更新表格显示搜索结果
+        function updateTableWithResults(animeList) {
+            const tbody = document.querySelector('tbody');
+            
+            if (!tbody) return;
+
+            // 清空表格
+            tbody.innerHTML = '';
+
+            if (animeList.length === 0) {
+                // 没有结果，显示空消息
+                const emptyMsg = document.querySelector('.empty-message');
+                if (emptyMsg) {
+                    emptyMsg.style.display = 'block';
+                }
+                const table = document.querySelector('table');
+                if (table) {
+                    table.style.display = 'none';
+                }
+                return;
+            }
+
+            // 有结果，显示表格
+            const emptyMsg = document.querySelector('.empty-message');
+            if (emptyMsg) {
+                emptyMsg.style.display = 'none';
+            }
+            const table = document.querySelector('table');
+            if (table) {
+                table.style.display = 'table';
+            }
+
+            // 渲染搜索结果
+            animeList.forEach((anime, index) => {
+                const row = document.createElement('tr');
+                row.id = `anime-row-${anime.id}`;
+                row.innerHTML = `
+                    <td>${index + 1}</td>
+                    <td class="editable-name">
+                        <span class="display-text">${anime.name}</span>
+                        <input type="text" class="edit-input" value="${anime.name}" style="display:none;">
+                    </td>
+                    <td class="editable-season">
+                        <span class="season display-text">${anime.season}</span>
+                        <input type="text" class="edit-input" value="${anime.season}" style="display:none;">
+                    </td>
+                    <td>
+                        <span class="status ${anime.status}">${anime.status}</span>
+                    </td>
+                    <td class="editable-score">
+                        <span class="score display-text">${anime.score}</span>
+                        <input type="number" class="edit-input" value="${anime.score}" step="0.1" min="0" max="10" style="display:none;">
+                    </td>
+                    <td>${anime.currentEpisode} / ${anime.totalEpisodes}</td>
+                    <td class="editable-remark">
+                        <span class="display-text">${anime.remark}</span>
+                        <input type="text" class="edit-input" value="${anime.remark}" style="display:none;">
+                    </td>
+                    <td>
+                        <button class="btn-edit" onclick="toggleEdit(${anime.id})" title="编辑">
+                            ✏️ 编辑
+                        </button>
+                        <button class="btn-prev" onclick="prevEpisode(${anime.id}, this)" title="上一集">
+                            ⬅️ 上集
+                        </button>
+                        <button class="btn-next" onclick="nextEpisode(${anime.id}, this)" title="看下一集">
+                            ➕ 下一集
+                        </button>
+                        <button class="btn-delete" onclick="deleteAnime(${anime.id})" title="删除">
+                            🗑️ 删除
+                        </button>
+                        <div class="edit-actions" style="display:none; margin-top: 8px;">
+                            <button class="btn-save" onclick="saveEdit(${anime.id})" title="保存">
+                                💾 保存
+                            </button>
+                            <button class="btn-cancel" onclick="cancelEdit(${anime.id})" title="取消">
+                                ❌ 取消
+                            </button>
+                        </div>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        // 重置搜索
+        function resetSearch() {
+            document.getElementById('searchName').value = '';
+            document.getElementById('filterStatus').value = '';
+            location.reload();
+        }
+
+        // 初始化：给搜索框和筛选框添加事件监听
+        document.addEventListener('DOMContentLoaded', function() {
+            const searchInput = document.getElementById('searchName');
+            const filterSelect = document.getElementById('filterStatus');
+
+            // 搜索框实时搜索（输入时触发）
+            if (searchInput) {
+                searchInput.addEventListener('input', performSearch);
+            }
+
+            // 筛选框实时过滤（变化时触发）
+            if (filterSelect) {
+                filterSelect.addEventListener('change', performSearch);
+            }
+        });
     </script>
 </body>
 </html>

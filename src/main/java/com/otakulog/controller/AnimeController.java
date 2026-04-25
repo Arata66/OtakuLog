@@ -160,4 +160,40 @@ public class AnimeController {
         }
     }
 
+    @GetMapping("/api/anime/search")
+    @ResponseBody
+    public List<Anime> searchAnime(
+            @RequestParam(required = false) String name,
+            @RequestParam(required = false) String status) {
+        
+        try {
+            // 如果没有提供任何查询条件，返回全部
+            if ((name == null || name.trim().isEmpty()) && 
+                (status == null || status.trim().isEmpty())) {
+                return animeRepository.findAll();
+            }
+            
+            // 两个条件都提供
+            if (name != null && !name.trim().isEmpty() && 
+                status != null && !status.trim().isEmpty()) {
+                return animeRepository.findByNameContainingAndStatus(name, status);
+            }
+            
+            // 只提供名称
+            if (name != null && !name.trim().isEmpty()) {
+                return animeRepository.findByNameContaining(name);
+            }
+            
+            // 只提供状态
+            if (status != null && !status.trim().isEmpty()) {
+                return animeRepository.findByStatus(status);
+            }
+            
+            return animeRepository.findAll();
+        } catch (Exception e) {
+            e.printStackTrace();
+            return animeRepository.findAll();
+        }
+    }
+
 }
