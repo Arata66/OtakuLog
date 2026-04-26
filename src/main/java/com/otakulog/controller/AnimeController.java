@@ -166,32 +166,67 @@ public class AnimeController {
     @ResponseBody
     public List<Anime> searchAnime(
             @RequestParam(required = false) String name,
-            @RequestParam(required = false) String status) {
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false, defaultValue = "id-desc") String sortBy) {
         
         try {
+            List<Anime> results;
+            
             // 如果没有提供任何查询条件，返回全部
             if ((name == null || name.trim().isEmpty()) && 
                 (status == null || status.trim().isEmpty())) {
-                return animeRepository.findAll();
+                results = animeRepository.findAll();
             }
-            
             // 两个条件都提供
-            if (name != null && !name.trim().isEmpty() && 
+            else if (name != null && !name.trim().isEmpty() && 
                 status != null && !status.trim().isEmpty()) {
-                return animeRepository.findByNameContainingAndStatus(name, status);
+                results = animeRepository.findByNameContainingAndStatus(name, status);
             }
-            
             // 只提供名称
-            if (name != null && !name.trim().isEmpty()) {
-                return animeRepository.findByNameContaining(name);
+            else if (name != null && !name.trim().isEmpty()) {
+                results = animeRepository.findByNameContaining(name);
             }
-            
             // 只提供状态
-            if (status != null && !status.trim().isEmpty()) {
-                return animeRepository.findByStatus(status);
+            else if (status != null && !status.trim().isEmpty()) {
+                results = animeRepository.findByStatus(status);
+            }
+            else {
+                results = animeRepository.findAll();
             }
             
-            return animeRepository.findAll();
+            // 应用排序
+            if ("score-desc".equals(sortBy)) {
+                results.sort((a, b) -> {
+                    if (a.getScore() == null) return 1;
+                    if (b.getScore() == null) return -1;
+                    return b.getScore().compareTo(a.getScore());
+                });
+            } else if ("score-asc".equals(sortBy)) {
+                results.sort((a, b) -> {
+                    if (a.getScore() == null) return -1;
+                    if (b.getScore() == null) return 1;
+                    return a.getScore().compareTo(b.getScore());
+                });
+            } else if ("progress-desc".equals(sortBy)) {
+                results.sort((a, b) -> {
+                    double progressA = (double) a.getCurrentEpisode() / a.getTotalEpisodes();
+                    double progressB = (double) b.getCurrentEpisode() / b.getTotalEpisodes();
+                    return Double.compare(progressB, progressA);
+                });
+            } else if ("progress-asc".equals(sortBy)) {
+                results.sort((a, b) -> {
+                    double progressA = (double) a.getCurrentEpisode() / a.getTotalEpisodes();
+                    double progressB = (double) b.getCurrentEpisode() / b.getTotalEpisodes();
+                    return Double.compare(progressA, progressB);
+                });
+            } else if ("name-asc".equals(sortBy)) {
+                results.sort((a, b) -> a.getName().compareTo(b.getName()));
+            } else {
+                // id-desc 默认排序（最新添加的在前）
+                results.sort((a, b) -> b.getId().compareTo(a.getId()));
+            }
+            
+            return results;
         } catch (Exception e) {
             e.printStackTrace();
             return animeRepository.findAll();

@@ -578,6 +578,16 @@
                         <option value="dropped">放弃</option>
                     </select>
                     
+                    <label for="sortBy" style="margin-left: 20px;">排序方式：</label>
+                    <select id="sortBy" class="filter-select">
+                        <option value="id-desc">最新添加</option>
+                        <option value="score-desc">评分从高到低</option>
+                        <option value="score-asc">评分从低到高</option>
+                        <option value="progress-desc">进度从高到低</option>
+                        <option value="progress-asc">进度从低到高</option>
+                        <option value="name-asc">名称字母序</option>
+                    </select>
+                    
                     <button class="btn-reset" onclick="resetSearch()">🔄 重置</button>
                 </div>
             </div>
@@ -904,6 +914,7 @@
         function performSearch() {
             const name = document.getElementById('searchName').value.trim();
             const status = document.getElementById('filterStatus').value;
+            const sortBy = document.getElementById('sortBy').value;
 
             // 构建查询参数
             let url = '/api/anime/search?';
@@ -913,6 +924,9 @@
             if (status) {
                 url += (name ? '&' : '') + 'status=' + encodeURIComponent(status);
             }
+            
+            // 添加排序参数
+            url += (name || status ? '&' : '') + 'sortBy=' + encodeURIComponent(sortBy);
 
             // 调用后端搜索API
             fetch(url)
@@ -1027,7 +1041,8 @@
         function resetSearch() {
             document.getElementById('searchName').value = '';
             document.getElementById('filterStatus').value = '';
-            location.reload();
+            document.getElementById('sortBy').value = 'id-desc';
+            performSearch();
         }
 
         // Open status select dropdown when clicking on status badge
@@ -1102,6 +1117,7 @@
         document.addEventListener('DOMContentLoaded', function() {
             const searchInput = document.getElementById('searchName');
             const filterSelect = document.getElementById('filterStatus');
+            const sortSelect = document.getElementById('sortBy');
 
             // 页面加载时获取统计数据
             updateStats();
@@ -1114,6 +1130,11 @@
             // 筛选框实时过滤（变化时触发）
             if (filterSelect) {
                 filterSelect.addEventListener('change', performSearch);
+            }
+
+            // 排序框变化时重新排序
+            if (sortSelect) {
+                sortSelect.addEventListener('change', performSearch);
             }
         });
     </script>
