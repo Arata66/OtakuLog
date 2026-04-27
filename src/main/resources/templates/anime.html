@@ -553,9 +553,88 @@
         .editable-remark .edit-input {
             width: 120px;
         }
+
+        /* Toast 提示 */
+        .toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            pointer-events: none;
+        }
+
+        .toast {
+            padding: 12px 20px;
+            border-radius: 4px;
+            color: white;
+            font-weight: 600;
+            font-size: 0.9em;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            animation: slideInRight 0.3s ease, slideOutRight 0.3s ease 2.7s forwards;
+            pointer-events: auto;
+            white-space: nowrap;
+        }
+
+        .toast.success {
+            background: #27ae60;
+        }
+
+        .toast.error {
+            background: #e74c3c;
+        }
+
+        .toast.info {
+            background: #3498db;
+        }
+
+        @keyframes slideInRight {
+            from {
+                opacity: 0;
+                transform: translateX(400px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        @keyframes slideOutRight {
+            from {
+                opacity: 1;
+                transform: translateX(0);
+            }
+            to {
+                opacity: 0;
+                transform: translateX(400px);
+            }
+        }
+
+        /* 空数据提示优化 */
+        .empty-message {
+            text-align: center;
+            padding: 80px 40px;
+            color: #999;
+            font-size: 1.1em;
+        }
+
+        .empty-message p {
+            margin-bottom: 20px;
+        }
+
+        .empty-icon {
+            font-size: 3em;
+            margin-bottom: 15px;
+            opacity: 0.6;
+        }
     </style>
 </head>
 <body>
+    <!-- Toast 容器 -->
+    <div class="toast-container" id="toastContainer"></div>
+    
     <div class="container">
         <div class="header">
             <h1>🎌 追番列表</h1>
@@ -719,6 +798,12 @@
                     </tr>
                 </tbody>
             </table>
+
+            <!-- 空数据提示 -->
+            <div class="empty-message" style="display:none;">
+                <div class="empty-icon">🔍</div>
+                <p>没有找到匹配的番剧</p>
+            </div>
         </div>
 
         <div class="footer">
@@ -727,6 +812,20 @@
     </div>
 
     <script>
+        // Toast 提示函数
+        function showToast(message, type = 'info', duration = 3000) {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.textContent = message;
+            container.appendChild(toast);
+
+            // 自动删除
+            setTimeout(() => {
+                toast.remove();
+            }, duration);
+        }
+
         function nextEpisode(animeId, button) {
             // 发送POST请求到后端API
             fetch(`/api/anime/${animeId}/next-episode`, {
@@ -738,17 +837,18 @@
             .then(response => response.text())
             .then(data => {
                 if (data === 'success') {
-                    // 刷新页面显示最新数据
-                    location.reload();
+                    showToast('✅ 集数已更新', 'success');
+                    performSearch();
+                    updateStats();
                 } else if (data === 'reached_max') {
-                    alert('已经是最后一集了！');
+                    showToast('⚠️ 已经是最后一集了', 'info');
                 } else {
-                    alert('更新失败，请重试');
+                    showToast('❌ 更新失败，请重试', 'error');
                 }
             })
             .catch(error => {
                 console.error('Error:', error);
-                alert('请求失败，请检查网络');
+                showToast('❌ 请求失败，请检查网络', 'error');
             });
         }
 
@@ -763,17 +863,18 @@
             .then(response => response.text())
             .then(data => {
                 if (data === 'success') {
-                    // 刷新页面显示最新数据
-                    location.reload();
+                    showToast('✅ 集数已更新', 'success');
+                    performSearch();
+                    updateStats();
                 } else if (data === 'reached_min') {
-                    alert('已经是第1集了！');
+                    showToast('⚠️ 已经是第1集了', 'info');
                 } else {
-                    alert('更新失败，请重试');
+                    showToast('❌ 更新失败，请重试', 'error');
                 }
             })
             .catch(error => {
                 console.error('Error:', error);
-                alert('请求失败，请检查网络');
+                showToast('❌ 请求失败，请检查网络', 'error');
             });
         }
 
@@ -793,16 +894,17 @@
             .then(response => response.text())
             .then(data => {
                 if (data === 'success') {
-                    alert('添加成功！');
+                    showToast('✅ 番剧已添加', 'success');
                     document.getElementById('animeForm').reset();  // 清空表单
-                    location.reload();  // 刷新页面显示新番
+                    performSearch();
+                    updateStats();
                 } else {
-                    alert('添加失败，请检查输入信息');
+                    showToast('❌ 添加失败，请检查输入信息', 'error');
                 }
             })
             .catch(error => {
                 console.error('Error:', error);
-                alert('请求失败，请检查网络');
+                showToast('❌ 请求失败，请检查网络', 'error');
             });
         }
 
@@ -836,7 +938,7 @@
             
             // 验证输入
             if (!name.trim() || !season.trim() || !score) {
-                alert('请填写所有必填字段');
+                showToast('请填写所有必填字段', 'error');
                 return;
             }
             
@@ -856,10 +958,11 @@
             .then(response => response.text())
             .then(data => {
                 if (data === 'success') {
-                    alert('保存成功！');
-                    location.reload();
+                    showToast('✅ 保存成功', 'success');
+                    performSearch();
+                    updateStats();
                 } else {
-                    alert('保存失败，请重试');
+                    showToast('❌ 保存失败，请重试', 'error');
                 }
             })
             .catch(error => {
@@ -897,15 +1000,17 @@
                 .then(response => response.text())
                 .then(data => {
                     if (data === 'success') {
-                        // 删除成功，刷新页面
-                        location.reload();
+                        // 删除成功
+                        showToast('🗑️ 删除成功', 'success');
+                        performSearch();
+                        updateStats();
                     } else {
-                        alert('删除失败：' + data);
+                        showToast('❌ 删除失败：' + data, 'error');
                     }
                 })
                 .catch(error => {
                     console.error('删除出错：', error);
-                    alert('删除出错');
+                    showToast('❌ 删除出错', 'error');
                 });
             }
         }
@@ -943,34 +1048,25 @@
         // 更新表格显示搜索结果
         function updateTableWithResults(animeList) {
             const tbody = document.querySelector('tbody');
+            const table = document.querySelector('table');
+            const emptyMsg = document.querySelector('.empty-message');
             
-            if (!tbody) return;
+            if (!tbody || !table || !emptyMsg) return;
 
             // 清空表格
             tbody.innerHTML = '';
 
             if (animeList.length === 0) {
                 // 没有结果，显示空消息
-                const emptyMsg = document.querySelector('.empty-message');
-                if (emptyMsg) {
-                    emptyMsg.style.display = 'block';
-                }
-                const table = document.querySelector('table');
-                if (table) {
-                    table.style.display = 'none';
-                }
+                table.style.display = 'none';
+                emptyMsg.style.display = 'block';
+                emptyMsg.innerHTML = '<div class="empty-icon">🔍</div><p>没有找到匹配的番剧</p>';
                 return;
             }
 
             // 有结果，显示表格
-            const emptyMsg = document.querySelector('.empty-message');
-            if (emptyMsg) {
-                emptyMsg.style.display = 'none';
-            }
-            const table = document.querySelector('table');
-            if (table) {
-                table.style.display = 'table';
-            }
+            table.style.display = 'table';
+            emptyMsg.style.display = 'none';
 
             // 渲染搜索结果
             animeList.forEach((anime, index) => {
@@ -1004,25 +1100,33 @@
                         <input type="text" class="edit-input" value="${anime.remark}" style="display:none;">
                     </td>
                     <td>
-                        <button class="btn-edit" onclick="toggleEdit(${anime.id})" title="编辑">
-                            ✏️ 编辑
-                        </button>
-                        <button class="btn-prev" onclick="prevEpisode(${anime.id}, this)" title="上一集">
-                            ⬅️ 上集
-                        </button>
-                        <button class="btn-next" onclick="nextEpisode(${anime.id}, this)" title="看下一集">
-                            ➕ 下一集
-                        </button>
-                        <button class="btn-delete" onclick="deleteAnime(${anime.id})" title="删除">
-                            🗑️ 删除
-                        </button>
-                        <select class="status-select" id="status-select-${anime.id}" onchange="changeStatus(${anime.id})" title="切换状态">
-                            <option value="">修改状态</option>
-                            <option value="watching">追中</option>
-                            <option value="finished">已完成</option>
-                            <option value="planning">计划</option>
-                            <option value="dropped">放弃</option>
-                        </select>
+                        <div class="normal-actions">
+                            <button class="btn-edit" onclick="toggleEdit(${anime.id})" title="编辑">
+                                ✏️ 编辑
+                            </button>
+                            <button class="btn-prev" onclick="prevEpisode(${anime.id}, this)" title="上一集">
+                                ⬅️ 上集
+                            </button>
+                            <button class="btn-next" onclick="nextEpisode(${anime.id}, this)" title="看下一集">
+                                ➕ 下一集
+                            </button>
+                        </div>
+                        <div class="edit-actions" style="display:none;">
+                            <button class="btn-delete" onclick="deleteAnime(${anime.id})" title="删除">
+                                🗑️ 删除
+                            </button>
+                            <button class="btn-save" onclick="saveEdit(${anime.id})" title="保存">
+                                ✅ 保存
+                            </button>
+                            <button class="btn-cancel" onclick="cancelEdit(${anime.id})" title="取消">
+                                ❌ 取消
+                            </button>
+                        </div>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
                         <div class="edit-actions" style="display:none; margin-top: 8px;">
                             <button class="btn-save" onclick="saveEdit(${anime.id})" title="保存">
                                 💾 保存
@@ -1042,6 +1146,7 @@
             document.getElementById('searchName').value = '';
             document.getElementById('filterStatus').value = '';
             document.getElementById('sortBy').value = 'id-desc';
+            showToast('已重置搜索条件', 'info');
             performSearch();
         }
 
@@ -1082,11 +1187,12 @@
             .then(response => response.text())
             .then(data => {
                 if (data === 'success') {
-                    // 状态更新成功，重置下拉框并刷新页面
-                    select.value = '';
-                    location.reload();
+                    // 状态更新成功
+                    showToast('✅ 状态已更新', 'success');
+                    performSearch();
+                    updateStats();
                 } else {
-                    alert('修改状态失败');
+                    showToast('❌ 修改状态失败', 'error');
                     select.value = '';
                 }
             })
