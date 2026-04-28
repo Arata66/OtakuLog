@@ -286,4 +286,59 @@ public class AnimeController {
         }
     }
 
+    @GetMapping("/api/anime/stats/detailed")
+    @ResponseBody
+    public Map<String, Object> getDetailedStats() {
+        try {
+            List<Anime> allAnime = animeRepository.findAll();
+            
+            Map<String, Object> stats = new HashMap<>();
+            
+            // 基础统计
+            int total = allAnime.size();
+            long watching = allAnime.stream().filter(a -> "watching".equals(a.getStatus())).count();
+            long finished = allAnime.stream().filter(a -> "finished".equals(a.getStatus())).count();
+            long planning = allAnime.stream().filter(a -> "planning".equals(a.getStatus())).count();
+            long dropped = allAnime.stream().filter(a -> "dropped".equals(a.getStatus())).count();
+            
+            stats.put("total", total);
+            stats.put("watching", watching);
+            stats.put("finished", finished);
+            stats.put("planning", planning);
+            stats.put("dropped", dropped);
+            
+            // 进度统计
+            long totalEpisodes = allAnime.stream().mapToLong(Anime::getTotalEpisodes).sum();
+            long watchedEpisodes = allAnime.stream().mapToLong(Anime::getCurrentEpisode).sum();
+            double progressPercentage = totalEpisodes > 0 ? (watchedEpisodes * 100.0 / totalEpisodes) : 0;
+            
+            stats.put("totalEpisodes", totalEpisodes);
+            stats.put("watchedEpisodes", watchedEpisodes);
+            stats.put("progressPercentage", Math.round(progressPercentage * 10.0) / 10.0); // 保留一位小数
+            
+            // 平均评分
+            double avgScore = allAnime.stream()
+                    .filter(a -> a.getScore() != null && a.getScore() > 0)
+                    .mapToDouble(Anime::getScore)
+                    .average()
+                    .orElse(0.0);
+            
+            stats.put("averageScore", Math.round(avgScore * 10.0) / 10.0);
+            
+            // 评分统计
+            long highScore = allAnime.stream().filter(a -> a.getScore() != null && a.getScore() >= 8.0).count();
+            long mediumScore = allAnime.stream().filter(a -> a.getScore() != null && a.getScore() >= 6.0 && a.getScore() < 8.0).count();
+            long lowScore = allAnime.stream().filter(a -> a.getScore() != null && a.getScore() > 0 && a.getScore() < 6.0).count();
+            
+            stats.put("highScore", highScore);      // 评分 >= 8.0
+            stats.put("mediumScore", mediumScore);  // 评分 6.0-8.0
+            stats.put("lowScore", lowScore);        // 评分 < 6.0
+            
+            return stats;
+        } catch (Exception e) {
+            e.printStackTrace();
+            return new HashMap<>();
+        }
+    }
+
 }

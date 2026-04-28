@@ -252,6 +252,56 @@
             color: #c62828;
         }
 
+        /* 详细统计样式 */
+        .stats-detail-section {
+            margin-top: 25px;
+            padding-top: 20px;
+            border-top: 1px solid #e0e0e0;
+        }
+
+        .stats-detail-title {
+            font-size: 0.95em;
+            font-weight: 600;
+            color: #555;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .stats-detail-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 12px;
+        }
+
+        .detail-item {
+            background: linear-gradient(135deg, #f5f7fa 0%, #f9fafb 100%);
+            padding: 12px;
+            border-radius: 6px;
+            text-align: center;
+            border: 1px solid #e8e8e8;
+        }
+
+        .detail-label {
+            font-size: 0.8em;
+            color: #888;
+            margin-bottom: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+
+        .detail-value {
+            font-size: 1.5em;
+            font-weight: 600;
+            color: #2196f3;
+            margin-bottom: 4px;
+        }
+
+        .detail-subtext {
+            font-size: 0.75em;
+            color: #aaa;
+        }
 
         .empty-message {
             text-align: center;
@@ -500,9 +550,6 @@
         }
 
         .status-select {
-            position: absolute;
-            top: 0;
-            left: 0;
             padding: 5px 12px;
             border: 1px solid #999;
             border-radius: 4px;
@@ -512,7 +559,7 @@
             cursor: pointer;
             font-weight: 600;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
-            z-index: 10;
+            min-width: 100px;
         }
 
         .status-select.hidden {
@@ -696,6 +743,38 @@
                         <div class="stat-value" id="stat-dropped">0</div>
                     </div>
                 </div>
+
+                <!-- 详细统计 -->
+                <div class="stats-detail-section">
+                    <div class="stats-detail-title">📈 详细统计</div>
+                    <div class="stats-detail-grid">
+                        <div class="detail-item">
+                            <div class="detail-label">进度完成率</div>
+                            <div class="detail-value" id="stat-progress">0%</div>
+                            <div class="detail-subtext" id="stat-episodes">0/0 集</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">平均评分</div>
+                            <div class="detail-value" id="stat-avg-score">0.0</div>
+                            <div class="detail-subtext">整体评价</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">高分作品</div>
+                            <div class="detail-value" id="stat-high-score">0</div>
+                            <div class="detail-subtext">≥8.0</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">中等作品</div>
+                            <div class="detail-value" id="stat-medium-score">0</div>
+                            <div class="detail-subtext">6.0~8.0</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">低分作品</div>
+                            <div class="detail-value" id="stat-low-score">0</div>
+                            <div class="detail-subtext">&lt;6.0</div>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <div class="add-anime-form">
@@ -819,22 +898,16 @@
             toast.className = `toast ${type}`;
             toast.textContent = message;
             container.appendChild(toast);
-
-            // 自动删除
-            setTimeout(() => {
-                toast.remove();
-            }, duration);
+            setTimeout(() => toast.remove(), duration);
         }
 
-        function nextEpisode(animeId, button) {
-            // 发送POST请求到后端API
+        // 下一集
+        function nextEpisode(animeId) {
             fetch(`/api/anime/${animeId}/next-episode`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                }
+                headers: {'Content-Type': 'application/json'}
             })
-            .then(response => response.text())
+            .then(r => r.text())
             .then(data => {
                 if (data === 'success') {
                     showToast('✅ 集数已更新', 'success');
@@ -843,24 +916,19 @@
                 } else if (data === 'reached_max') {
                     showToast('⚠️ 已经是最后一集了', 'info');
                 } else {
-                    showToast('❌ 更新失败，请重试', 'error');
+                    showToast('❌ 更新失败', 'error');
                 }
             })
-            .catch(error => {
-                console.error('Error:', error);
-                showToast('❌ 请求失败，请检查网络', 'error');
-            });
+            .catch(e => showToast('❌ 请求失败', 'error'));
         }
 
-        function prevEpisode(animeId, button) {
-            // 发送POST请求到后端API
+        // 上一集
+        function prevEpisode(animeId) {
             fetch(`/api/anime/${animeId}/prev-episode`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                }
+                headers: {'Content-Type': 'application/json'}
             })
-            .then(response => response.text())
+            .then(r => r.text())
             .then(data => {
                 if (data === 'success') {
                     showToast('✅ 集数已更新', 'success');
@@ -869,74 +937,59 @@
                 } else if (data === 'reached_min') {
                     showToast('⚠️ 已经是第1集了', 'info');
                 } else {
-                    showToast('❌ 更新失败，请重试', 'error');
+                    showToast('❌ 更新失败', 'error');
                 }
             })
-            .catch(error => {
-                console.error('Error:', error);
-                showToast('❌ 请求失败，请检查网络', 'error');
-            });
+            .catch(e => showToast('❌ 请求失败', 'error'));
         }
 
+        // 添加番剧
         function addAnime(event) {
-            event.preventDefault();  // 防止表单默认提交
-            
+            event.preventDefault();
             const formData = new FormData(document.getElementById('animeForm'));
             const params = new URLSearchParams(formData);
             
             fetch('/api/anime/add', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded'
-                },
+                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
                 body: params.toString()
             })
-            .then(response => response.text())
+            .then(r => r.text())
             .then(data => {
                 if (data === 'success') {
                     showToast('✅ 番剧已添加', 'success');
-                    document.getElementById('animeForm').reset();  // 清空表单
+                    document.getElementById('animeForm').reset();
                     performSearch();
                     updateStats();
                 } else {
-                    showToast('❌ 添加失败，请检查输入信息', 'error');
+                    showToast('❌ 添加失败', 'error');
                 }
             })
-            .catch(error => {
-                console.error('Error:', error);
-                showToast('❌ 请求失败，请检查网络', 'error');
-            });
+            .catch(e => showToast('❌ 请求失败', 'error'));
         }
 
+        // 编辑相关函数
         function toggleEdit(animeId) {
             const row = document.getElementById(`anime-row-${animeId}`);
-            const normalActions = row.querySelector('.normal-actions');
-            const editActions = row.querySelector('.edit-actions');
-            const editableFields = row.querySelectorAll('[class^="editable-"]');
-            
-            // 进入编辑模式
-            editableFields.forEach(field => {
-                const displayText = field.querySelector('.display-text');
-                const editInput = field.querySelector('.edit-input');
-                if (displayText && editInput) {
-                    displayText.style.display = 'none';
-                    editInput.style.display = 'inline-block';
+            row.querySelectorAll('[class^="editable-"]').forEach(field => {
+                const dt = field.querySelector('.display-text');
+                const ei = field.querySelector('.edit-input');
+                if (dt && ei) {
+                    dt.style.display = 'none';
+                    ei.style.display = 'inline-block';
                 }
             });
-            
-            normalActions.style.display = 'none';
-            editActions.style.display = 'block';
+            row.querySelector('.normal-actions').style.display = 'none';
+            row.querySelector('.edit-actions').style.display = 'block';
         }
 
         function saveEdit(animeId) {
             const row = document.getElementById(`anime-row-${animeId}`);
-            
             const name = row.querySelector('.editable-name .edit-input').value;
             const season = row.querySelector('.editable-season .edit-input').value;
             const score = row.querySelector('.editable-score .edit-input').value;
             const remark = row.querySelector('.editable-remark .edit-input').value;
             
-            // 验证输入
             if (!name.trim() || !season.trim() || !score) {
                 showToast('请填写所有必填字段', 'error');
                 return;
@@ -950,102 +1003,71 @@
             
             fetch(`/api/anime/${animeId}/update`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded'
-                },
+                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
                 body: params.toString()
             })
-            .then(response => response.text())
+            .then(r => r.text())
             .then(data => {
                 if (data === 'success') {
                     showToast('✅ 保存成功', 'success');
                     performSearch();
                     updateStats();
                 } else {
-                    showToast('❌ 保存失败，请重试', 'error');
+                    showToast('❌ 保存失败', 'error');
                 }
             })
-            .catch(error => {
-                console.error('Error:', error);
-                alert('请求失败，请检查网络');
-            });
+            .catch(e => showToast('❌ 请求失败', 'error'));
         }
 
         function cancelEdit(animeId) {
             const row = document.getElementById(`anime-row-${animeId}`);
-            const normalActions = row.querySelector('.normal-actions');
-            const editActions = row.querySelector('.edit-actions');
-            const editableFields = row.querySelectorAll('[class^="editable-"]');
-            
-            // 恢复显示模式
-            editableFields.forEach(field => {
-                const displayText = field.querySelector('.display-text');
-                const editInput = field.querySelector('.edit-input');
-                if (displayText && editInput) {
-                    displayText.style.display = 'inline';
-                    editInput.style.display = 'none';
+            row.querySelectorAll('[class^="editable-"]').forEach(field => {
+                const dt = field.querySelector('.display-text');
+                const ei = field.querySelector('.edit-input');
+                if (dt && ei) {
+                    dt.style.display = 'inline';
+                    ei.style.display = 'none';
                 }
             });
-            
-            normalActions.style.display = 'block';
-            editActions.style.display = 'none';
+            row.querySelector('.normal-actions').style.display = 'block';
+            row.querySelector('.edit-actions').style.display = 'none';
         }
 
         function deleteAnime(animeId) {
-            // 确认删除
             if (confirm('确定要删除这个番剧吗？')) {
-                fetch(`/api/anime/${animeId}`, {
-                    method: 'DELETE'
-                })
-                .then(response => response.text())
-                .then(data => {
-                    if (data === 'success') {
-                        // 删除成功
-                        showToast('🗑️ 删除成功', 'success');
-                        performSearch();
-                        updateStats();
-                    } else {
-                        showToast('❌ 删除失败：' + data, 'error');
-                    }
-                })
-                .catch(error => {
-                    console.error('删除出错：', error);
-                    showToast('❌ 删除出错', 'error');
-                });
+                fetch(`/api/anime/${animeId}`, {method: 'DELETE'})
+                    .then(r => r.text())
+                    .then(data => {
+                        if (data === 'success') {
+                            showToast('🗑️ 删除成功', 'success');
+                            performSearch();
+                            updateStats();
+                        } else {
+                            showToast('❌ 删除失败', 'error');
+                        }
+                    })
+                    .catch(e => showToast('❌ 删除出错', 'error'));
             }
         }
 
-        // 搜索/筛选函数
+        // 搜索/筛选
         function performSearch() {
             const name = document.getElementById('searchName').value.trim();
             const status = document.getElementById('filterStatus').value;
             const sortBy = document.getElementById('sortBy').value;
 
-            // 构建查询参数
             let url = '/api/anime/search?';
-            if (name) {
-                url += 'name=' + encodeURIComponent(name);
-            }
-            if (status) {
-                url += (name ? '&' : '') + 'status=' + encodeURIComponent(status);
-            }
-            
-            // 添加排序参数
+            if (name) url += 'name=' + encodeURIComponent(name);
+            if (status) url += (name ? '&' : '') + 'status=' + encodeURIComponent(status);
             url += (name || status ? '&' : '') + 'sortBy=' + encodeURIComponent(sortBy);
 
-            // 调用后端搜索API
             fetch(url)
-                .then(response => response.json())
-                .then(data => {
-                    updateTableWithResults(data);
-                })
-                .catch(error => {
-                    console.error('搜索出错：', error);
-                    alert('搜索出错');
-                });
+                .then(r => r.json())
+                .then(data => updateTableWithResults(data))
+                .catch(e => showToast('搜索出错', 'error'));
         }
 
-        // 更新表格显示搜索结果
+        // 更新表格
         function updateTableWithResults(animeList) {
             const tbody = document.querySelector('tbody');
             const table = document.querySelector('table');
@@ -1053,22 +1075,18 @@
             
             if (!tbody || !table || !emptyMsg) return;
 
-            // 清空表格
             tbody.innerHTML = '';
 
             if (animeList.length === 0) {
-                // 没有结果，显示空消息
                 table.style.display = 'none';
                 emptyMsg.style.display = 'block';
                 emptyMsg.innerHTML = '<div class="empty-icon">🔍</div><p>没有找到匹配的番剧</p>';
                 return;
             }
 
-            // 有结果，显示表格
             table.style.display = 'table';
             emptyMsg.style.display = 'none';
 
-            // 渲染搜索结果
             animeList.forEach((anime, index) => {
                 const row = document.createElement('tr');
                 row.id = `anime-row-${anime.id}`;
@@ -1101,39 +1119,14 @@
                     </td>
                     <td>
                         <div class="normal-actions">
-                            <button class="btn-edit" onclick="toggleEdit(${anime.id})" title="编辑">
-                                ✏️ 编辑
-                            </button>
-                            <button class="btn-prev" onclick="prevEpisode(${anime.id}, this)" title="上一集">
-                                ⬅️ 上集
-                            </button>
-                            <button class="btn-next" onclick="nextEpisode(${anime.id}, this)" title="看下一集">
-                                ➕ 下一集
-                            </button>
+                            <button class="btn-edit" onclick="toggleEdit(${anime.id})">✏️ 编辑</button>
+                            <button class="btn-prev" onclick="prevEpisode(${anime.id})">⬅️ 上集</button>
+                            <button class="btn-next" onclick="nextEpisode(${anime.id})">➕ 下一集</button>
                         </div>
                         <div class="edit-actions" style="display:none;">
-                            <button class="btn-delete" onclick="deleteAnime(${anime.id})" title="删除">
-                                🗑️ 删除
-                            </button>
-                            <button class="btn-save" onclick="saveEdit(${anime.id})" title="保存">
-                                ✅ 保存
-                            </button>
-                            <button class="btn-cancel" onclick="cancelEdit(${anime.id})" title="取消">
-                                ❌ 取消
-                            </button>
-                        </div>
-                    </td>
-                `;
-                tbody.appendChild(row);
-            });
-        }
-                        <div class="edit-actions" style="display:none; margin-top: 8px;">
-                            <button class="btn-save" onclick="saveEdit(${anime.id})" title="保存">
-                                💾 保存
-                            </button>
-                            <button class="btn-cancel" onclick="cancelEdit(${anime.id})" title="取消">
-                                ❌ 取消
-                            </button>
+                            <button class="btn-delete" onclick="deleteAnime(${anime.id})">🗑️ 删除</button>
+                            <button class="btn-save" onclick="saveEdit(${anime.id})">✅ 保存</button>
+                            <button class="btn-cancel" onclick="cancelEdit(${anime.id})">❌ 取消</button>
                         </div>
                     </td>
                 `;
@@ -1150,44 +1143,20 @@
             performSearch();
         }
 
-        // Open status select dropdown when clicking on status badge
-        function openStatusSelect(animeId) {
-            const select = document.getElementById(`status-select-${animeId}`);
-            select.classList.remove('hidden');
-            select.style.display = 'block';
-            select.focus();
-            
-            // Close select when focus is lost
-            select.addEventListener('blur', function() {
-                setTimeout(() => {
-                    select.classList.add('hidden');
-                    select.style.display = 'none';
-                }, 100);
-            }, { once: true });
-        }
-
-        // 改变番剧状态
+        // 改变状态
         function changeStatus(animeId) {
             const select = document.getElementById(`status-select-${animeId}`);
             const status = select.value;
+            if (!status) return;
 
-            // 如果选择了"修改状态"（空值），不做任何操作
-            if (!status) {
-                return;
-            }
-
-            // 调用后端API更新状态
             fetch(`/api/anime/${animeId}/status`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded'
-                },
+                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
                 body: `status=${encodeURIComponent(status)}`
             })
-            .then(response => response.text())
+            .then(r => r.text())
             .then(data => {
                 if (data === 'success') {
-                    // 状态更新成功
                     showToast('✅ 状态已更新', 'success');
                     performSearch();
                     updateStats();
@@ -1196,9 +1165,8 @@
                     select.value = '';
                 }
             })
-            .catch(error => {
-                console.error('修改状态出错：', error);
-                alert('修改状态出错');
+            .catch(e => {
+                showToast('❌ 请求失败', 'error');
                 select.value = '';
             });
         }
@@ -1206,7 +1174,7 @@
         // 获取并更新统计数据
         function updateStats() {
             fetch('/api/anime/stats')
-                .then(response => response.json())
+                .then(r => r.json())
                 .then(data => {
                     document.getElementById('stat-total').textContent = data.total || 0;
                     document.getElementById('stat-watching').textContent = data.watching || 0;
@@ -1214,35 +1182,56 @@
                     document.getElementById('stat-planning').textContent = data.planning || 0;
                     document.getElementById('stat-dropped').textContent = data.dropped || 0;
                 })
-                .catch(error => {
-                    console.error('获取统计数据出错：', error);
-                });
+                .catch(e => console.error('Error fetching stats:', e));
+
+            fetch('/api/anime/stats/detailed')
+                .then(r => r.json())
+                .then(data => {
+                    const progressPercentage = data.progressPercentage || 0;
+                    document.getElementById('stat-progress').textContent = progressPercentage.toFixed(1) + '%';
+                    document.getElementById('stat-episodes').textContent = 
+                        (data.watchedEpisodes || 0) + '/' + (data.totalEpisodes || 0) + ' 集';
+                    const avgScore = data.averageScore || 0;
+                    document.getElementById('stat-avg-score').textContent = avgScore.toFixed(1);
+                    document.getElementById('stat-high-score').textContent = data.highScore || 0;
+                    document.getElementById('stat-medium-score').textContent = data.mediumScore || 0;
+                    document.getElementById('stat-low-score').textContent = data.lowScore || 0;
+                })
+                .catch(e => console.error('Error fetching detailed stats:', e));
         }
 
-        // 初始化：给搜索框和筛选框添加事件监听
-        document.addEventListener('DOMContentLoaded', function() {
+        // 初始化
+        function initializeApp() {
+            if (window.__appInitialized) return;
+            window.__appInitialized = true;
+            
             const searchInput = document.getElementById('searchName');
             const filterSelect = document.getElementById('filterStatus');
             const sortSelect = document.getElementById('sortBy');
 
-            // 页面加载时获取统计数据
             updateStats();
+            if (searchInput) searchInput.addEventListener('input', performSearch);
+            if (filterSelect) filterSelect.addEventListener('change', performSearch);
+            if (sortSelect) sortSelect.addEventListener('change', performSearch);
+        }
 
-            // 搜索框实时搜索（输入时触发）
-            if (searchInput) {
-                searchInput.addEventListener('input', performSearch);
-            }
-
-            // 筛选框实时过滤（变化时触发）
-            if (filterSelect) {
-                filterSelect.addEventListener('change', performSearch);
-            }
-
-            // 排序框变化时重新排序
-            if (sortSelect) {
-                sortSelect.addEventListener('change', performSearch);
-            }
-        });
+        // 页面加载完成后初始化 - 多重保险
+        function scheduleInitialization() {
+            setTimeout(initializeApp, 50);
+        }
+        
+        // 方法1: DOMContentLoaded
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', scheduleInitialization);
+        }
+        
+        // 方法2: 立即调用（如果文档已加载）
+        if (document.readyState !== 'loading') {
+            scheduleInitialization();
+        }
+        
+        // 方法3: window load 事件
+        window.addEventListener('load', scheduleInitialization);
     </script>
 </body>
 </html>
