@@ -904,68 +904,71 @@
         // 下一集
         function nextEpisode(animeId) {
             fetch(`/api/anime/${animeId}/next-episode`, {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'}
+                method: 'POST'
             })
-            .then(r => r.text())
-            .then(data => {
-                if (data === 'success') {
-                    showToast('✅ 集数已更新', 'success');
+            .then(r => r.json())
+            .then(resp => {
+                if (resp.code === 200) {
+                    showToast('集数已更新', 'success');
                     performSearch();
                     updateStats();
-                } else if (data === 'reached_max') {
-                    showToast('⚠️ 已经是最后一集了', 'info');
+                } else if (resp.message === 'reached_max') {
+                    showToast('已经是最后一集了', 'info');
                 } else {
-                    showToast('❌ 更新失败', 'error');
+                    showToast('更新失败', 'error');
                 }
             })
-            .catch(e => showToast('❌ 请求失败', 'error'));
+            .catch(e => showToast('请求失败', 'error'));
         }
 
         // 上一集
         function prevEpisode(animeId) {
             fetch(`/api/anime/${animeId}/prev-episode`, {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'}
+                method: 'POST'
             })
-            .then(r => r.text())
-            .then(data => {
-                if (data === 'success') {
-                    showToast('✅ 集数已更新', 'success');
+            .then(r => r.json())
+            .then(resp => {
+                if (resp.code === 200) {
+                    showToast('集数已更新', 'success');
                     performSearch();
                     updateStats();
-                } else if (data === 'reached_min') {
-                    showToast('⚠️ 已经是第1集了', 'info');
+                } else if (resp.message === 'reached_min') {
+                    showToast('已经是第1集了', 'info');
                 } else {
-                    showToast('❌ 更新失败', 'error');
+                    showToast('更新失败', 'error');
                 }
             })
-            .catch(e => showToast('❌ 请求失败', 'error'));
+            .catch(e => showToast('请求失败', 'error'));
         }
 
         // 添加番剧
         function addAnime(event) {
             event.preventDefault();
-            const formData = new FormData(document.getElementById('animeForm'));
-            const params = new URLSearchParams(formData);
-            
+            const body = {
+                name: document.getElementById('animeName').value,
+                totalEpisodes: parseInt(document.getElementById('totalEpisodes').value),
+                season: document.getElementById('season').value,
+                score: parseFloat(document.getElementById('score').value),
+                remark: document.getElementById('remark').value
+            };
+
             fetch('/api/anime/add', {
                 method: 'POST',
-                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-                body: params.toString()
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(body)
             })
-            .then(r => r.text())
-            .then(data => {
-                if (data === 'success') {
-                    showToast('✅ 番剧已添加', 'success');
+            .then(r => r.json())
+            .then(resp => {
+                if (resp.code === 200) {
+                    showToast('番剧已添加', 'success');
                     document.getElementById('animeForm').reset();
                     performSearch();
                     updateStats();
                 } else {
-                    showToast('❌ 添加失败', 'error');
+                    showToast(resp.message || '添加失败', 'error');
                 }
             })
-            .catch(e => showToast('❌ 请求失败', 'error'));
+            .catch(e => showToast('请求失败', 'error'));
         }
 
         // 编辑相关函数
@@ -989,34 +992,28 @@
             const season = row.querySelector('.editable-season .edit-input').value;
             const score = row.querySelector('.editable-score .edit-input').value;
             const remark = row.querySelector('.editable-remark .edit-input').value;
-            
+
             if (!name.trim() || !season.trim() || !score) {
                 showToast('请填写所有必填字段', 'error');
                 return;
             }
-            
-            const params = new URLSearchParams();
-            params.append('name', name);
-            params.append('season', season);
-            params.append('score', score);
-            params.append('remark', remark);
-            
+
             fetch(`/api/anime/${animeId}/update`, {
                 method: 'POST',
-                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-                body: params.toString()
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ name, season, score: parseFloat(score), remark })
             })
-            .then(r => r.text())
-            .then(data => {
-                if (data === 'success') {
-                    showToast('✅ 保存成功', 'success');
+            .then(r => r.json())
+            .then(resp => {
+                if (resp.code === 200) {
+                    showToast('保存成功', 'success');
                     performSearch();
                     updateStats();
                 } else {
-                    showToast('❌ 保存失败', 'error');
+                    showToast(resp.message || '保存失败', 'error');
                 }
             })
-            .catch(e => showToast('❌ 请求失败', 'error'));
+            .catch(e => showToast('请求失败', 'error'));
         }
 
         function cancelEdit(animeId) {
@@ -1036,17 +1033,17 @@
         function deleteAnime(animeId) {
             if (confirm('确定要删除这个番剧吗？')) {
                 fetch(`/api/anime/${animeId}`, {method: 'DELETE'})
-                    .then(r => r.text())
-                    .then(data => {
-                        if (data === 'success') {
-                            showToast('🗑️ 删除成功', 'success');
+                    .then(r => r.json())
+                    .then(resp => {
+                        if (resp.code === 200) {
+                            showToast('删除成功', 'success');
                             performSearch();
                             updateStats();
                         } else {
-                            showToast('❌ 删除失败', 'error');
+                            showToast(resp.message || '删除失败', 'error');
                         }
                     })
-                    .catch(e => showToast('❌ 删除出错', 'error'));
+                    .catch(e => showToast('删除出错', 'error'));
             }
         }
 
@@ -1063,7 +1060,13 @@
 
             fetch(url)
                 .then(r => r.json())
-                .then(data => updateTableWithResults(data))
+                .then(resp => {
+                    if (resp.code === 200) {
+                        updateTableWithResults(resp.data);
+                    } else {
+                        showToast(resp.message || '搜索出错', 'error');
+                    }
+                })
                 .catch(e => showToast('搜索出错', 'error'));
         }
 
@@ -1149,25 +1152,21 @@
             const status = select.value;
             if (!status) return;
 
-            fetch(`/api/anime/${animeId}/status`, {
-                method: 'POST',
-                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-                body: `status=${encodeURIComponent(status)}`
+            fetch(`/api/anime/${animeId}/status?status=${encodeURIComponent(status)}`, {
+                method: 'POST'
             })
-            .then(r => r.text())
-            .then(data => {
-                if (data === 'success') {
-                    showToast('✅ 状态已更新', 'success');
+            .then(r => r.json())
+            .then(resp => {
+                if (resp.code === 200) {
+                    showToast('状态已更新', 'success');
                     performSearch();
                     updateStats();
                 } else {
-                    showToast('❌ 修改状态失败', 'error');
-                    select.value = '';
+                    showToast(resp.message || '修改状态失败', 'error');
                 }
             })
             .catch(e => {
-                showToast('❌ 请求失败', 'error');
-                select.value = '';
+                showToast('请求失败', 'error');
             });
         }
 
@@ -1175,7 +1174,9 @@
         function updateStats() {
             fetch('/api/anime/stats')
                 .then(r => r.json())
-                .then(data => {
+                .then(resp => {
+                    if (resp.code !== 200) return;
+                    const data = resp.data;
                     document.getElementById('stat-total').textContent = data.total || 0;
                     document.getElementById('stat-watching').textContent = data.watching || 0;
                     document.getElementById('stat-finished').textContent = data.finished || 0;
@@ -1186,10 +1187,12 @@
 
             fetch('/api/anime/stats/detailed')
                 .then(r => r.json())
-                .then(data => {
+                .then(resp => {
+                    if (resp.code !== 200) return;
+                    const data = resp.data;
                     const progressPercentage = data.progressPercentage || 0;
                     document.getElementById('stat-progress').textContent = progressPercentage.toFixed(1) + '%';
-                    document.getElementById('stat-episodes').textContent = 
+                    document.getElementById('stat-episodes').textContent =
                         (data.watchedEpisodes || 0) + '/' + (data.totalEpisodes || 0) + ' 集';
                     const avgScore = data.averageScore || 0;
                     document.getElementById('stat-avg-score').textContent = avgScore.toFixed(1);

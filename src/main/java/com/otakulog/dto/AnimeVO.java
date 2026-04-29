@@ -1,39 +1,19 @@
-package com.otakulog.entity;
+package com.otakulog.dto;
 
-import com.otakulog.enums.AnimeStatus;
-import jakarta.persistence.*;
+public class AnimeVO {
 
-@Entity
-@Table(name = "anime")
-public class Anime {
-
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-
-    @Column(name = "name", nullable = false)
     private String name;
-
-    @Column(name = "current_episode")
     private Integer currentEpisode;
-
-    @Column(name = "total_episodes")
     private Integer totalEpisodes;
-
-    @Enumerated(EnumType.STRING)
-    @Column(name = "status")
-    private AnimeStatus status;
-
-    @Column(name = "score")
+    private String status;
+    private String statusDisplay;
     private Double score;
-
-    @Column(name = "season")
     private String season;
-
-    @Column(name = "remark")
     private String remark;
+    private double progress;
 
-    public Anime() {
+    public AnimeVO() {
     }
 
     public Long getId() {
@@ -68,12 +48,20 @@ public class Anime {
         this.totalEpisodes = totalEpisodes;
     }
 
-    public AnimeStatus getStatus() {
+    public String getStatus() {
         return status;
     }
 
-    public void setStatus(AnimeStatus status) {
+    public void setStatus(String status) {
         this.status = status;
+    }
+
+    public String getStatusDisplay() {
+        return statusDisplay;
+    }
+
+    public void setStatusDisplay(String statusDisplay) {
+        this.statusDisplay = statusDisplay;
     }
 
     public Double getScore() {
@@ -98,5 +86,13 @@ public class Anime {
 
     public void setRemark(String remark) {
         this.remark = remark;
+    }
+
+    public double getProgress() {
+        return progress;
+    }
+
+    public void setProgress(double progress) {
+        this.progress = progress;
     }
 }
