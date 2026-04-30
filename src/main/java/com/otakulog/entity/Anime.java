@@ -2,6 +2,7 @@ package com.otakulog.entity;
 
 import com.otakulog.enums.AnimeStatus;
 import jakarta.persistence.*;
+import java.time.LocalDate;
 
 @Entity
 @Table(name = "anime")
@@ -32,6 +33,15 @@ public class Anime {
 
     @Column(name = "remark")
     private String remark;
+
+    @Column(name = "cover_url")
+    private String coverUrl;
+
+    @Column(name = "start_date")
+    private LocalDate startDate;
+
+    @Column(name = "end_date")
+    private LocalDate endDate;
 
     public Anime() {
     }
@@ -98,5 +108,29 @@ public class Anime {
 
     public void setRemark(String remark) {
         this.remark = remark;
+    }
+
+    public String getCoverUrl() {
+        return coverUrl;
+    }
+
+    public void setCoverUrl(String coverUrl) {
+        this.coverUrl = coverUrl;
+    }
+
+    public LocalDate getStartDate() {
+        return startDate;
+    }
+
+    public void setStartDate(LocalDate startDate) {
+        this.startDate = startDate;
+    }
+
+    public LocalDate getEndDate() {
+        return endDate;
+    }
+
+    public void setEndDate(LocalDate endDate) {
+        this.endDate = endDate;
     }
 }

@@ -4,6 +4,8 @@ import com.otakulog.dto.AnimeDTO;
 import com.otakulog.dto.AnimeUpdateDTO;
 import com.otakulog.dto.AnimeVO;
 import com.otakulog.enums.AnimeStatus;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 import java.util.List;
 import java.util.Map;
@@ -23,9 +25,19 @@ public interface AnimeService {
 
     List<AnimeVO> searchAnime(String name, AnimeStatus status, String sortBy);
 
+    Page<AnimeVO> searchAnimePaged(String name, AnimeStatus status, Pageable pageable);
+
     Map<String, Object> getStats();
 
     Map<String, Object> getDetailedStats();
 
     List<AnimeVO> findAll();
+
+    Map<String, Object> getSeasonStats();
+
+    List<AnimeVO> getTimeline();
+
+    String exportJson();
+
+    List<AnimeVO> importJson(String json);
 }

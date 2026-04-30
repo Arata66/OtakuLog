@@ -4,1140 +4,522 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>追番列表 | OtakuLog</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
-            background: #f5f5f5;
-            min-height: 100vh;
-            padding: 30px 20px;
-        }
-
-        .container {
-            max-width: 1100px;
-            margin: 0 auto;
-            background: white;
-            border-radius: 8px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-            overflow: hidden;
-            animation: slideIn 0.5s ease;
-        }
-
-        @keyframes slideIn {
-            from {
-                opacity: 0;
-                transform: translateY(-20px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        .header {
-            background: white;
-            border-bottom: 2px solid #e0e0e0;
-            padding: 35px 30px;
-            text-align: center;
-        }
-
-        .header h1 {
-            font-size: 2.2em;
-            margin-bottom: 8px;
-            color: #2c2c2c;
-            font-weight: 600;
-        }
-
-        .header p {
-            font-size: 1em;
-            color: #888;
-        }
-
-        .table-wrapper {
-            padding: 30px;
-            overflow-x: auto;
-        }
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-
-        thead tr {
-            background: #f9f9f9;
-            border-bottom: 2px solid #e0e0e0;
-            color: #2c2c2c;
-            font-weight: 600;
-            text-align: left;
-        }
-
-        th {
-            padding: 15px;
-            font-size: 0.95em;
-            letter-spacing: 0.5px;
-            color: #666;
-        }
-
-        tbody tr {
-            border-bottom: 1px solid #f0f0f0;
-            transition: all 0.2s ease;
-        }
-
-        tbody tr:hover {
-            background: #fafafa;
-        }
-
-        td {
-            padding: 15px;
-            font-size: 0.95em;
-            color: #333;
-        }
-
-        .status {
-            padding: 5px 12px;
-            border-radius: 4px;
-            font-weight: 600;
-            font-size: 0.85em;
-            display: inline-block;
-            letter-spacing: 0.3px;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            user-select: none;
-        }
-
-        .status:hover {
-            opacity: 0.8;
-            transform: scale(1.05);
-        }
-
-        .status-cell {
-            position: relative;
-        }
-
-        .status.watching {
-            background: #e3f2fd;
-            color: #1976d2;
-        }
-
-        .status.finished {
-            background: #f3e5f5;
-            color: #7b1fa2;
-        }
-
-        .status.planning {
-            background: #fff3e0;
-            color: #e65100;
-        }
-
-        .status.dropped {
-            background: #ffebee;
-            color: #c62828;
-        }
-
-        .score {
-            font-weight: 600;
-            color: #ff6b6b;
-            font-size: 1em;
-        }
-
-        .season {
-            background: #f0f0f0;
-            padding: 4px 8px;
-            border-radius: 4px;
-            font-size: 0.9em;
-            color: #666;
-        }
-
-        tbody tr:nth-child(odd) {
-            background: white;
-        }
-
-        tbody tr:last-child {
-            border-bottom: none;
-        }
-
-        .footer {
-            text-align: center;
-            padding: 25px;
-            color: #999;
-            font-size: 0.9em;
-            border-top: 1px solid #f0f0f0;
-            background: #fafafa;
-        }
-
-        .stats-panel {
-            background: white;
-            padding: 20px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-        }
-
-        .stats-title {
-            font-size: 1.1em;
-            font-weight: 600;
-            color: #2c2c2c;
-            margin-bottom: 15px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-            gap: 15px;
-        }
-
-        .stat-item {
-            background: #f9f9f9;
-            padding: 15px;
-            border-radius: 6px;
-            border-left: 3px solid #888;
-            text-align: center;
-        }
-
-        .stat-label {
-            font-size: 0.85em;
-            color: #888;
-            margin-bottom: 8px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        .stat-value {
-            font-size: 1.8em;
-            font-weight: 600;
-            color: #333;
-        }
-
-        .stat-item.total {
-            border-left-color: #333;
-        }
-
-        .stat-item.watching {
-            border-left-color: #1976d2;
-        }
-
-        .stat-item.watching .stat-value {
-            color: #1976d2;
-        }
-
-        .stat-item.finished {
-            border-left-color: #7b1fa2;
-        }
-
-        .stat-item.finished .stat-value {
-            color: #7b1fa2;
-        }
-
-        .stat-item.planning {
-            border-left-color: #e65100;
-        }
-
-        .stat-item.planning .stat-value {
-            color: #e65100;
-        }
-
-        .stat-item.dropped {
-            border-left-color: #c62828;
-        }
-
-        .stat-item.dropped .stat-value {
-            color: #c62828;
-        }
-
-        /* 详细统计样式 */
-        .stats-detail-section {
-            margin-top: 25px;
-            padding-top: 20px;
-            border-top: 1px solid #e0e0e0;
-        }
-
-        .stats-detail-title {
-            font-size: 0.95em;
-            font-weight: 600;
-            color: #555;
-            margin-bottom: 15px;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-
-        .stats-detail-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-            gap: 12px;
-        }
-
-        .detail-item {
-            background: linear-gradient(135deg, #f5f7fa 0%, #f9fafb 100%);
-            padding: 12px;
-            border-radius: 6px;
-            text-align: center;
-            border: 1px solid #e8e8e8;
-        }
-
-        .detail-label {
-            font-size: 0.8em;
-            color: #888;
-            margin-bottom: 6px;
-            text-transform: uppercase;
-            letter-spacing: 0.3px;
-        }
-
-        .detail-value {
-            font-size: 1.5em;
-            font-weight: 600;
-            color: #2196f3;
-            margin-bottom: 4px;
-        }
-
-        .detail-subtext {
-            font-size: 0.75em;
-            color: #aaa;
-        }
-
-        .empty-message {
-            text-align: center;
-            padding: 60px 40px;
-            color: #999;
-            font-size: 1.1em;
-        }
-
-        .search-filter {
-            background: white;
-            padding: 20px;
-            border-bottom: 1px solid #e0e0e0;
-            margin-bottom: 20px;
-            border-radius: 8px;
-        }
-
-        .search-group {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-            flex-wrap: wrap;
-        }
-
-        .search-group label {
-            font-weight: 600;
-            color: #555;
-            font-size: 0.9em;
-            margin: 0;
-        }
-
-        .search-input,
-        .filter-select {
-            padding: 8px 12px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            font-size: 0.9em;
-            background: white;
-            color: #333;
-            transition: all 0.2s ease;
-        }
-
-        .search-input {
-            width: 200px;
-        }
-
-        .filter-select {
-            width: 130px;
-        }
-
-        .search-input:focus,
-        .filter-select:focus {
-            outline: none;
-            border-color: #888;
-            box-shadow: 0 0 4px rgba(136, 136, 136, 0.2);
-        }
-
-        .btn-reset {
-            background: #888;
-            color: white;
-            border: none;
-            padding: 8px 15px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-weight: 600;
-            font-size: 0.85em;
-            transition: all 0.2s ease;
-        }
-
-        .btn-reset:hover {
-            background: #666;
-        }
-
-        .add-anime-form {
-            background: #fafafa;
-            padding: 25px;
-            border-radius: 8px;
-            margin-bottom: 30px;
-            border-left: 3px solid #888;
-        }
-
-        .add-anime-form h3 {
-            margin-bottom: 20px;
-            color: #2c2c2c;
-            font-size: 1.1em;
-            font-weight: 600;
-        }
-
-        .form-group {
-            display: inline-block;
-            margin-right: 15px;
-            margin-bottom: 12px;
-        }
-
-        .form-group label {
-            font-weight: 600;
-            margin-right: 8px;
-            color: #555;
-            font-size: 0.9em;
-        }
-
-        .form-group input {
-            padding: 8px 12px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            font-size: 0.9em;
-            width: 180px;
-            transition: all 0.2s ease;
-            background: white;
-            color: #333;
-        }
-
-        .form-group input:focus {
-            outline: none;
-            border-color: #888;
-            box-shadow: 0 0 4px rgba(136, 136, 136, 0.2);
-            background: white;
-        }
-
-        .btn-add-anime {
-            background: #333;
-            color: white;
-            border: none;
-            padding: 9px 20px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-weight: 600;
-            transition: all 0.2s ease;
-            font-size: 0.9em;
-            margin-top: 5px;
-        }
-
-        .btn-add-anime:hover {
-            background: #555;
-        }
-
-        .btn-add-anime:active {
-            transform: scale(0.98);
-        }
-
-        .btn-edit {
-            background: #888;
-            color: white;
-            border: none;
-            padding: 6px 10px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-weight: 600;
-            transition: all 0.2s ease;
-            font-size: 0.85em;
-            display: block;
-            margin-bottom: 5px;
-        }
-
-        .btn-edit:hover {
-            background: #666;
-        }
-
-        .btn-prev {
-            background: #999;
-            color: white;
-            border: none;
-            padding: 6px 10px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-weight: 600;
-            transition: all 0.2s ease;
-            font-size: 0.85em;
-            display: inline-block;
-            margin-right: 5px;
-        }
-
-        .btn-prev:hover {
-            background: #777;
-        }
-
-        .btn-next {
-            background: #333;
-            color: white;
-            border: none;
-            padding: 6px 10px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-weight: 600;
-            transition: all 0.2s ease;
-            font-size: 0.85em;
-            display: inline-block;
-        }
-
-        .btn-next:hover {
-            background: #555;
-        }
-
-        .btn-save {
-            background: #2ecc71;
-            color: white;
-            border: none;
-            padding: 6px 10px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-weight: 600;
-            font-size: 0.85em;
-            margin-right: 5px;
-            transition: all 0.2s ease;
-        }
-
-        .btn-save:hover {
-            background: #27ae60;
-        }
-
-        .btn-cancel {
-            background: #e74c3c;
-            color: white;
-            border: none;
-            padding: 6px 10px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-weight: 600;
-            font-size: 0.85em;
-            transition: all 0.2s ease;
-        }
-
-        .btn-cancel:hover {
-            background: #c0392b;
-        }
-
-        .btn-delete {
-            background: #e74c3c;
-            color: white;
-            border: none;
-            padding: 6px 10px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-weight: 600;
-            font-size: 0.85em;
-            transition: all 0.2s ease;
-            display: inline-block;
-            margin-left: 5px;
-        }
-
-        .btn-delete:hover {
-            background: #c0392b;
-        }
-
-        .btn-cancel:hover {
-            background: #c0392b;
-        }
-
-        .status-select {
-            padding: 5px 12px;
-            border: 1px solid #999;
-            border-radius: 4px;
-            font-size: 0.85em;
-            background: white;
-            color: #333;
-            cursor: pointer;
-            font-weight: 600;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
-            min-width: 100px;
-        }
-
-        .status-select.hidden {
-            display: none !important;
-        }
-
-        .status-select:focus {
-            outline: none;
-            box-shadow: 0 0 4px rgba(51, 51, 51, 0.3);
-            border-color: #333;
-        }
-
-        .editable-name .edit-input,
-        .editable-season .edit-input,
-        .editable-score .edit-input,
-        .editable-remark .edit-input {
-            padding: 6px 8px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            font-size: 0.9em;
-            width: 100%;
-            background: white;
-            color: #333;
-        }
-
-        .editable-name .edit-input {
-            width: 150px;
-        }
-
-        .editable-season .edit-input {
-            width: 100px;
-        }
-
-        .editable-score .edit-input {
-            width: 70px;
-        }
-
-        .editable-remark .edit-input {
-            width: 120px;
-        }
-
-        /* Toast 提示 */
-        .toast-container {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            z-index: 9999;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-            pointer-events: none;
-        }
-
-        .toast {
-            padding: 12px 20px;
-            border-radius: 4px;
-            color: white;
-            font-weight: 600;
-            font-size: 0.9em;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-            animation: slideInRight 0.3s ease, slideOutRight 0.3s ease 2.7s forwards;
-            pointer-events: auto;
-            white-space: nowrap;
-        }
-
-        .toast.success {
-            background: #27ae60;
-        }
-
-        .toast.error {
-            background: #e74c3c;
-        }
-
-        .toast.info {
-            background: #3498db;
-        }
-
-        @keyframes slideInRight {
-            from {
-                opacity: 0;
-                transform: translateX(400px);
-            }
-            to {
-                opacity: 1;
-                transform: translateX(0);
-            }
-        }
-
-        @keyframes slideOutRight {
-            from {
-                opacity: 1;
-                transform: translateX(0);
-            }
-            to {
-                opacity: 0;
-                transform: translateX(400px);
-            }
-        }
-
-        /* 空数据提示优化 */
-        .empty-message {
-            text-align: center;
-            padding: 80px 40px;
-            color: #999;
-            font-size: 1.1em;
-        }
-
-        .empty-message p {
-            margin-bottom: 20px;
-        }
-
-        .empty-icon {
-            font-size: 3em;
-            margin-bottom: 15px;
-            opacity: 0.6;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif; background: #f5f5f5; min-height: 100vh; padding: 30px 20px; }
+        .container { max-width: 1200px; margin: 0 auto; background: white; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); overflow: hidden; animation: slideIn 0.5s ease; }
+        @keyframes slideIn { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
+        .header { background: white; border-bottom: 2px solid #e0e0e0; padding: 35px 30px; text-align: center; position: relative; }
+        .header h1 { font-size: 2.2em; margin-bottom: 8px; color: #2c2c2c; font-weight: 600; }
+        .header p { font-size: 1em; color: #888; }
+        .header .top-bar { position: absolute; top: 15px; right: 20px; display: flex; gap: 10px; }
+        .btn-sm { background: #888; color: white; border: none; padding: 6px 14px; border-radius: 4px; cursor: pointer; font-weight: 600; font-size: 0.8em; transition: all 0.2s; }
+        .btn-sm:hover { background: #555; }
+        .btn-sm.primary { background: #333; }
+        .btn-sm.danger { background: #c62828; }
+        .table-wrapper { padding: 30px; overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; }
+        thead tr { background: #f9f9f9; border-bottom: 2px solid #e0e0e0; color: #2c2c2c; font-weight: 600; text-align: left; }
+        th { padding: 15px; font-size: 0.95em; letter-spacing: 0.5px; color: #666; }
+        tbody tr { border-bottom: 1px solid #f0f0f0; transition: all 0.2s; }
+        tbody tr:hover { background: #fafafa; }
+        td { padding: 15px; font-size: 0.95em; color: #333; }
+        .status { padding: 5px 12px; border-radius: 4px; font-weight: 600; font-size: 0.85em; display: inline-block; letter-spacing: 0.3px; cursor: pointer; transition: all 0.2s; user-select: none; }
+        .status:hover { opacity: 0.8; transform: scale(1.05); }
+        .status.watching { background: #e3f2fd; color: #1976d2; }
+        .status.finished { background: #f3e5f5; color: #7b1fa2; }
+        .status.planning { background: #fff3e0; color: #e65100; }
+        .status.dropped { background: #ffebee; color: #c62828; }
+        .score { font-weight: 600; color: #ff6b6b; font-size: 1em; }
+        .season { background: #f0f0f0; padding: 4px 8px; border-radius: 4px; font-size: 0.9em; color: #666; }
+        tbody tr:nth-child(odd) { background: white; }
+        tbody tr:last-child { border-bottom: none; }
+        .footer { text-align: center; padding: 25px; color: #999; font-size: 0.9em; border-top: 1px solid #f0f0f0; background: #fafafa; }
+        .stats-panel { background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .stats-title { font-size: 1.1em; font-weight: 600; color: #2c2c2c; margin-bottom: 15px; display: flex; align-items: center; gap: 8px; }
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; }
+        .stat-item { background: #f9f9f9; padding: 15px; border-radius: 6px; border-left: 3px solid #888; text-align: center; }
+        .stat-label { font-size: 0.85em; color: #888; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .stat-value { font-size: 1.8em; font-weight: 600; color: #333; }
+        .stat-item.total { border-left-color: #333; }
+        .stat-item.watching { border-left-color: #1976d2; }
+        .stat-item.watching .stat-value { color: #1976d2; }
+        .stat-item.finished { border-left-color: #7b1fa2; }
+        .stat-item.finished .stat-value { color: #7b1fa2; }
+        .stat-item.planning { border-left-color: #e65100; }
+        .stat-item.planning .stat-value { color: #e65100; }
+        .stat-item.dropped { border-left-color: #c62828; }
+        .stat-item.dropped .stat-value { color: #c62828; }
+        .stats-detail-section { margin-top: 25px; padding-top: 20px; border-top: 1px solid #e0e0e0; }
+        .stats-detail-title { font-size: 0.95em; font-weight: 600; color: #555; margin-bottom: 15px; }
+        .stats-detail-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 12px; }
+        .detail-item { background: linear-gradient(135deg, #f5f7fa 0%, #f9fafb 100%); padding: 12px; border-radius: 6px; text-align: center; border: 1px solid #e8e8e8; }
+        .detail-label { font-size: 0.8em; color: #888; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.3px; }
+        .detail-value { font-size: 1.5em; font-weight: 600; color: #2196f3; margin-bottom: 4px; }
+        .detail-subtext { font-size: 0.75em; color: #aaa; }
+        .empty-message { text-align: center; padding: 80px 40px; color: #999; font-size: 1.1em; }
+        .empty-message p { margin-bottom: 20px; }
+        .empty-icon { font-size: 3em; margin-bottom: 15px; opacity: 0.6; }
+        .search-filter { background: white; padding: 20px; border-bottom: 1px solid #e0e0e0; margin-bottom: 20px; border-radius: 8px; }
+        .search-group { display: flex; align-items: center; gap: 15px; flex-wrap: wrap; }
+        .search-group label { font-weight: 600; color: #555; font-size: 0.9em; margin: 0; }
+        .search-input, .filter-select { padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 0.9em; background: white; color: #333; transition: all 0.2s; }
+        .search-input { width: 200px; }
+        .filter-select { width: 130px; }
+        .search-input:focus, .filter-select:focus { outline: none; border-color: #888; box-shadow: 0 0 4px rgba(136,136,136,0.2); }
+        .btn-reset { background: #888; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; font-weight: 600; font-size: 0.85em; transition: all 0.2s; }
+        .btn-reset:hover { background: #666; }
+        .add-anime-form { background: #fafafa; padding: 25px; border-radius: 8px; margin-bottom: 30px; border-left: 3px solid #888; }
+        .add-anime-form h3 { margin-bottom: 20px; color: #2c2c2c; font-size: 1.1em; font-weight: 600; }
+        .form-group { display: inline-block; margin-right: 15px; margin-bottom: 12px; }
+        .form-group label { font-weight: 600; margin-right: 8px; color: #555; font-size: 0.9em; }
+        .form-group input { padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 0.9em; width: 180px; transition: all 0.2s; background: white; color: #333; }
+        .form-group input:focus { outline: none; border-color: #888; box-shadow: 0 0 4px rgba(136,136,136,0.2); }
+        .btn-add-anime { background: #333; color: white; border: none; padding: 9px 20px; border-radius: 4px; cursor: pointer; font-weight: 600; transition: all 0.2s; font-size: 0.9em; margin-top: 5px; }
+        .btn-add-anime:hover { background: #555; }
+        .btn-add-anime:active { transform: scale(0.98); }
+        .btn-edit { background: #888; color: white; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; font-weight: 600; transition: all 0.2s; font-size: 0.85em; display: block; margin-bottom: 5px; }
+        .btn-edit:hover { background: #666; }
+        .btn-prev { background: #999; color: white; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; font-weight: 600; transition: all 0.2s; font-size: 0.85em; display: inline-block; margin-right: 5px; }
+        .btn-prev:hover { background: #777; }
+        .btn-next { background: #333; color: white; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; font-weight: 600; transition: all 0.2s; font-size: 0.85em; display: inline-block; }
+        .btn-next:hover { background: #555; }
+        .btn-save { background: #2ecc71; color: white; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; font-weight: 600; font-size: 0.85em; margin-right: 5px; transition: all 0.2s; }
+        .btn-save:hover { background: #27ae60; }
+        .btn-cancel { background: #e74c3c; color: white; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; font-weight: 600; font-size: 0.85em; transition: all 0.2s; }
+        .btn-cancel:hover { background: #c0392b; }
+        .btn-delete { background: #e74c3c; color: white; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; font-weight: 600; font-size: 0.85em; transition: all 0.2s; display: inline-block; margin-left: 5px; }
+        .btn-delete:hover { background: #c0392b; }
+        .status-select { padding: 5px 12px; border: 1px solid #999; border-radius: 4px; font-size: 0.85em; background: white; color: #333; cursor: pointer; font-weight: 600; min-width: 100px; }
+        .status-select.hidden { display: none !important; }
+        .status-select:focus { outline: none; box-shadow: 0 0 4px rgba(51,51,51,0.3); border-color: #333; }
+        .editable-name .edit-input, .editable-season .edit-input, .editable-score .edit-input, .editable-remark .edit-input { padding: 6px 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 0.9em; width: 100%; background: white; color: #333; }
+        .editable-name .edit-input { width: 150px; }
+        .editable-season .edit-input { width: 100px; }
+        .editable-score .edit-input { width: 70px; }
+        .editable-remark .edit-input { width: 120px; }
+        .toast-container { position: fixed; top: 20px; right: 20px; z-index: 9999; display: flex; flex-direction: column; gap: 10px; pointer-events: none; }
+        .toast { padding: 12px 20px; border-radius: 4px; color: white; font-weight: 600; font-size: 0.9em; box-shadow: 0 4px 12px rgba(0,0,0,0.15); animation: slideInRight 0.3s ease, slideOutRight 0.3s ease 2.7s forwards; pointer-events: auto; white-space: nowrap; }
+        .toast.success { background: #27ae60; }
+        .toast.error { background: #e74c3c; }
+        .toast.info { background: #3498db; }
+        @keyframes slideInRight { from { opacity: 0; transform: translateX(400px); } to { opacity: 1; transform: translateX(0); } }
+        @keyframes slideOutRight { from { opacity: 1; transform: translateX(0); } to { opacity: 0; transform: translateX(400px); } }
+        /* Pagination */
+        .pagination { display: flex; justify-content: center; align-items: center; gap: 8px; margin-top: 20px; padding: 15px 0; }
+        .pagination button { background: #f0f0f0; border: 1px solid #ddd; padding: 8px 14px; border-radius: 4px; cursor: pointer; font-weight: 600; font-size: 0.85em; transition: all 0.2s; }
+        .pagination button:hover { background: #e0e0e0; }
+        .pagination button.active { background: #333; color: white; border-color: #333; }
+        .pagination button:disabled { opacity: 0.4; cursor: not-allowed; }
+        .pagination .page-info { color: #888; font-size: 0.85em; }
+        /* Tabs */
+        .tabs { display: flex; gap: 0; border-bottom: 2px solid #e0e0e0; margin-bottom: 20px; }
+        .tab { padding: 10px 20px; cursor: pointer; font-weight: 600; color: #888; border-bottom: 2px solid transparent; margin-bottom: -2px; transition: all 0.2s; font-size: 0.95em; }
+        .tab:hover { color: #555; }
+        .tab.active { color: #333; border-bottom-color: #333; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        /* Charts */
+        .charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
+        .chart-box { background: #fafafa; border-radius: 8px; padding: 20px; border: 1px solid #e8e8e8; }
+        .chart-box h4 { margin-bottom: 15px; color: #555; font-size: 0.95em; }
+        .chart-box canvas { max-height: 250px; }
+        /* Timeline */
+        .timeline { position: relative; padding: 20px 0; }
+        .timeline::before { content: ''; position: absolute; left: 20px; top: 0; bottom: 0; width: 2px; background: #e0e0e0; }
+        .timeline-item { position: relative; padding: 0 0 30px 50px; }
+        .timeline-item::before { content: ''; position: absolute; left: 14px; top: 6px; width: 14px; height: 14px; border-radius: 50%; background: #333; border: 2px solid white; box-shadow: 0 0 0 2px #e0e0e0; }
+        .timeline-item .tl-date { font-size: 0.8em; color: #888; margin-bottom: 4px; }
+        .timeline-item .tl-title { font-weight: 600; color: #333; font-size: 1em; }
+        .timeline-item .tl-meta { font-size: 0.85em; color: #888; margin-top: 2px; }
+        /* Cover */
+        .cover-thumb { width: 40px; height: 56px; border-radius: 3px; object-fit: cover; background: #f0f0f0; }
+        .cover-placeholder { width: 40px; height: 56px; border-radius: 3px; background: #f0f0f0; display: inline-flex; align-items: center; justify-content: center; font-size: 0.7em; color: #ccc; }
+        /* Season stats */
+        .season-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 20px; }
+        .season-card { background: #fafafa; border: 1px solid #e8e8e8; border-radius: 6px; padding: 12px; text-align: center; }
+        .season-card .s-name { font-weight: 600; color: #333; font-size: 0.95em; }
+        .season-card .s-count { font-size: 1.4em; font-weight: 600; color: #2196f3; }
+        .season-card .s-score { font-size: 0.85em; color: #888; }
     </style>
 </head>
 <body>
-    <!-- Toast 容器 -->
     <div class="toast-container" id="toastContainer"></div>
-    
+
     <div class="container">
         <div class="header">
-            <h1>🎌 追番列表</h1>
+            <div class="top-bar">
+                <button class="btn-sm" onclick="exportData()">导出JSON</button>
+                <label class="btn-sm primary" style="cursor:pointer;">
+                    导入JSON <input type="file" accept=".json" onchange="importData(event)" style="display:none;">
+                </label>
+                <form th:action="@{/logout}" method="post" style="display:inline;">
+                    <button type="submit" class="btn-sm danger">退出登录</button>
+                </form>
+            </div>
+            <h1>追番列表</h1>
             <p>动漫追踪系统 OtakuLog</p>
         </div>
 
         <div class="table-wrapper">
-            <!-- 搜索/筛选框 -->
-            <div class="search-filter">
-                <div class="search-group">
-                    <label for="searchName">🔍 搜索番剧：</label>
-                    <input type="text" id="searchName" placeholder="输入番剧名称..." class="search-input">
-                    
-                    <label for="filterStatus" style="margin-left: 20px;">筛选状态：</label>
-                    <select id="filterStatus" class="filter-select">
-                        <option value="">全部</option>
-                        <option value="watching">追中</option>
-                        <option value="finished">已完成</option>
-                        <option value="planning">计划</option>
-                        <option value="dropped">放弃</option>
-                    </select>
-                    
-                    <label for="sortBy" style="margin-left: 20px;">排序方式：</label>
-                    <select id="sortBy" class="filter-select">
-                        <option value="id-desc">最新添加</option>
-                        <option value="score-desc">评分从高到低</option>
-                        <option value="score-asc">评分从低到高</option>
-                        <option value="progress-desc">进度从高到低</option>
-                        <option value="progress-asc">进度从低到高</option>
-                        <option value="name-asc">名称字母序</option>
-                    </select>
-                    
-                    <button class="btn-reset" onclick="resetSearch()">🔄 重置</button>
-                </div>
+            <div class="tabs">
+                <div class="tab active" onclick="switchTab('list')">番剧列表</div>
+                <div class="tab" onclick="switchTab('charts')">数据图表</div>
+                <div class="tab" onclick="switchTab('timeline')">追番时间线</div>
             </div>
 
-            <!-- 统计面板 -->
-            <div class="stats-panel">
-                <div class="stats-title">📊 统计信息</div>
-                <div class="stats-grid">
-                    <div class="stat-item total">
-                        <div class="stat-label">总数</div>
-                        <div class="stat-value" id="stat-total">0</div>
-                    </div>
-                    <div class="stat-item watching">
-                        <div class="stat-label">追中</div>
-                        <div class="stat-value" id="stat-watching">0</div>
-                    </div>
-                    <div class="stat-item finished">
-                        <div class="stat-label">已完成</div>
-                        <div class="stat-value" id="stat-finished">0</div>
-                    </div>
-                    <div class="stat-item planning">
-                        <div class="stat-label">计划</div>
-                        <div class="stat-value" id="stat-planning">0</div>
-                    </div>
-                    <div class="stat-item dropped">
-                        <div class="stat-label">放弃</div>
-                        <div class="stat-value" id="stat-dropped">0</div>
+            <!-- List Tab -->
+            <div id="tab-list" class="tab-content active">
+                <div class="search-filter">
+                    <div class="search-group">
+                        <label for="searchName">搜索番剧：</label>
+                        <input type="text" id="searchName" placeholder="输入番剧名称..." class="search-input">
+                        <label for="filterStatus" style="margin-left: 20px;">筛选状态：</label>
+                        <select id="filterStatus" class="filter-select">
+                            <option value="">全部</option>
+                            <option value="watching">追中</option>
+                            <option value="finished">已完成</option>
+                            <option value="planning">计划</option>
+                            <option value="dropped">放弃</option>
+                        </select>
+                        <label for="sortBy" style="margin-left: 20px;">排序方式：</label>
+                        <select id="sortBy" class="filter-select">
+                            <option value="id-desc">最新添加</option>
+                            <option value="score-desc">评分从高到低</option>
+                            <option value="score-asc">评分从低到高</option>
+                            <option value="progress-desc">进度从高到低</option>
+                            <option value="progress-asc">进度从低到高</option>
+                            <option value="name-asc">名称字母序</option>
+                        </select>
+                        <button class="btn-reset" onclick="resetSearch()">重置</button>
                     </div>
                 </div>
 
-                <!-- 详细统计 -->
-                <div class="stats-detail-section">
-                    <div class="stats-detail-title">📈 详细统计</div>
-                    <div class="stats-detail-grid">
-                        <div class="detail-item">
-                            <div class="detail-label">进度完成率</div>
-                            <div class="detail-value" id="stat-progress">0%</div>
-                            <div class="detail-subtext" id="stat-episodes">0/0 集</div>
-                        </div>
-                        <div class="detail-item">
-                            <div class="detail-label">平均评分</div>
-                            <div class="detail-value" id="stat-avg-score">0.0</div>
-                            <div class="detail-subtext">整体评价</div>
-                        </div>
-                        <div class="detail-item">
-                            <div class="detail-label">高分作品</div>
-                            <div class="detail-value" id="stat-high-score">0</div>
-                            <div class="detail-subtext">≥8.0</div>
-                        </div>
-                        <div class="detail-item">
-                            <div class="detail-label">中等作品</div>
-                            <div class="detail-value" id="stat-medium-score">0</div>
-                            <div class="detail-subtext">6.0~8.0</div>
-                        </div>
-                        <div class="detail-item">
-                            <div class="detail-label">低分作品</div>
-                            <div class="detail-value" id="stat-low-score">0</div>
-                            <div class="detail-subtext">&lt;6.0</div>
+                <div class="stats-panel">
+                    <div class="stats-title">统计信息</div>
+                    <div class="stats-grid">
+                        <div class="stat-item total"><div class="stat-label">总数</div><div class="stat-value" id="stat-total">0</div></div>
+                        <div class="stat-item watching"><div class="stat-label">追中</div><div class="stat-value" id="stat-watching">0</div></div>
+                        <div class="stat-item finished"><div class="stat-label">已完成</div><div class="stat-value" id="stat-finished">0</div></div>
+                        <div class="stat-item planning"><div class="stat-label">计划</div><div class="stat-value" id="stat-planning">0</div></div>
+                        <div class="stat-item dropped"><div class="stat-label">放弃</div><div class="stat-value" id="stat-dropped">0</div></div>
+                    </div>
+                    <div class="stats-detail-section">
+                        <div class="stats-detail-title">详细统计</div>
+                        <div class="stats-detail-grid">
+                            <div class="detail-item"><div class="detail-label">进度完成率</div><div class="detail-value" id="stat-progress">0%</div><div class="detail-subtext" id="stat-episodes">0/0 集</div></div>
+                            <div class="detail-item"><div class="detail-label">平均评分</div><div class="detail-value" id="stat-avg-score">0.0</div><div class="detail-subtext">整体评价</div></div>
+                            <div class="detail-item"><div class="detail-label">高分作品</div><div class="detail-value" id="stat-high-score">0</div><div class="detail-subtext">>=8.0</div></div>
+                            <div class="detail-item"><div class="detail-label">中等作品</div><div class="detail-value" id="stat-medium-score">0</div><div class="detail-subtext">6.0~8.0</div></div>
+                            <div class="detail-item"><div class="detail-label">低分作品</div><div class="detail-value" id="stat-low-score">0</div><div class="detail-subtext">&lt;6.0</div></div>
                         </div>
                     </div>
                 </div>
+
+                <div class="add-anime-form">
+                    <h3>添加新番</h3>
+                    <form id="animeForm" onsubmit="addAnime(event)">
+                        <div class="form-group"><label>番剧名：</label><input type="text" id="animeName" placeholder="例：葬送的芙莉莲" required></div>
+                        <div class="form-group"><label>总集数：</label><input type="number" id="totalEpisodes" placeholder="例：12" min="1" required></div>
+                        <div class="form-group"><label>季度：</label><input type="text" id="animeSeason" placeholder="例：2024冬" required></div>
+                        <div class="form-group"><label>评分：</label><input type="number" id="animeScore" placeholder="例：8.5" min="0" max="10" step="0.1" required></div>
+                        <div class="form-group"><label>封面URL：</label><input type="text" id="animeCover" placeholder="可选"></div>
+                        <div class="form-group"><label>开播日期：</label><input type="date" id="animeStartDate"></div>
+                        <div class="form-group"><label>备注：</label><input type="text" id="animeRemark" placeholder="例：强烈推荐"></div>
+                        <button type="submit" class="btn-add-anime">添加</button>
+                    </form>
+                </div>
+
+                <div th:if="${#lists.isEmpty(animeList)}" class="empty-message">
+                    <p>还没有追番记录哦~快去添加一部吧</p>
+                </div>
+
+                <table th:if="${!#lists.isEmpty(animeList)}">
+                    <thead>
+                        <tr>
+                            <th>封面</th>
+                            <th>番号</th>
+                            <th>作品名</th>
+                            <th>季度</th>
+                            <th>看番状态</th>
+                            <th>评分</th>
+                            <th>集数</th>
+                            <th>备注</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:each="anime, iterStat : ${animeList}" th:id="'anime-row-' + ${anime.id}">
+                            <td>
+                                <img th:if="${anime.coverUrl != null and !anime.coverUrl.isEmpty()}" th:src="${anime.coverUrl}" class="cover-thumb" onerror="this.style.display='none';this.nextElementSibling.style.display='inline-flex'">
+                                <div th:if="${anime.coverUrl == null or anime.coverUrl.isEmpty()}" class="cover-placeholder">N/A</div>
+                            </td>
+                            <td th:text="'#' + ${iterStat.count}"></td>
+                            <td class="editable-name">
+                                <span th:text="${anime.name}" class="display-text"></span>
+                                <input type="text" class="edit-input" th:value="${anime.name}" style="display:none;">
+                            </td>
+                            <td class="editable-season">
+                                <span class="season display-text" th:text="${anime.season}"></span>
+                                <input type="text" class="edit-input" th:value="${anime.season}" style="display:none;">
+                            </td>
+                            <td class="status-cell">
+                                <select class="status-select" th:id="'status-select-' + ${anime.id}" th:onchange="'changeStatus(' + ${anime.id} + ')'" title="点击修改状态">
+                                    <option th:value="'watching'" th:selected="${anime.status == 'watching'}">追中</option>
+                                    <option th:value="'finished'" th:selected="${anime.status == 'finished'}">已完成</option>
+                                    <option th:value="'planning'" th:selected="${anime.status == 'planning'}">计划</option>
+                                    <option th:value="'dropped'" th:selected="${anime.status == 'dropped'}">放弃</option>
+                                </select>
+                            </td>
+                            <td class="editable-score">
+                                <span class="score display-text" th:text="${anime.score}"></span>
+                                <input type="number" class="edit-input" th:value="${anime.score}" step="0.1" min="0" max="10" style="display:none;">
+                            </td>
+                            <td th:text="${anime.currentEpisode} + ' / ' + ${anime.totalEpisodes}"></td>
+                            <td class="editable-remark">
+                                <span class="display-text" th:text="${anime.remark}"></span>
+                                <input type="text" class="edit-input" th:value="${anime.remark}" style="display:none;">
+                            </td>
+                            <td>
+                                <div class="normal-actions">
+                                    <button class="btn-edit" th:onclick="'toggleEdit(' + ${anime.id} + ')'" title="编辑">编辑</button>
+                                    <button class="btn-prev" th:onclick="'prevEpisode(' + ${anime.id} + ')'" title="上一集">上集</button>
+                                    <button class="btn-next" th:onclick="'nextEpisode(' + ${anime.id} + ')'" title="下一集">下一集</button>
+                                </div>
+                                <div class="edit-actions" style="display:none; margin-top: 8px;">
+                                    <button class="btn-delete" th:onclick="'deleteAnime(' + ${anime.id} + ')'" title="删除">删除</button>
+                                    <button class="btn-save" th:onclick="'saveEdit(' + ${anime.id} + ')'" title="保存">保存</button>
+                                    <button class="btn-cancel" th:onclick="'cancelEdit(' + ${anime.id} + ')'" title="取消">取消</button>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <div class="empty-message" style="display:none;">
+                    <div class="empty-icon">&#128269;</div>
+                    <p>没有找到匹配的番剧</p>
+                </div>
+
+                <div class="pagination" id="pagination" style="display:none;"></div>
             </div>
 
-            <div class="add-anime-form">
-                <h3>📝 添加新番</h3>
-                <form id="animeForm" onsubmit="addAnime(event)">
-                    <div class="form-group">
-                        <label for="animeName">番剧名：</label>
-                        <input type="text" id="animeName" name="name" placeholder="例：葬送的芙莉莲" required>
+            <!-- Charts Tab -->
+            <div id="tab-charts" class="tab-content">
+                <div class="charts-grid">
+                    <div class="chart-box">
+                        <h4>状态分布</h4>
+                        <canvas id="statusChart"></canvas>
                     </div>
-                    <div class="form-group">
-                        <label for="totalEpisodes">总集数：</label>
-                        <input type="number" id="totalEpisodes" name="totalEpisodes" placeholder="例：12" min="1" required>
+                    <div class="chart-box">
+                        <h4>评分分布</h4>
+                        <canvas id="scoreChart"></canvas>
                     </div>
-                    <div class="form-group">
-                        <label for="season">季度：</label>
-                        <input type="text" id="season" name="season" placeholder="例：2024冬" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="score">评分：</label>
-                        <input type="number" id="score" name="score" placeholder="例：8.5" min="0" max="10" step="0.1" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="remark">备注：</label>
-                        <input type="text" id="remark" name="remark" placeholder="例：强烈推荐">
-                    </div>
-                    <button type="submit" class="btn-add-anime">✨ 添加</button>
-                </form>
+                </div>
+                <div class="stats-panel">
+                    <div class="stats-title">季度汇总</div>
+                    <div class="season-stats" id="seasonStats"></div>
+                </div>
             </div>
 
-            <div th:if="${#lists.isEmpty(animeList)}" class="empty-message">
-                <p>还没有追番记录哦～快去添加一部吧</p>
-            </div>
-
-            <table th:if="${!#lists.isEmpty(animeList)}">
-                <thead>
-                    <tr>
-                        <th>番号</th>
-                        <th>作品名</th>
-                        <th>季度</th>
-                        <th>看番状态</th>
-                        <th>评分</th>
-                        <th>集数</th>
-                        <th>备注</th>
-                        <th>操作</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr th:each="anime, iterStat : ${animeList}" th:id="'anime-row-' + ${anime.id}">
-                        <td th:text="'#' + ${iterStat.count}"></td>
-                        <td class="editable-name">
-                            <span th:text="${anime.name}" class="display-text"></span>
-                            <input type="text" class="edit-input" th:value="${anime.name}" style="display:none;">
-                        </td>
-                        <td class="editable-season">
-                            <span class="season display-text" th:text="${anime.season}"></span>
-                            <input type="text" class="edit-input" th:value="${anime.season}" style="display:none;">
-                        </td>
-                        <td class="status-cell">
-                            <span th:class="'status ' + ${anime.status}" th:text="${anime.status == 'watching' ? 'Watching' : anime.status == 'finished' ? 'Finished' : anime.status == 'planning' ? 'Planning' : 'Dropped'}" th:onclick="'openStatusSelect(' + ${anime.id} + ')'"></span>
-                            <select class="status-select hidden" th:id="'status-select-' + ${anime.id}" th:onchange="'changeStatus(' + ${anime.id} + ')'" style="display:none;">
-                                <option th:value="'watching'" th:selected="${anime.status == 'watching'}">Watching</option>
-                                <option th:value="'finished'" th:selected="${anime.status == 'finished'}">Finished</option>
-                                <option th:value="'planning'" th:selected="${anime.status == 'planning'}">Planning</option>
-                                <option th:value="'dropped'" th:selected="${anime.status == 'dropped'}">Dropped</option>
-                            </select>
-                        </td>
-                        <td class="editable-score">
-                            <span class="score display-text" th:text="${anime.score}"></span>
-                            <input type="number" class="edit-input" th:value="${anime.score}" step="0.1" min="0" max="10" style="display:none;">
-                        </td>
-                        <td th:text="${anime.currentEpisode} + ' / ' + ${anime.totalEpisodes}"></td>
-                        <td class="editable-remark">
-                            <span class="display-text" th:text="${anime.remark}"></span>
-                            <input type="text" class="edit-input" th:value="${anime.remark}" style="display:none;">
-                        </td>
-                        <td>
-                            <div class="normal-actions">
-                                <button class="btn-edit" th:onclick="'toggleEdit(' + ${anime.id} + ')'" title="编辑">
-                                    ✏️ 编辑
-                                </button>
-                                <button class="btn-prev" th:onclick="'prevEpisode(' + ${anime.id} + ', this)'" title="上一集">
-                                    ⬅️ 上集
-                                </button>
-                                <button class="btn-next" th:onclick="'nextEpisode(' + ${anime.id} + ', this)'" title="看下一集">
-                                    ➕ 下一集
-                                </button>
-                            </div>
-                            <div class="edit-actions" style="display:none; margin-top: 8px;">
-                                <button class="btn-delete" th:onclick="'deleteAnime(' + ${anime.id} + ')'" title="删除">
-                                    🗑️ 删除
-                                </button>
-                                <button class="btn-save" th:onclick="'saveEdit(' + ${anime.id} + ')'" title="保存">
-                                    💾 保存
-                                </button>
-                                <button class="btn-cancel" th:onclick="'cancelEdit(' + ${anime.id} + ')'" title="取消">
-                                    ❌ 取消
-                                </button>
-                            </div>
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
-
-            <!-- 空数据提示 -->
-            <div class="empty-message" style="display:none;">
-                <div class="empty-icon">🔍</div>
-                <p>没有找到匹配的番剧</p>
+            <!-- Timeline Tab -->
+            <div id="tab-timeline" class="tab-content">
+                <div class="timeline" id="timeline"></div>
             </div>
         </div>
 
         <div class="footer">
-            <p th:text="'📊 总计: ' + ${#lists.size(animeList)} + ' 部作品 | 你的追番列表'"></p>
+            <p th:text="'总计: ' + ${#lists.size(animeList)} + ' 部作品 | 你的追番列表'"></p>
         </div>
     </div>
 
     <script>
-        // Toast 提示函数
+        const STATUS_MAP = { watching: '追中', finished: '已完成', planning: '计划', dropped: '放弃' };
+
+        function escapeHtml(str) {
+            if (str == null) return '';
+            const div = document.createElement('div');
+            div.appendChild(document.createTextNode(str));
+            return div.innerHTML;
+        }
+
         function showToast(message, type = 'info', duration = 3000) {
             const container = document.getElementById('toastContainer');
             const toast = document.createElement('div');
-            toast.className = `toast ${type}`;
+            toast.className = 'toast ' + type;
             toast.textContent = message;
             container.appendChild(toast);
             setTimeout(() => toast.remove(), duration);
         }
 
-        // 下一集
-        function nextEpisode(animeId) {
-            fetch(`/api/anime/${animeId}/next-episode`, {
-                method: 'POST'
-            })
-            .then(r => r.json())
-            .then(resp => {
-                if (resp.code === 200) {
-                    showToast('集数已更新', 'success');
-                    performSearch();
-                    updateStats();
-                } else if (resp.message === 'reached_max') {
-                    showToast('已经是最后一集了', 'info');
-                } else {
-                    showToast('更新失败', 'error');
-                }
-            })
-            .catch(e => showToast('请求失败', 'error'));
+        // --- Tab switching ---
+        function switchTab(name) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+            document.querySelector(`.tab[onclick="switchTab('${name}')"]`).classList.add('active');
+            document.getElementById('tab-' + name).classList.add('active');
+            if (name === 'charts') loadCharts();
+            if (name === 'timeline') loadTimeline();
         }
 
-        // 上一集
-        function prevEpisode(animeId) {
-            fetch(`/api/anime/${animeId}/prev-episode`, {
-                method: 'POST'
-            })
-            .then(r => r.json())
-            .then(resp => {
-                if (resp.code === 200) {
-                    showToast('集数已更新', 'success');
-                    performSearch();
-                    updateStats();
-                } else if (resp.message === 'reached_min') {
-                    showToast('已经是第1集了', 'info');
-                } else {
-                    showToast('更新失败', 'error');
-                }
-            })
-            .catch(e => showToast('请求失败', 'error'));
+        // --- API calls ---
+        function nextEpisode(id) {
+            fetch(`/api/anime/${id}/next-episode`, { method: 'POST' })
+                .then(r => r.json()).then(resp => {
+                    if (resp.code === 200) { showToast('集数已更新', 'success'); performSearch(); updateStats(); }
+                    else if (resp.message === 'reached_max') showToast('已经是最后一集了', 'info');
+                    else showToast('更新失败', 'error');
+                }).catch(() => showToast('请求失败', 'error'));
         }
 
-        // 添加番剧
+        function prevEpisode(id) {
+            fetch(`/api/anime/${id}/prev-episode`, { method: 'POST' })
+                .then(r => r.json()).then(resp => {
+                    if (resp.code === 200) { showToast('集数已更新', 'success'); performSearch(); updateStats(); }
+                    else if (resp.message === 'reached_min') showToast('已经是第1集了', 'info');
+                    else showToast('更新失败', 'error');
+                }).catch(() => showToast('请求失败', 'error'));
+        }
+
         function addAnime(event) {
             event.preventDefault();
             const body = {
                 name: document.getElementById('animeName').value,
                 totalEpisodes: parseInt(document.getElementById('totalEpisodes').value),
-                season: document.getElementById('season').value,
-                score: parseFloat(document.getElementById('score').value),
-                remark: document.getElementById('remark').value
+                season: document.getElementById('animeSeason').value,
+                score: parseFloat(document.getElementById('animeScore').value),
+                remark: document.getElementById('animeRemark').value,
+                coverUrl: document.getElementById('animeCover').value || null,
+                startDate: document.getElementById('animeStartDate').value || null,
+                endDate: null
             };
-
             fetch('/api/anime/add', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify(body)
-            })
-            .then(r => r.json())
-            .then(resp => {
-                if (resp.code === 200) {
-                    showToast('番剧已添加', 'success');
-                    document.getElementById('animeForm').reset();
-                    performSearch();
-                    updateStats();
-                } else {
-                    showToast(resp.message || '添加失败', 'error');
-                }
-            })
-            .catch(e => showToast('请求失败', 'error'));
+                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+            }).then(r => r.json()).then(resp => {
+                if (resp.code === 200) { showToast('番剧已添加', 'success'); document.getElementById('animeForm').reset(); performSearch(); updateStats(); }
+                else showToast(resp.message || '添加失败', 'error');
+            }).catch(() => showToast('请求失败', 'error'));
         }
 
-        // 编辑相关函数
-        function toggleEdit(animeId) {
-            const row = document.getElementById(`anime-row-${animeId}`);
-            row.querySelectorAll('[class^="editable-"]').forEach(field => {
-                const dt = field.querySelector('.display-text');
-                const ei = field.querySelector('.edit-input');
-                if (dt && ei) {
-                    dt.style.display = 'none';
-                    ei.style.display = 'inline-block';
-                }
+        function toggleEdit(id) {
+            const row = document.getElementById('anime-row-' + id);
+            row.querySelectorAll('[class^="editable-"]').forEach(f => {
+                const dt = f.querySelector('.display-text'), ei = f.querySelector('.edit-input');
+                if (dt && ei) { dt.style.display = 'none'; ei.style.display = 'inline-block'; }
             });
             row.querySelector('.normal-actions').style.display = 'none';
             row.querySelector('.edit-actions').style.display = 'block';
         }
 
-        function saveEdit(animeId) {
-            const row = document.getElementById(`anime-row-${animeId}`);
+        function saveEdit(id) {
+            const row = document.getElementById('anime-row-' + id);
             const name = row.querySelector('.editable-name .edit-input').value;
             const season = row.querySelector('.editable-season .edit-input').value;
             const score = row.querySelector('.editable-score .edit-input').value;
             const remark = row.querySelector('.editable-remark .edit-input').value;
-
-            if (!name.trim() || !season.trim() || !score) {
-                showToast('请填写所有必填字段', 'error');
-                return;
-            }
-
-            fetch(`/api/anime/${animeId}/update`, {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
+            if (!name.trim() || !season.trim() || !score) { showToast('请填写所有必填字段', 'error'); return; }
+            fetch(`/api/anime/${id}/update`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ name, season, score: parseFloat(score), remark })
-            })
-            .then(r => r.json())
-            .then(resp => {
-                if (resp.code === 200) {
-                    showToast('保存成功', 'success');
-                    performSearch();
-                    updateStats();
-                } else {
-                    showToast(resp.message || '保存失败', 'error');
-                }
-            })
-            .catch(e => showToast('请求失败', 'error'));
+            }).then(r => r.json()).then(resp => {
+                if (resp.code === 200) { showToast('保存成功', 'success'); performSearch(); updateStats(); }
+                else showToast(resp.message || '保存失败', 'error');
+            }).catch(() => showToast('请求失败', 'error'));
         }
 
-        function cancelEdit(animeId) {
-            const row = document.getElementById(`anime-row-${animeId}`);
-            row.querySelectorAll('[class^="editable-"]').forEach(field => {
-                const dt = field.querySelector('.display-text');
-                const ei = field.querySelector('.edit-input');
-                if (dt && ei) {
-                    dt.style.display = 'inline';
-                    ei.style.display = 'none';
-                }
+        function cancelEdit(id) {
+            const row = document.getElementById('anime-row-' + id);
+            row.querySelectorAll('[class^="editable-"]').forEach(f => {
+                const dt = f.querySelector('.display-text'), ei = f.querySelector('.edit-input');
+                if (dt && ei) { dt.style.display = 'inline'; ei.style.display = 'none'; }
             });
             row.querySelector('.normal-actions').style.display = 'block';
             row.querySelector('.edit-actions').style.display = 'none';
         }
 
-        function deleteAnime(animeId) {
-            if (confirm('确定要删除这个番剧吗？')) {
-                fetch(`/api/anime/${animeId}`, {method: 'DELETE'})
-                    .then(r => r.json())
-                    .then(resp => {
-                        if (resp.code === 200) {
-                            showToast('删除成功', 'success');
-                            performSearch();
-                            updateStats();
-                        } else {
-                            showToast(resp.message || '删除失败', 'error');
-                        }
-                    })
-                    .catch(e => showToast('删除出错', 'error'));
-            }
+        function deleteAnime(id) {
+            if (!confirm('确定要删除这个番剧吗？')) return;
+            fetch(`/api/anime/${id}`, { method: 'DELETE' })
+                .then(r => r.json()).then(resp => {
+                    if (resp.code === 200) { showToast('删除成功', 'success'); performSearch(); updateStats(); }
+                    else showToast(resp.message || '删除失败', 'error');
+                }).catch(() => showToast('删除出错', 'error'));
         }
 
-        // 搜索/筛选
+        function changeStatus(id) {
+            const val = document.getElementById('status-select-' + id).value;
+            if (!val) return;
+            fetch(`/api/anime/${id}/status?status=${encodeURIComponent(val)}`, { method: 'POST' })
+                .then(r => r.json()).then(resp => {
+                    if (resp.code === 200) { showToast('状态已更新', 'success'); performSearch(); updateStats(); }
+                    else showToast(resp.message || '修改状态失败', 'error');
+                }).catch(() => showToast('请求失败', 'error'));
+        }
+
+        // --- Search with pagination ---
+        let currentPage = 0, pageSize = 10, totalElements = 0;
+
         function performSearch() {
             const name = document.getElementById('searchName').value.trim();
             const status = document.getElementById('filterStatus').value;
             const sortBy = document.getElementById('sortBy').value;
-
             let url = '/api/anime/search?';
             if (name) url += 'name=' + encodeURIComponent(name);
             if (status) url += (name ? '&' : '') + 'status=' + encodeURIComponent(status);
             url += (name || status ? '&' : '') + 'sortBy=' + encodeURIComponent(sortBy);
-
-            fetch(url)
-                .then(r => r.json())
-                .then(resp => {
-                    if (resp.code === 200) {
-                        updateTableWithResults(resp.data);
-                    } else {
-                        showToast(resp.message || '搜索出错', 'error');
-                    }
-                })
-                .catch(e => showToast('搜索出错', 'error'));
+            fetch(url).then(r => r.json()).then(resp => {
+                if (resp.code === 200) updateTableWithResults(resp.data);
+                else showToast(resp.message || '搜索出错', 'error');
+            }).catch(() => showToast('搜索出错', 'error'));
         }
 
-        // 更新表格
         function updateTableWithResults(animeList) {
             const tbody = document.querySelector('tbody');
             const table = document.querySelector('table');
             const emptyMsg = document.querySelector('.empty-message');
-            
             if (!tbody || !table || !emptyMsg) return;
-
             tbody.innerHTML = '';
-
-            if (animeList.length === 0) {
-                table.style.display = 'none';
-                emptyMsg.style.display = 'block';
-                emptyMsg.innerHTML = '<div class="empty-icon">🔍</div><p>没有找到匹配的番剧</p>';
+            if (!animeList || animeList.length === 0) {
+                table.style.display = 'none'; emptyMsg.style.display = 'block';
+                emptyMsg.innerHTML = '<div class="empty-icon">&#128269;</div><p>没有找到匹配的番剧</p>';
                 return;
             }
-
-            table.style.display = 'table';
-            emptyMsg.style.display = 'none';
-
-            animeList.forEach((anime, index) => {
+            table.style.display = 'table'; emptyMsg.style.display = 'none';
+            animeList.forEach((a, i) => {
                 const row = document.createElement('tr');
-                row.id = `anime-row-${anime.id}`;
+                row.id = 'anime-row-' + a.id;
+                const coverHtml = a.coverUrl ? `<img src="${escapeHtml(a.coverUrl)}" class="cover-thumb" onerror="this.style.display='none';this.nextElementSibling.style.display='inline-flex'"><div class="cover-placeholder" style="display:none">N/A</div>` : '<div class="cover-placeholder">N/A</div>';
                 row.innerHTML = `
-                    <td>${index + 1}</td>
-                    <td class="editable-name">
-                        <span class="display-text">${anime.name}</span>
-                        <input type="text" class="edit-input" value="${anime.name}" style="display:none;">
-                    </td>
-                    <td class="editable-season">
-                        <span class="season display-text">${anime.season}</span>
-                        <input type="text" class="edit-input" value="${anime.season}" style="display:none;">
-                    </td>
-                    <td>
-                        <select class="status-select" id="status-select-${anime.id}" onchange="changeStatus(${anime.id})" title="点击修改状态">
-                            <option value="watching" ${anime.status === 'watching' ? 'selected' : ''}>追中</option>
-                            <option value="finished" ${anime.status === 'finished' ? 'selected' : ''}>已完成</option>
-                            <option value="planning" ${anime.status === 'planning' ? 'selected' : ''}>计划</option>
-                            <option value="dropped" ${anime.status === 'dropped' ? 'selected' : ''}>放弃</option>
-                        </select>
-                    </td>
-                    <td class="editable-score">
-                        <span class="score display-text">${anime.score}</span>
-                        <input type="number" class="edit-input" value="${anime.score}" step="0.1" min="0" max="10" style="display:none;">
-                    </td>
-                    <td>${anime.currentEpisode} / ${anime.totalEpisodes}</td>
-                    <td class="editable-remark">
-                        <span class="display-text">${anime.remark}</span>
-                        <input type="text" class="edit-input" value="${anime.remark}" style="display:none;">
-                    </td>
+                    <td>${coverHtml}</td>
+                    <td>${i + 1}</td>
+                    <td class="editable-name"><span class="display-text">${escapeHtml(a.name)}</span><input type="text" class="edit-input" value="${escapeHtml(a.name)}" style="display:none;"></td>
+                    <td class="editable-season"><span class="season display-text">${escapeHtml(a.season)}</span><input type="text" class="edit-input" value="${escapeHtml(a.season)}" style="display:none;"></td>
+                    <td><select class="status-select" id="status-select-${a.id}" onchange="changeStatus(${a.id})">
+                        <option value="watching" ${a.status==='watching'?'selected':''}>追中</option>
+                        <option value="finished" ${a.status==='finished'?'selected':''}>已完成</option>
+                        <option value="planning" ${a.status==='planning'?'selected':''}>计划</option>
+                        <option value="dropped" ${a.status==='dropped'?'selected':''}>放弃</option>
+                    </select></td>
+                    <td class="editable-score"><span class="score display-text">${escapeHtml(String(a.score))}</span><input type="number" class="edit-input" value="${a.score}" step="0.1" min="0" max="10" style="display:none;"></td>
+                    <td>${a.currentEpisode} / ${a.totalEpisodes}</td>
+                    <td class="editable-remark"><span class="display-text">${escapeHtml(a.remark)}</span><input type="text" class="edit-input" value="${escapeHtml(a.remark)}" style="display:none;"></td>
                     <td>
                         <div class="normal-actions">
-                            <button class="btn-edit" onclick="toggleEdit(${anime.id})">✏️ 编辑</button>
-                            <button class="btn-prev" onclick="prevEpisode(${anime.id})">⬅️ 上集</button>
-                            <button class="btn-next" onclick="nextEpisode(${anime.id})">➕ 下一集</button>
+                            <button class="btn-edit" onclick="toggleEdit(${a.id})">编辑</button>
+                            <button class="btn-prev" onclick="prevEpisode(${a.id})">上集</button>
+                            <button class="btn-next" onclick="nextEpisode(${a.id})">下一集</button>
                         </div>
                         <div class="edit-actions" style="display:none;">
-                            <button class="btn-delete" onclick="deleteAnime(${anime.id})">🗑️ 删除</button>
-                            <button class="btn-save" onclick="saveEdit(${anime.id})">✅ 保存</button>
-                            <button class="btn-cancel" onclick="cancelEdit(${anime.id})">❌ 取消</button>
+                            <button class="btn-delete" onclick="deleteAnime(${a.id})">删除</button>
+                            <button class="btn-save" onclick="saveEdit(${a.id})">保存</button>
+                            <button class="btn-cancel" onclick="cancelEdit(${a.id})">取消</button>
                         </div>
-                    </td>
-                `;
+                    </td>`;
                 tbody.appendChild(row);
             });
         }
 
-        // 重置搜索
         function resetSearch() {
             document.getElementById('searchName').value = '';
             document.getElementById('filterStatus').value = '';
@@ -1146,95 +528,130 @@
             performSearch();
         }
 
-        // 改变状态
-        function changeStatus(animeId) {
-            const select = document.getElementById(`status-select-${animeId}`);
-            const status = select.value;
-            if (!status) return;
-
-            fetch(`/api/anime/${animeId}/status?status=${encodeURIComponent(status)}`, {
-                method: 'POST'
-            })
-            .then(r => r.json())
-            .then(resp => {
-                if (resp.code === 200) {
-                    showToast('状态已更新', 'success');
-                    performSearch();
-                    updateStats();
-                } else {
-                    showToast(resp.message || '修改状态失败', 'error');
-                }
-            })
-            .catch(e => {
-                showToast('请求失败', 'error');
-            });
-        }
-
-        // 获取并更新统计数据
+        // --- Stats ---
         function updateStats() {
-            fetch('/api/anime/stats')
-                .then(r => r.json())
-                .then(resp => {
-                    if (resp.code !== 200) return;
-                    const data = resp.data;
-                    document.getElementById('stat-total').textContent = data.total || 0;
-                    document.getElementById('stat-watching').textContent = data.watching || 0;
-                    document.getElementById('stat-finished').textContent = data.finished || 0;
-                    document.getElementById('stat-planning').textContent = data.planning || 0;
-                    document.getElementById('stat-dropped').textContent = data.dropped || 0;
-                })
-                .catch(e => console.error('Error fetching stats:', e));
-
-            fetch('/api/anime/stats/detailed')
-                .then(r => r.json())
-                .then(resp => {
-                    if (resp.code !== 200) return;
-                    const data = resp.data;
-                    const progressPercentage = data.progressPercentage || 0;
-                    document.getElementById('stat-progress').textContent = progressPercentage.toFixed(1) + '%';
-                    document.getElementById('stat-episodes').textContent =
-                        (data.watchedEpisodes || 0) + '/' + (data.totalEpisodes || 0) + ' 集';
-                    const avgScore = data.averageScore || 0;
-                    document.getElementById('stat-avg-score').textContent = avgScore.toFixed(1);
-                    document.getElementById('stat-high-score').textContent = data.highScore || 0;
-                    document.getElementById('stat-medium-score').textContent = data.mediumScore || 0;
-                    document.getElementById('stat-low-score').textContent = data.lowScore || 0;
-                })
-                .catch(e => console.error('Error fetching detailed stats:', e));
+            fetch('/api/anime/stats').then(r => r.json()).then(resp => {
+                if (resp.code !== 200) return;
+                const d = resp.data;
+                document.getElementById('stat-total').textContent = d.total || 0;
+                document.getElementById('stat-watching').textContent = d.watching || 0;
+                document.getElementById('stat-finished').textContent = d.finished || 0;
+                document.getElementById('stat-planning').textContent = d.planning || 0;
+                document.getElementById('stat-dropped').textContent = d.dropped || 0;
+            }).catch(() => {});
+            fetch('/api/anime/stats/detailed').then(r => r.json()).then(resp => {
+                if (resp.code !== 200) return;
+                const d = resp.data;
+                document.getElementById('stat-progress').textContent = (d.progressPercentage || 0).toFixed(1) + '%';
+                document.getElementById('stat-episodes').textContent = (d.watchedEpisodes || 0) + '/' + (d.totalEpisodes || 0) + ' 集';
+                document.getElementById('stat-avg-score').textContent = (d.averageScore || 0).toFixed(1);
+                document.getElementById('stat-high-score').textContent = d.highScore || 0;
+                document.getElementById('stat-medium-score').textContent = d.mediumScore || 0;
+                document.getElementById('stat-low-score').textContent = d.lowScore || 0;
+            }).catch(() => {});
         }
 
-        // 初始化
+        // --- Charts ---
+        let statusChartInstance = null, scoreChartInstance = null;
+
+        function loadCharts() {
+            fetch('/api/anime/stats/detailed').then(r => r.json()).then(resp => {
+                if (resp.code !== 200) return;
+                const d = resp.data;
+                // Status pie chart
+                if (statusChartInstance) statusChartInstance.destroy();
+                statusChartInstance = new Chart(document.getElementById('statusChart'), {
+                    type: 'pie',
+                    data: {
+                        labels: ['追中', '已完成', '计划', '放弃'],
+                        datasets: [{ data: [d.watching, d.finished, d.planning, d.dropped], backgroundColor: ['#1976d2', '#7b1fa2', '#e65100', '#c62828'] }]
+                    },
+                    options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
+                });
+                // Score bar chart
+                if (scoreChartInstance) scoreChartInstance.destroy();
+                scoreChartInstance = new Chart(document.getElementById('scoreChart'), {
+                    type: 'bar',
+                    data: {
+                        labels: ['高分 (>=8)', '中等 (6~8)', '低分 (<6)'],
+                        datasets: [{ label: '作品数', data: [d.highScore, d.mediumScore, d.lowScore], backgroundColor: ['#27ae60', '#f39c12', '#e74c3c'] }]
+                    },
+                    options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } }
+                });
+            }).catch(() => {});
+            // Season stats
+            fetch('/api/anime/stats/seasons').then(r => r.json()).then(resp => {
+                if (resp.code !== 200) return;
+                const container = document.getElementById('seasonStats');
+                container.innerHTML = '';
+                (resp.data.seasons || []).forEach(s => {
+                    const card = document.createElement('div');
+                    card.className = 'season-card';
+                    card.innerHTML = `<div class="s-name">${escapeHtml(s.season)}</div><div class="s-count">${s.count}</div><div class="s-score">均分 ${s.avgScore != null ? s.avgScore.toFixed(1) : '-'}</div>`;
+                    container.appendChild(card);
+                });
+            }).catch(() => {});
+        }
+
+        // --- Timeline ---
+        function loadTimeline() {
+            fetch('/api/anime/timeline').then(r => r.json()).then(resp => {
+                if (resp.code !== 200) return;
+                const container = document.getElementById('timeline');
+                container.innerHTML = '';
+                if (!resp.data || resp.data.length === 0) { container.innerHTML = '<p style="text-align:center;color:#999;">暂无数据</p>'; return; }
+                resp.data.forEach(a => {
+                    const item = document.createElement('div');
+                    item.className = 'timeline-item';
+                    const dateStr = a.startDate || '未知';
+                    const statusText = STATUS_MAP[a.status] || a.status;
+                    item.innerHTML = `<div class="tl-date">${escapeHtml(dateStr)}</div><div class="tl-title">${escapeHtml(a.name)}</div><div class="tl-meta">${statusText} | ${a.currentEpisode}/${a.totalEpisodes} 集 | ${escapeHtml(String(a.score))} 分</div>`;
+                    container.appendChild(item);
+                });
+            }).catch(() => {});
+        }
+
+        // --- Import/Export ---
+        function exportData() {
+            fetch('/api/anime/export').then(r => r.blob()).then(blob => {
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url; a.download = 'otakulog_export.json'; a.click();
+                URL.revokeObjectURL(url);
+                showToast('导出成功', 'success');
+            }).catch(() => showToast('导出失败', 'error'));
+        }
+
+        function importData(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                fetch('/api/anime/import', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: e.target.result
+                }).then(r => r.json()).then(resp => {
+                    if (resp.code === 200) { showToast(resp.message || '导入成功', 'success'); performSearch(); updateStats(); }
+                    else showToast(resp.message || '导入失败', 'error');
+                }).catch(() => showToast('导入失败', 'error'));
+            };
+            reader.readAsText(file);
+            event.target.value = '';
+        }
+
+        // --- Init ---
         function initializeApp() {
             if (window.__appInitialized) return;
             window.__appInitialized = true;
-            
-            const searchInput = document.getElementById('searchName');
-            const filterSelect = document.getElementById('filterStatus');
-            const sortSelect = document.getElementById('sortBy');
-
             updateStats();
-            if (searchInput) searchInput.addEventListener('input', performSearch);
-            if (filterSelect) filterSelect.addEventListener('change', performSearch);
-            if (sortSelect) sortSelect.addEventListener('change', performSearch);
+            const si = document.getElementById('searchName'), fs = document.getElementById('filterStatus'), ss = document.getElementById('sortBy');
+            if (si) si.addEventListener('input', performSearch);
+            if (fs) fs.addEventListener('change', performSearch);
+            if (ss) ss.addEventListener('change', performSearch);
         }
 
-        // 页面加载完成后初始化 - 多重保险
-        function scheduleInitialization() {
-            setTimeout(initializeApp, 50);
-        }
-        
-        // 方法1: DOMContentLoaded
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', scheduleInitialization);
-        }
-        
-        // 方法2: 立即调用（如果文档已加载）
-        if (document.readyState !== 'loading') {
-            scheduleInitialization();
-        }
-        
-        // 方法3: window load 事件
-        window.addEventListener('load', scheduleInitialization);
+        if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => setTimeout(initializeApp, 50));
+        else setTimeout(initializeApp, 50);
+        window.addEventListener('load', () => setTimeout(initializeApp, 50));
     </script>
 </body>
 </html>

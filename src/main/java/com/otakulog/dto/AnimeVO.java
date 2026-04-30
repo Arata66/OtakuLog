@@ -12,6 +12,9 @@ public class AnimeVO {
     private String season;
     private String remark;
     private double progress;
+    private String coverUrl;
+    private String startDate;
+    private String endDate;
 
     public AnimeVO() {
     }
@@ -94,5 +97,29 @@ public class AnimeVO {
 
     public void setProgress(double progress) {
         this.progress = progress;
+    }
+
+    public String getCoverUrl() {
+        return coverUrl;
+    }
+
+    public void setCoverUrl(String coverUrl) {
+        this.coverUrl = coverUrl;
+    }
+
+    public String getStartDate() {
+        return startDate;
+    }
+
+    public void setStartDate(String startDate) {
+        this.startDate = startDate;
+    }
+
+    public String getEndDate() {
+        return endDate;
+    }
+
+    public void setEndDate(String endDate) {
+        this.endDate = endDate;
     }
 }

@@ -8,6 +8,9 @@ import com.otakulog.enums.AnimeStatus;
 import com.otakulog.service.AnimeService;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -109,15 +112,22 @@ public class AnimeController {
             @RequestParam(required = false) String status,
             @RequestParam(required = false, defaultValue = "id-desc") String sortBy) {
 
-        AnimeStatus animeStatus = null;
-        if (status != null && !status.trim().isEmpty()) {
-            try {
-                animeStatus = AnimeStatus.valueOf(status.toUpperCase());
-            } catch (IllegalArgumentException ignored) {
-            }
-        }
-
+        AnimeStatus animeStatus = parseStatus(status);
         List<AnimeVO> results = animeService.searchAnime(name, animeStatus, sortBy);
+        return ResponseEntity.ok(ApiResponse.success(results));
+    }
+
+    @GetMapping("/api/anime/page")
+    @ResponseBody
+    public ResponseEntity<ApiResponse<Page<AnimeVO>>> searchAnimePaged(
+            @RequestParam(required = false) String name,
+            @RequestParam(required = false) String status,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+
+        AnimeStatus animeStatus = parseStatus(status);
+        Pageable pageable = PageRequest.of(page, size);
+        Page<AnimeVO> results = animeService.searchAnimePaged(name, animeStatus, pageable);
         return ResponseEntity.ok(ApiResponse.success(results));
     }
 
@@ -131,5 +141,46 @@ public class AnimeController {
     @ResponseBody
     public ResponseEntity<ApiResponse<Map<String, Object>>> getDetailedStats() {
         return ResponseEntity.ok(ApiResponse.success(animeService.getDetailedStats()));
+    }
+
+    @GetMapping("/api/anime/stats/seasons")
+    @ResponseBody
+    public ResponseEntity<ApiResponse<Map<String, Object>>> getSeasonStats() {
+        return ResponseEntity.ok(ApiResponse.success(animeService.getSeasonStats()));
+    }
+
+    @GetMapping("/api/anime/timeline")
+    @ResponseBody
+    public ResponseEntity<ApiResponse<List<AnimeVO>>> getTimeline() {
+        return ResponseEntity.ok(ApiResponse.success(animeService.getTimeline()));
+    }
+
+    @GetMapping("/api/anime/export")
+    @ResponseBody
+    public ResponseEntity<String> exportJson() {
+        return ResponseEntity.ok()
+                .header("Content-Type", "application/json")
+                .header("Content-Disposition", "attachment; filename=otakulog_export.json")
+                .body(animeService.exportJson());
+    }
+
+    @PostMapping("/api/anime/import")
+    @ResponseBody
+    public ResponseEntity<ApiResponse<List<AnimeVO>>> importJson(@RequestBody String json) {
+        try {
+            List<AnimeVO> result = animeService.importJson(json);
+            return ResponseEntity.ok(ApiResponse.success("导入成功，共 " + result.size() + " 条", result));
+        } catch (Exception e) {
+            return ResponseEntity.ok(ApiResponse.error(e.getMessage()));
+        }
+    }
+
+    private AnimeStatus parseStatus(String status) {
+        if (status == null || status.trim().isEmpty()) return null;
+        try {
+            return AnimeStatus.valueOf(status.toUpperCase());
+        } catch (IllegalArgumentException ignored) {
+            return null;
+        }
     }
 }
