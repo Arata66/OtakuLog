@@ -361,6 +361,39 @@
         .view-btn.active { background: var(--card); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
         .view-btn:hover:not(.active) { color: var(--text-mid); }
 
+        /* Bangumi search */
+        .bangumi-results {
+            display: none; margin-top: 16px; padding-top: 16px;
+            border-top: 1px solid var(--border-light);
+        }
+        .bangumi-results.active { display: block; animation: fadeUp 0.3s ease; }
+        .bangumi-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+        .bangumi-header h4 { font-family: var(--serif); font-size: 0.95em; color: var(--text); font-weight: 400; }
+        .bangumi-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+        .bg-card {
+            display: flex; gap: 12px; padding: 12px; border-radius: var(--radius-sm);
+            border: 1.5px solid var(--border); background: var(--bg);
+            cursor: pointer; transition: all 0.25s;
+        }
+        .bg-card:hover { border-color: var(--amber); background: var(--card); box-shadow: var(--shadow); transform: translateY(-1px); }
+        .bg-card.selected { border-color: var(--sage); background: var(--sage-soft); }
+        .bg-cover { width: 52px; height: 72px; border-radius: 6px; object-fit: cover; background: var(--bg-warm); flex-shrink: 0; }
+        .bg-cover-empty { width: 52px; height: 72px; border-radius: 6px; background: var(--bg-warm); border: 1px dashed var(--border); display: flex; align-items: center; justify-content: center; font-size: 0.7em; color: var(--text-faint); flex-shrink: 0; }
+        .bg-info { flex: 1; min-width: 0; }
+        .bg-name { font-weight: 600; font-size: 0.85em; color: var(--text); margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .bg-sub { font-size: 0.75em; color: var(--text-dim); margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .bg-meta { display: flex; gap: 8px; font-size: 0.72em; color: var(--text-faint); }
+        .bg-meta span { display: flex; align-items: center; gap: 2px; }
+        .bangumi-loading { text-align: center; padding: 20px; color: var(--text-dim); font-size: 0.85em; }
+        .btn-bangumi {
+            background: var(--bg); border: 1.5px solid var(--border);
+            color: var(--text-mid); padding: 10px 14px; border-radius: 10px;
+            cursor: pointer; font-size: 0.8em; font-weight: 500;
+            transition: all 0.25s; font-family: inherit; white-space: nowrap;
+        }
+        .btn-bangumi:hover { border-color: var(--coral); color: var(--coral); background: var(--coral-soft); }
+        .btn-bangumi:disabled { opacity: 0.5; cursor: not-allowed; }
+
         /* Gallery edit overlay */
         .g-edit-overlay {
             position: absolute; inset: 0; background: rgba(255,255,255,0.97);
@@ -449,7 +482,8 @@
                 <h3>添加新番</h3>
                 <form id="animeForm" onsubmit="addAnime(event)">
                     <div class="form-grid">
-                        <div class="ff"><label>番剧名</label><input type="text" id="animeName" placeholder="葬送的芙莉莲" required></div>
+                        <div class="ff" style="flex:1;min-width:180px;"><label>番剧名</label><input type="text" id="animeName" placeholder="输入名称后点击搜索自动填充" required></div>
+                        <button type="button" class="btn-bangumi" id="btnBangumi" onclick="searchBangumi()">从 Bangumi 搜索</button>
                         <div class="ff"><label>总集数</label><input type="number" id="totalEpisodes" placeholder="12" min="1" required></div>
                         <div class="ff"><label>季度</label><input type="text" id="animeSeason" placeholder="2024冬" required></div>
                         <div class="ff"><label>评分</label><input type="number" id="animeScore" placeholder="8.5" min="0" max="10" step="0.1" required></div>
@@ -460,6 +494,10 @@
                         <button type="submit" class="btn-add">+ 添加</button>
                     </div>
                 </form>
+                <div class="bangumi-results" id="bangumiResults">
+                    <div class="bangumi-header"><h4>Bangumi 搜索结果</h4><button class="btn-sm" onclick="closeBangumi()">关闭</button></div>
+                    <div class="bangumi-grid" id="bangumiGrid"></div>
+                </div>
             </div>
 
             <!-- Table -->
@@ -553,8 +591,59 @@
         function addAnime(e) {
             e.preventDefault();
             const b = { name: document.getElementById('animeName').value, totalEpisodes: parseInt(document.getElementById('totalEpisodes').value), season: document.getElementById('animeSeason').value, score: parseFloat(document.getElementById('animeScore').value), remark: document.getElementById('animeRemark').value, coverUrl: document.getElementById('animeCover').value || null, startDate: document.getElementById('animeStartDate').value || null, endDate: document.getElementById('animeEndDate').value || null };
-            fetch('/api/anime/add', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b) }).then(r => r.json()).then(r => { if (r.code === 200) { toast('已添加', 'success'); document.getElementById('animeForm').reset(); ps(); us(); } else toast(r.message || '添加失败', 'error'); }).catch(() => toast('请求失败', 'error'));
+            fetch('/api/anime/add', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b) }).then(r => r.json()).then(r => { if (r.code === 200) { toast('已添加', 'success'); document.getElementById('animeForm').reset(); closeBangumi(); ps(); us(); } else toast(r.message || '添加失败', 'error'); }).catch(() => toast('请求失败', 'error'));
         }
+
+        /* Bangumi search */
+        function searchBangumi() {
+            const kw = document.getElementById('animeName').value.trim();
+            if (!kw) { toast('请先输入番剧名称', 'info'); return; }
+            const btn = document.getElementById('btnBangumi');
+            btn.disabled = true; btn.textContent = '搜索中...';
+            fetch('/api/bangumi/search?keyword=' + encodeURIComponent(kw) + '&limit=8')
+                .then(r => r.json()).then(r => {
+                    btn.disabled = false; btn.textContent = '从 Bangumi 搜索';
+                    if (r.code !== 200) { toast(r.message || '搜索失败', 'error'); return; }
+                    renderBangumiResults(r.data || []);
+                }).catch(() => { btn.disabled = false; btn.textContent = '从 Bangumi 搜索'; toast('搜索请求失败', 'error'); });
+        }
+        function renderBangumiResults(list) {
+            const panel = document.getElementById('bangumiResults'), grid = document.getElementById('bangumiGrid');
+            if (!list.length) { toast('未找到相关番剧', 'info'); panel.classList.remove('active'); return; }
+            grid.innerHTML = '';
+            list.forEach(item => {
+                const card = document.createElement('div'); card.className = 'bg-card';
+                const cover = item.image ? `<img src="${esc(item.image)}" class="bg-cover" onerror="this.outerHTML='<div class=bg-cover-empty>N/A</div>'">` : '<div class="bg-cover-empty">N/A</div>';
+                const displayName = item.nameCn || item.name || '未知';
+                const score = item.score ? item.score.toFixed(1) : '-';
+                const eps = item.eps || '?';
+                const date = item.date || '';
+                card.innerHTML = `${cover}<div class="bg-info"><div class="bg-name" title="${esc(displayName)}">${esc(displayName)}</div><div class="bg-sub" title="${esc(item.name)}">${esc(item.name)}</div><div class="bg-meta"><span>ep ${eps}</span><span>${score}</span><span>${esc(date)}</span></div></div>`;
+                card.onclick = () => selectBangumi(item, card);
+                grid.appendChild(card);
+            });
+            panel.classList.add('active');
+        }
+        function selectBangumi(item, card) {
+            document.querySelectorAll('.bg-card').forEach(c => c.classList.remove('selected'));
+            card.classList.add('selected');
+            const name = item.nameCn || item.name;
+            if (name) document.getElementById('animeName').value = name;
+            if (item.eps) document.getElementById('totalEpisodes').value = item.eps;
+            if (item.score) document.getElementById('animeScore').value = item.score.toFixed(1);
+            if (item.image) document.getElementById('animeCover').value = item.image;
+            if (item.date) {
+                document.getElementById('animeStartDate').value = item.date;
+                const m = parseInt(item.date.split('-')[1]);
+                const y = item.date.split('-')[0];
+                if (m && y) {
+                    const seasons = { 1:'冬', 2:'冬', 3:'春', 4:'春', 5:'春', 6:'夏', 7:'夏', 8:'夏', 9:'秋', 10:'秋', 11:'秋', 12:'冬' };
+                    document.getElementById('animeSeason').value = y + seasons[m];
+                }
+            }
+            toast('已填充 ' + name, 'success');
+        }
+        function closeBangumi() { document.getElementById('bangumiResults').classList.remove('active'); }
 
         /* Inline edit - table */
         function te(id) {
@@ -689,6 +778,7 @@
             document.getElementById('searchName').addEventListener('input', ps);
             document.getElementById('filterStatus').addEventListener('change', ps);
             document.getElementById('sortBy').addEventListener('change', ps);
+            document.getElementById('animeName').addEventListener('keydown', function(e) { if (e.key === 'Enter') { e.preventDefault(); searchBangumi(); } });
         }
         if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
     </script>

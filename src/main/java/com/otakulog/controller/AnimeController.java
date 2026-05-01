@@ -4,8 +4,10 @@ import com.otakulog.common.ApiResponse;
 import com.otakulog.dto.AnimeDTO;
 import com.otakulog.dto.AnimeUpdateDTO;
 import com.otakulog.dto.AnimeVO;
+import com.otakulog.dto.BangumiResult;
 import com.otakulog.enums.AnimeStatus;
 import com.otakulog.service.AnimeService;
+import com.otakulog.service.BangumiService;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -24,6 +26,9 @@ public class AnimeController {
 
     @Autowired
     private AnimeService animeService;
+
+    @Autowired
+    private BangumiService bangumiService;
 
     @GetMapping("/")
     public String index(Model model) {
@@ -174,6 +179,19 @@ public class AnimeController {
             return ResponseEntity.ok(ApiResponse.success("已导入 " + created + " 条新记录，更新 " + updated + " 条", result));
         } catch (Exception e) {
             return ResponseEntity.ok(ApiResponse.error(e.getMessage()));
+        }
+    }
+
+    @GetMapping("/api/bangumi/search")
+    @ResponseBody
+    public ResponseEntity<ApiResponse<List<BangumiResult>>> searchBangumi(
+            @RequestParam String keyword,
+            @RequestParam(defaultValue = "8") int limit) {
+        try {
+            List<BangumiResult> results = bangumiService.search(keyword, limit);
+            return ResponseEntity.ok(ApiResponse.success(results));
+        } catch (Exception e) {
+            return ResponseEntity.ok(ApiResponse.error("Bangumi 搜索失败: " + e.getMessage()));
         }
     }
 
