@@ -361,6 +361,76 @@
         .view-btn.active { background: var(--card); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
         .view-btn:hover:not(.active) { color: var(--text-mid); }
 
+        /* === Detail View (3 per row) === */
+        .detail-container { display: none; }
+        .detail-container.active { display: block; }
+        .detail-grid {
+            display: grid; grid-template-columns: repeat(3, 1fr);
+            gap: 20px; padding: 4px;
+        }
+        .dt-card {
+            background: var(--card); border-radius: var(--radius);
+            box-shadow: var(--shadow); overflow: hidden;
+            transition: all 0.35s cubic-bezier(0.16,1,0.3,1);
+            display: flex; flex-direction: column;
+        }
+        .dt-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-hover); }
+        .dt-cover-wrap {
+            position: relative; width: 100%; aspect-ratio: 16/9;
+            overflow: hidden; background: var(--bg-warm);
+        }
+        .dt-cover {
+            width: 100%; height: 100%; object-fit: cover; display: block;
+            transition: transform 0.4s ease;
+        }
+        .dt-card:hover .dt-cover { transform: scale(1.03); }
+        .dt-cover-empty {
+            width: 100%; height: 100%;
+            background: linear-gradient(135deg, var(--bg-warm), var(--border-light));
+            display: flex; align-items: center; justify-content: center;
+            font-family: var(--serif); font-size: 2.2em; color: var(--text-faint);
+        }
+        .dt-status-badge {
+            position: absolute; top: 10px; right: 10px;
+            padding: 4px 12px; border-radius: 20px;
+            font-size: 0.7em; font-weight: 600; backdrop-filter: blur(8px);
+        }
+        .dt-status-badge.watching { background: rgba(122,158,196,0.85); color: white; }
+        .dt-status-badge.finished { background: rgba(154,138,184,0.85); color: white; }
+        .dt-status-badge.planning { background: rgba(212,165,116,0.85); color: white; }
+        .dt-status-badge.dropped { background: rgba(196,122,138,0.85); color: white; }
+        .dt-body { padding: 18px 20px; flex: 1; display: flex; flex-direction: column; }
+        .dt-name { font-weight: 600; font-size: 1em; color: var(--text); margin-bottom: 6px; line-height: 1.3; }
+        .dt-meta { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+        .dt-tag { font-size: 0.72em; padding: 3px 10px; border-radius: 6px; font-weight: 500; }
+        .dt-season { background: var(--bg); color: var(--text-mid); border: 1px solid var(--border-light); }
+        .dt-score { font-family: var(--serif); }
+        .dt-score.sc-high { background: var(--sage-soft); color: #5a8a60; }
+        .dt-score.sc-mid { background: var(--amber-soft); color: #a08050; }
+        .dt-score.sc-low { background: var(--rose-soft); color: #a06070; }
+        .dt-progress-wrap { margin-bottom: 10px; }
+        .dt-progress-label { display: flex; justify-content: space-between; font-size: 0.75em; color: var(--text-dim); margin-bottom: 4px; }
+        .dt-progress { height: 5px; background: var(--border-light); border-radius: 3px; overflow: hidden; }
+        .dt-progress-bar { height: 100%; border-radius: 3px; transition: width 0.4s ease; }
+        .dt-progress-bar.watching { background: var(--blue); }
+        .dt-progress-bar.finished { background: var(--purple); }
+        .dt-progress-bar.planning { background: var(--amber); }
+        .dt-progress-bar.dropped { background: var(--rose); }
+        .dt-remark { font-size: 0.8em; color: var(--text-dim); margin-bottom: 14px; flex: 1; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+        .dt-actions { display: flex; gap: 6px; }
+        .dt-btn {
+            border: 1.5px solid var(--border); background: var(--bg);
+            padding: 6px 14px; border-radius: 8px; cursor: pointer;
+            font-size: 0.78em; font-weight: 500; transition: all 0.2s;
+            font-family: inherit; color: var(--text-mid);
+        }
+        .dt-btn:hover { border-color: #d4cfc6; color: var(--text); background: var(--card); }
+        .dt-btn.ep { border-color: var(--blue); color: #5a8ab0; background: var(--blue-soft); }
+        .dt-btn.del { border-color: var(--rose); color: var(--rose); background: var(--rose-soft); }
+
+        @media (max-width: 1024px) { .detail-grid { grid-template-columns: repeat(2, 1fr); } }
+        @media (max-width: 640px) { .detail-grid { grid-template-columns: 1fr; } }
+
         /* Bangumi search */
         .bangumi-results {
             display: none; margin-top: 16px; padding-top: 16px;
@@ -472,7 +542,8 @@
                 <select id="sortBy"><option value="id-desc">最新添加</option><option value="score-desc">评分高到低</option><option value="score-asc">评分低到高</option><option value="progress-desc">进度高到低</option><option value="progress-asc">进度低到高</option><option value="name-asc">名称序</option></select>
                 <div class="view-toggle">
                     <button class="view-btn active" id="viewTable" onclick="toggleView('table')" title="列表视图">&#9776;</button>
-                    <button class="view-btn" id="viewGallery" onclick="toggleView('gallery')" title="画廊视图">&#9638;</button>
+                    <button class="view-btn" id="viewDetail" onclick="toggleView('detail')" title="详情视图">&#9636;</button>
+                    <button class="view-btn" id="viewGallery" onclick="toggleView('gallery')" title="封面墙">&#9638;</button>
                 </div>
                 <button class="btn-sm" onclick="resetSearch()">重置</button>
             </div>
@@ -534,6 +605,11 @@
             </div>
             <div class="empty" style="display:none;" id="emptySearch"><div class="e-icon">?</div><p>没有找到匹配的番剧</p></div>
 
+            <!-- Detail -->
+            <div class="detail-container" id="detailView">
+                <div class="detail-grid" id="detailGrid"></div>
+            </div>
+
             <!-- Gallery -->
             <div class="gallery-container" id="galleryView">
                 <div class="gallery-grid" id="galleryGrid"></div>
@@ -577,8 +653,10 @@
             viewMode = mode;
             localStorage.setItem('otakulog-view', mode);
             document.getElementById('viewTable').classList.toggle('active', mode === 'table');
+            document.getElementById('viewDetail').classList.toggle('active', mode === 'detail');
             document.getElementById('viewGallery').classList.toggle('active', mode === 'gallery');
-            document.querySelector('.table-card').classList.toggle('hidden', mode === 'gallery');
+            document.querySelector('.table-card').classList.toggle('hidden', mode !== 'table');
+            document.getElementById('detailView').classList.toggle('active', mode === 'detail');
             document.getElementById('galleryView').classList.toggle('active', mode === 'gallery');
             ps();
         }
@@ -683,16 +761,18 @@
             fetch(u).then(r => r.json()).then(r => { if (r.code === 200) rt(r.data); else toast(r.message || '搜索出错', 'error'); }).catch(() => toast('搜索出错', 'error'));
         }
 
-        /* Render table + gallery */
+        /* Render all views */
         function rt(list) {
-            const tb = document.querySelector('tbody'), tc = document.querySelector('.table-card'), em = document.getElementById('emptySearch'), gc = document.getElementById('galleryView');
+            const tb = document.querySelector('tbody'), tc = document.querySelector('.table-card'), em = document.getElementById('emptySearch');
+            const dc = document.getElementById('detailView'), gc = document.getElementById('galleryView');
             if (!tb) return; tb.innerHTML = '';
             if (!list || list.length === 0) {
-                if (tc) tc.style.display = 'none'; if (gc) gc.style.display = 'none'; if (em) em.style.display = ''; return;
+                if (tc) tc.style.display = 'none'; if (dc) dc.style.display = 'none'; if (gc) gc.style.display = 'none'; if (em) em.style.display = ''; return;
             }
             if (em) em.style.display = 'none';
-            if (viewMode === 'table') { if (tc) tc.style.display = ''; if (gc) gc.style.display = 'none'; }
-            else { if (tc) tc.style.display = 'none'; if (gc) gc.style.display = ''; }
+            if (tc) tc.style.display = viewMode === 'table' ? '' : 'none';
+            if (dc) dc.classList.toggle('active', viewMode === 'detail');
+            if (gc) gc.classList.toggle('active', viewMode === 'gallery');
             list.forEach((a, i) => {
                 /* Table row */
                 const r = document.createElement('tr'); r.id = 'r-' + a.id;
@@ -710,7 +790,26 @@
                     <td class="eed" style="display:none;"><input type="date" class="e-input" value="${a.endDate || ''}"></td>`;
                 tb.appendChild(r);
             });
+            renderDetail(list);
             renderGallery(list);
+        }
+
+        function renderDetail(list) {
+            const g = document.getElementById('detailGrid'); if (!g) return; g.innerHTML = '';
+            list.forEach(a => {
+                const card = document.createElement('div'); card.className = 'dt-card';
+                const pct = a.totalEpisodes > 0 ? Math.round(a.currentEpisode / a.totalEpisodes * 100) : 0;
+                const cover = a.coverUrl ? `<img src="${esc(a.coverUrl)}" class="dt-cover" onerror="this.outerHTML='<div class=dt-cover-empty>${esc(a.name.charAt(0))}</div>'">` : `<div class="dt-cover-empty">${esc(a.name.charAt(0))}</div>`;
+                card.innerHTML = `<div class="dt-cover-wrap">${cover}<span class="dt-status-badge ${a.status}">${SM[a.status] || a.status}</span></div>
+                    <div class="dt-body">
+                        <div class="dt-name">${esc(a.name)}</div>
+                        <div class="dt-meta"><span class="dt-tag dt-season">${esc(a.season)}</span><span class="dt-tag dt-score ${sc(a.score)}">${a.score}</span></div>
+                        <div class="dt-progress-wrap"><div class="dt-progress-label"><span>${a.currentEpisode} / ${a.totalEpisodes} ep</span><span>${pct}%</span></div><div class="dt-progress"><div class="dt-progress-bar ${a.status}" style="width:${pct}%"></div></div></div>
+                        ${a.remark ? `<div class="dt-remark">${esc(a.remark)}</div>` : '<div class="dt-remark" style="visibility:hidden;">-</div>'}
+                        <div class="dt-actions"><button class="dt-btn" onclick="te(${a.id});switchViewTable()">编辑</button><button class="dt-btn ep" onclick="pe(${a.id})">-</button><button class="dt-btn ep" onclick="ne(${a.id})">+</button><button class="dt-btn del" onclick="da(${a.id})">删除</button></div>
+                    </div>`;
+                g.appendChild(card);
+            });
         }
 
         function renderGallery(list) {
@@ -731,7 +830,7 @@
             });
         }
 
-        function switchViewTable() { if (viewMode === 'gallery') toggleView('table'); }
+        function switchViewTable() { if (viewMode !== 'table') toggleView('table'); }
 
         function resetSearch() { document.getElementById('searchName').value = ''; document.getElementById('filterStatus').value = ''; document.getElementById('sortBy').value = 'id-desc'; toast('已重置', 'info'); ps(); }
 
@@ -774,7 +873,12 @@
         function init() {
             if (window.__i) return; window.__i = true;
             us();
-            if (viewMode === 'gallery') { document.querySelector('.table-card').classList.add('hidden'); document.getElementById('galleryView').classList.add('active'); document.getElementById('viewTable').classList.remove('active'); document.getElementById('viewGallery').classList.add('active'); }
+            if (viewMode !== 'table') {
+                document.querySelector('.table-card').classList.add('hidden');
+                document.getElementById('viewTable').classList.remove('active');
+                if (viewMode === 'detail') { document.getElementById('detailView').classList.add('active'); document.getElementById('viewDetail').classList.add('active'); }
+                if (viewMode === 'gallery') { document.getElementById('galleryView').classList.add('active'); document.getElementById('viewGallery').classList.add('active'); }
+            }
             document.getElementById('searchName').addEventListener('input', ps);
             document.getElementById('filterStatus').addEventListener('change', ps);
             document.getElementById('sortBy').addEventListener('change', ps);
