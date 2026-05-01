@@ -85,6 +85,9 @@ public class AnimeServiceImpl implements AnimeService {
                 .orElseThrow(() -> new IllegalArgumentException("未找到该番剧"));
 
         anime.setName(dto.getName());
+        if (dto.getTotalEpisodes() != null) {
+            anime.setTotalEpisodes(dto.getTotalEpisodes());
+        }
         anime.setSeason(dto.getSeason());
         anime.setScore(dto.getScore());
         anime.setRemark(dto.getRemark() != null ? dto.getRemark() : "");
@@ -117,21 +120,22 @@ public class AnimeServiceImpl implements AnimeService {
 
     @Override
     public List<AnimeVO> searchAnime(String name, AnimeStatus status, String sortBy) {
-        List<Anime> results;
+        Sort sort = buildSort(sortBy);
         boolean hasName = name != null && !name.trim().isEmpty();
         boolean hasStatus = status != null;
+        List<Anime> results;
 
         if (hasName && hasStatus) {
-            results = animeRepository.findByNameContainingAndStatus(name, status);
+            results = animeRepository.findByNameContainingAndStatus(name, status, sort);
         } else if (hasName) {
-            results = animeRepository.findByNameContaining(name);
+            results = animeRepository.findByNameContaining(name, sort);
         } else if (hasStatus) {
-            results = animeRepository.findByStatus(status);
+            results = animeRepository.findByStatus(status, sort);
         } else {
-            results = animeRepository.findAll();
+            results = animeRepository.findAll(sort);
         }
 
-        return sortAndConvert(results, sortBy);
+        return results.stream().map(this::toVO).collect(Collectors.toList());
     }
 
     @Override
@@ -253,14 +257,22 @@ public class AnimeServiceImpl implements AnimeService {
     }
 
     @Override
-    public List<AnimeVO> importJson(String json) {
+    public Map<String, Object> importJson(String json) {
         try {
             ObjectMapper mapper = new ObjectMapper();
             List<Map<String, Object>> list = mapper.readValue(json, new TypeReference<>() {});
+
+            Map<String, Anime> existing = animeRepository.findAll().stream()
+                    .collect(Collectors.toMap(Anime::getName, a -> a, (a, b) -> a));
+
+            int created = 0, updated = 0;
             List<AnimeVO> result = new ArrayList<>();
             for (Map<String, Object> map : list) {
-                Anime anime = new Anime();
-                anime.setName((String) map.get("name"));
+                String name = (String) map.get("name");
+                Anime anime = existing.getOrDefault(name, new Anime());
+
+                boolean isNew = anime.getId() == null;
+                anime.setName(name);
                 anime.setTotalEpisodes(toInt(map.get("totalEpisodes")));
                 anime.setCurrentEpisode(toInt(map.get("currentEpisode")));
                 anime.setScore(toDouble(map.get("score")));
@@ -271,9 +283,16 @@ public class AnimeServiceImpl implements AnimeService {
                 anime.setEndDate(parseDate((String) map.get("endDate")));
                 String status = (String) map.getOrDefault("status", "watching");
                 anime.setStatus(AnimeStatus.valueOf(status.toUpperCase()));
+
                 result.add(toVO(animeRepository.save(anime)));
+                if (isNew) created++; else updated++;
             }
-            return result;
+
+            Map<String, Object> res = new HashMap<>();
+            res.put("created", created);
+            res.put("updated", updated);
+            res.put("list", result);
+            return res;
         } catch (IllegalArgumentException e) {
             throw new IllegalArgumentException("无效的状态值: " + e.getMessage());
         } catch (Exception e) {
@@ -281,35 +300,15 @@ public class AnimeServiceImpl implements AnimeService {
         }
     }
 
-    private List<AnimeVO> sortAndConvert(List<Anime> list, String sortBy) {
-        List<Anime> sorted = new ArrayList<>(list);
-
-        switch (sortBy != null ? sortBy : "id-desc") {
-            case "score-desc" -> sorted.sort((a, b) -> {
-                if (a.getScore() == null) return 1;
-                if (b.getScore() == null) return -1;
-                return b.getScore().compareTo(a.getScore());
-            });
-            case "score-asc" -> sorted.sort((a, b) -> {
-                if (a.getScore() == null) return -1;
-                if (b.getScore() == null) return 1;
-                return a.getScore().compareTo(b.getScore());
-            });
-            case "progress-desc" -> sorted.sort((a, b) -> {
-                double pa = (double) a.getCurrentEpisode() / a.getTotalEpisodes();
-                double pb = (double) b.getCurrentEpisode() / b.getTotalEpisodes();
-                return Double.compare(pb, pa);
-            });
-            case "progress-asc" -> sorted.sort((a, b) -> {
-                double pa = (double) a.getCurrentEpisode() / a.getTotalEpisodes();
-                double pb = (double) b.getCurrentEpisode() / b.getTotalEpisodes();
-                return Double.compare(pa, pb);
-            });
-            case "name-asc" -> sorted.sort(Comparator.comparing(Anime::getName));
-            default -> sorted.sort(Comparator.comparing(Anime::getId).reversed());
-        }
-
-        return sorted.stream().map(this::toVO).collect(Collectors.toList());
+    private Sort buildSort(String sortBy) {
+        return switch (sortBy != null ? sortBy : "id-desc") {
+            case "score-desc" -> Sort.by(Sort.Direction.DESC, "score");
+            case "score-asc" -> Sort.by(Sort.Direction.ASC, "score");
+            case "progress-desc" -> Sort.by(Sort.Direction.DESC, "currentEpisode");
+            case "progress-asc" -> Sort.by(Sort.Direction.ASC, "currentEpisode");
+            case "name-asc" -> Sort.by(Sort.Direction.ASC, "name");
+            default -> Sort.by(Sort.Direction.DESC, "id");
+        };
     }
 
     private AnimeVO toVO(Anime anime) {

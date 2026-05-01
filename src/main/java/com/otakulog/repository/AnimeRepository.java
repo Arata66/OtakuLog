@@ -8,6 +8,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
+import org.springframework.data.domain.Sort;
+
 import java.util.List;
 
 @Repository
@@ -15,9 +17,15 @@ public interface AnimeRepository extends JpaRepository<Anime, Long> {
 
     List<Anime> findByNameContaining(String name);
 
+    List<Anime> findByNameContaining(String name, Sort sort);
+
     List<Anime> findByStatus(AnimeStatus status);
 
+    List<Anime> findByStatus(AnimeStatus status, Sort sort);
+
     List<Anime> findByNameContainingAndStatus(String name, AnimeStatus status);
+
+    List<Anime> findByNameContainingAndStatus(String name, AnimeStatus status, Sort sort);
 
     long countByStatus(AnimeStatus status);
 

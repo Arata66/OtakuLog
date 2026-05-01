@@ -298,6 +298,77 @@
         @keyframes tIn { from { opacity: 0; transform: translateX(40px) scale(0.95); } to { opacity: 1; transform: translateX(0) scale(1); } }
         @keyframes tOut { from { opacity: 1; transform: translateX(0); } to { opacity: 0; transform: translateX(40px); } }
 
+        /* === Gallery View === */
+        .gallery-container { display: none; }
+        .gallery-container.active { display: block; }
+        .table-card.hidden { display: none; }
+        .gallery-grid {
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 20px; padding: 4px;
+        }
+        .g-card {
+            background: var(--card); border-radius: var(--radius);
+            box-shadow: var(--shadow); overflow: hidden;
+            transition: all 0.35s cubic-bezier(0.16,1,0.3,1);
+            position: relative;
+        }
+        .g-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-hover); }
+        .g-cover {
+            width: 100%; aspect-ratio: 3/4; object-fit: cover;
+            background: var(--bg-warm); display: block;
+        }
+        .g-cover-empty {
+            width: 100%; aspect-ratio: 3/4;
+            background: linear-gradient(135deg, var(--bg-warm), var(--border-light));
+            display: flex; align-items: center; justify-content: center;
+            font-family: var(--serif); font-size: 2.5em; color: var(--text-faint);
+        }
+        .g-body { padding: 16px; }
+        .g-name { font-weight: 600; font-size: 0.92em; color: var(--text); margin-bottom: 8px; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+        .g-meta { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+        .g-tag { font-size: 0.7em; padding: 3px 8px; border-radius: 6px; font-weight: 500; }
+        .g-season { background: var(--bg); color: var(--text-mid); border: 1px solid var(--border-light); }
+        .g-score { font-family: var(--serif); }
+        .g-score.sc-high { background: var(--sage-soft); color: #5a8a60; }
+        .g-score.sc-mid { background: var(--amber-soft); color: #a08050; }
+        .g-score.sc-low { background: var(--rose-soft); color: #a06070; }
+        .g-progress { height: 4px; background: var(--border-light); border-radius: 2px; overflow: hidden; margin-bottom: 10px; }
+        .g-progress-bar { height: 100%; border-radius: 2px; transition: width 0.4s ease; }
+        .g-progress-bar.watching { background: var(--blue); }
+        .g-progress-bar.finished { background: var(--purple); }
+        .g-progress-bar.planning { background: var(--amber); }
+        .g-progress-bar.dropped { background: var(--rose); }
+        .g-ep { font-size: 0.75em; color: var(--text-dim); margin-bottom: 8px; font-variant-numeric: tabular-nums; }
+        .g-actions { display: flex; gap: 4px; opacity: 0; transition: opacity 0.25s; }
+        .g-card:hover .g-actions { opacity: 1; }
+        .g-btn {
+            border: 1.5px solid var(--border); background: var(--bg);
+            padding: 5px 10px; border-radius: 6px; cursor: pointer;
+            font-size: 0.72em; font-weight: 500; transition: all 0.2s;
+            font-family: inherit; color: var(--text-mid);
+        }
+        .g-btn:hover { border-color: #d4cfc6; color: var(--text); background: var(--card); }
+        .g-btn.ep { border-color: var(--blue); color: #5a8ab0; background: var(--blue-soft); }
+        .g-btn.del { border-color: var(--rose); color: var(--rose); background: var(--rose-soft); }
+
+        /* View toggle */
+        .view-toggle { display: flex; gap: 2px; background: var(--bg); border: 1.5px solid var(--border); border-radius: 8px; padding: 2px; }
+        .view-btn {
+            border: none; background: transparent; padding: 6px 10px;
+            border-radius: 6px; cursor: pointer; color: var(--text-dim);
+            transition: all 0.2s; font-size: 0.85em; line-height: 1;
+        }
+        .view-btn.active { background: var(--card); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+        .view-btn:hover:not(.active) { color: var(--text-mid); }
+
+        /* Gallery edit overlay */
+        .g-edit-overlay {
+            position: absolute; inset: 0; background: rgba(255,255,255,0.97);
+            padding: 16px; display: flex; flex-direction: column; gap: 8px;
+            z-index: 2; animation: fadeUp 0.25s ease;
+        }
+        .g-edit-overlay .ff input { width: 100%; padding: 8px 10px; font-size: 0.82em; }
+
         /* Scrollbar */
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: transparent; }
@@ -311,6 +382,7 @@
             .search-strip { flex-direction: column; align-items: stretch; }
             .search-strip input, .search-strip select { width: 100%; }
             .header { flex-direction: column; align-items: flex-start; gap: 16px; }
+            .gallery-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
         }
     </style>
 </head>
@@ -365,6 +437,10 @@
                 <select id="filterStatus"><option value="">全部</option><option value="watching">追中</option><option value="finished">已完成</option><option value="planning">计划</option><option value="dropped">放弃</option></select>
                 <label>排序</label>
                 <select id="sortBy"><option value="id-desc">最新添加</option><option value="score-desc">评分高到低</option><option value="score-asc">评分低到高</option><option value="progress-desc">进度高到低</option><option value="progress-asc">进度低到高</option><option value="name-asc">名称序</option></select>
+                <div class="view-toggle">
+                    <button class="view-btn active" id="viewTable" onclick="toggleView('table')" title="列表视图">&#9776;</button>
+                    <button class="view-btn" id="viewGallery" onclick="toggleView('gallery')" title="画廊视图">&#9638;</button>
+                </div>
                 <button class="btn-sm" onclick="resetSearch()">重置</button>
             </div>
 
@@ -379,6 +455,7 @@
                         <div class="ff"><label>评分</label><input type="number" id="animeScore" placeholder="8.5" min="0" max="10" step="0.1" required></div>
                         <div class="ff"><label>封面URL</label><input type="text" id="animeCover" placeholder="可选"></div>
                         <div class="ff"><label>开播日期</label><input type="date" id="animeStartDate"></div>
+                        <div class="ff"><label>完结日期</label><input type="date" id="animeEndDate"></div>
                         <div class="ff"><label>备注</label><input type="text" id="animeRemark" placeholder="强烈推荐"></div>
                         <button type="submit" class="btn-add">+ 添加</button>
                     </div>
@@ -393,7 +470,7 @@
 
             <div class="table-card" th:if="${!#lists.isEmpty(animeList)}">
                 <table>
-                    <thead><tr><th></th><th>#</th><th>作品名</th><th>季度</th><th>状态</th><th>评分</th><th>集数</th><th>备注</th><th></th></tr></thead>
+                    <thead><tr><th></th><th>#</th><th>作品名</th><th>季度</th><th>状态</th><th>评分</th><th>集数</th><th>备注</th><th></th><th style="display:none;"></th><th style="display:none;"></th><th style="display:none;"></th></tr></thead>
                     <tbody>
                         <tr th:each="a, s : ${animeList}" th:id="'r-' + ${a.id}">
                             <td><img th:if="${a.coverUrl != null and !a.coverUrl.isEmpty()}" th:src="${a.coverUrl}" class="cover-img" onerror="this.outerHTML='<div class=cover-empty>N/A</div>'"><div th:if="${a.coverUrl == null or a.coverUrl.isEmpty()}" class="cover-empty">N/A</div></td>
@@ -407,14 +484,22 @@
                                 <option value="dropped" th:selected="${a.status == 'dropped'}">放弃</option>
                             </select></td>
                             <td class="esc"><span class="dt" th:text="${a.score}"></span><input type="number" class="e-input" th:value="${a.score}" step="0.1" min="0" max="10" style="display:none;"></td>
-                            <td class="ep" th:text="${a.currentEpisode} + ' / ' + ${a.totalEpisodes}"></td>
+                            <td class="ep"><span class="dt" th:text="${a.currentEpisode} + ' / ' + ${a.totalEpisodes}"></span><span style="display:none;" class="ep-edit"><span th:text="${a.currentEpisode}"></span> / <input type="number" class="e-input ete" th:value="${a.totalEpisodes}" min="1" style="width:60px;"></span></td>
                             <td class="er"><span class="dt" th:text="${a.remark}"></span><input type="text" class="e-input" th:value="${a.remark}" style="display:none;"></td>
-                            <td><div class="acts na"><button class="a-btn" th:onclick="'te(' + ${a.id} + ')'">Edit</button><button class="a-btn ep-btn" th:onclick="'pe(' + ${a.id} + ')'" title="Prev">-</button><button class="a-btn ep-btn" th:onclick="'ne(' + ${a.id} + ')'" title="Next">+</button></div><div class="acts ea" style="display:none;"><button class="a-btn del" th:onclick="'da(' + ${a.id} + ')'">Delete</button><button class="a-btn save" th:onclick="'se(' + ${a.id} + ')'">Save</button><button class="a-btn" th:onclick="'ce(' + ${a.id} + ')'">Cancel</button></div></td>
+                            <td><div class="acts na"><button class="a-btn" th:onclick="'te(' + ${a.id} + ')'">编辑</button><button class="a-btn ep-btn" th:onclick="'pe(' + ${a.id} + ')'" title="上一集">-</button><button class="a-btn ep-btn" th:onclick="'ne(' + ${a.id} + ')'" title="下一集">+</button></div><div class="acts ea" style="display:none;"><button class="a-btn del" th:onclick="'da(' + ${a.id} + ')'">删除</button><button class="a-btn save" th:onclick="'se(' + ${a.id} + ')'">保存</button><button class="a-btn" th:onclick="'ce(' + ${a.id} + ')'">取消</button></div></td>
+                            <td class="ecu" style="display:none;"><input type="text" class="e-input" th:value="${a.coverUrl}" placeholder="封面URL"></td>
+                            <td class="esd" style="display:none;"><input type="date" class="e-input" th:value="${a.startDate}"></td>
+                            <td class="eed" style="display:none;"><input type="date" class="e-input" th:value="${a.endDate}"></td>
                         </tr>
                     </tbody>
                 </table>
             </div>
             <div class="empty" style="display:none;" id="emptySearch"><div class="e-icon">?</div><p>没有找到匹配的番剧</p></div>
+
+            <!-- Gallery -->
+            <div class="gallery-container" id="galleryView">
+                <div class="gallery-grid" id="galleryGrid"></div>
+            </div>
         </div>
 
         <!-- ===== Charts ===== -->
@@ -434,10 +519,12 @@
 
     <script>
         const SM = { watching: '追中', finished: '已完成', planning: '计划', dropped: '放弃' };
+        let viewMode = localStorage.getItem('otakulog-view') || 'table';
         function esc(s) { if (s == null) return ''; const d = document.createElement('div'); d.appendChild(document.createTextNode(s)); return d.innerHTML; }
         function toast(m, t = 'info') { const c = document.getElementById('tw'), el = document.createElement('div'); el.className = 'toast ' + t; el.textContent = m; c.appendChild(el); setTimeout(() => el.remove(), 3000); }
         function sc(s) { return s >= 8 ? 'sc-high' : s >= 6 ? 'sc-mid' : 'sc-low'; }
 
+        /* Tabs */
         function switchTab(n) {
             document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
             document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
@@ -447,21 +534,57 @@
             if (n === 'timeline') loadTL();
         }
 
+        /* View toggle */
+        function toggleView(mode) {
+            viewMode = mode;
+            localStorage.setItem('otakulog-view', mode);
+            document.getElementById('viewTable').classList.toggle('active', mode === 'table');
+            document.getElementById('viewGallery').classList.toggle('active', mode === 'gallery');
+            document.querySelector('.table-card').classList.toggle('hidden', mode === 'gallery');
+            document.getElementById('galleryView').classList.toggle('active', mode === 'gallery');
+            ps();
+        }
+
+        /* Episodes */
         function ne(id) { fetch(`/api/anime/${id}/next-episode`, { method: 'POST' }).then(r => r.json()).then(r => { if (r.code === 200) { toast('集数已更新', 'success'); ps(); us(); } else if (r.message === 'reached_max') toast('已经是最后一集了', 'info'); else toast('更新失败', 'error'); }).catch(() => toast('请求失败', 'error')); }
         function pe(id) { fetch(`/api/anime/${id}/prev-episode`, { method: 'POST' }).then(r => r.json()).then(r => { if (r.code === 200) { toast('集数已更新', 'success'); ps(); us(); } else if (r.message === 'reached_min') toast('已经是第1集了', 'info'); else toast('更新失败', 'error'); }).catch(() => toast('请求失败', 'error')); }
 
+        /* Add anime */
         function addAnime(e) {
             e.preventDefault();
-            const b = { name: document.getElementById('animeName').value, totalEpisodes: parseInt(document.getElementById('totalEpisodes').value), season: document.getElementById('animeSeason').value, score: parseFloat(document.getElementById('animeScore').value), remark: document.getElementById('animeRemark').value, coverUrl: document.getElementById('animeCover').value || null, startDate: document.getElementById('animeStartDate').value || null, endDate: null };
+            const b = { name: document.getElementById('animeName').value, totalEpisodes: parseInt(document.getElementById('totalEpisodes').value), season: document.getElementById('animeSeason').value, score: parseFloat(document.getElementById('animeScore').value), remark: document.getElementById('animeRemark').value, coverUrl: document.getElementById('animeCover').value || null, startDate: document.getElementById('animeStartDate').value || null, endDate: document.getElementById('animeEndDate').value || null };
             fetch('/api/anime/add', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b) }).then(r => r.json()).then(r => { if (r.code === 200) { toast('已添加', 'success'); document.getElementById('animeForm').reset(); ps(); us(); } else toast(r.message || '添加失败', 'error'); }).catch(() => toast('请求失败', 'error'));
         }
 
-        function te(id) { const r = document.getElementById('r-' + id); r.querySelectorAll('[class$="n"],.es,.esc,.er').forEach(f => { const dt = f.querySelector('.dt'), ei = f.querySelector('.e-input'); if (dt && ei) { dt.style.display = 'none'; ei.style.display = 'inline-block'; } }); r.querySelector('.na').style.display = 'none'; r.querySelector('.ea').style.display = 'flex'; }
-        function se(id) { const r = document.getElementById('r-' + id); const n = r.querySelector('.en .e-input').value, s = r.querySelector('.es .e-input').value, sc = r.querySelector('.esc .e-input').value, rm = r.querySelector('.er .e-input').value; if (!n.trim() || !s.trim() || !sc) { toast('请填写必填字段', 'error'); return; } fetch(`/api/anime/${id}/update`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: n, season: s, score: parseFloat(sc), remark: rm }) }).then(r => r.json()).then(r => { if (r.code === 200) { toast('已保存', 'success'); ps(); us(); } else toast(r.message || '保存失败', 'error'); }).catch(() => toast('请求失败', 'error')); }
-        function ce(id) { const r = document.getElementById('r-' + id); r.querySelectorAll('[class$="n"],.es,.esc,.er').forEach(f => { const dt = f.querySelector('.dt'), ei = f.querySelector('.e-input'); if (dt && ei) { dt.style.display = ''; ei.style.display = 'none'; } }); r.querySelector('.na').style.display = ''; r.querySelector('.ea').style.display = 'none'; }
+        /* Inline edit - table */
+        function te(id) {
+            const r = document.getElementById('r-' + id);
+            r.querySelectorAll('.en,.es,.esc,.er').forEach(f => { const dt = f.querySelector('.dt'), ei = f.querySelector('.e-input'); if (dt && ei) { dt.style.display = 'none'; ei.style.display = 'inline-block'; } });
+            const ep = r.querySelector('.ep'); ep.querySelector('.dt').style.display = 'none'; ep.querySelector('.ep-edit').style.display = 'inline';
+            r.querySelectorAll('.ecu,.esd,.eed').forEach(f => { f.style.display = 'table-cell'; f.querySelector('.e-input').style.display = 'inline-block'; });
+            r.querySelector('.na').style.display = 'none'; r.querySelector('.ea').style.display = 'flex';
+        }
+        function se(id) {
+            const r = document.getElementById('r-' + id);
+            const n = r.querySelector('.en .e-input').value, s = r.querySelector('.es .e-input').value, sv = r.querySelector('.esc .e-input').value, rm = r.querySelector('.er .e-input').value;
+            if (!n.trim() || !s.trim() || !sv) { toast('请填写必填字段', 'error'); return; }
+            const tev = r.querySelector('.ete').value;
+            const cu = r.querySelector('.ecu .e-input').value || null;
+            const sd = r.querySelector('.esd .e-input').value || null;
+            const ed = r.querySelector('.eed .e-input').value || null;
+            fetch(`/api/anime/${id}/update`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: n, totalEpisodes: tev ? parseInt(tev) : null, season: s, score: parseFloat(sv), remark: rm, coverUrl: cu, startDate: sd, endDate: ed }) }).then(r => r.json()).then(r => { if (r.code === 200) { toast('已保存', 'success'); ps(); us(); } else toast(r.message || '保存失败', 'error'); }).catch(() => toast('请求失败', 'error'));
+        }
+        function ce(id) {
+            const r = document.getElementById('r-' + id);
+            r.querySelectorAll('.en,.es,.esc,.er').forEach(f => { const dt = f.querySelector('.dt'), ei = f.querySelector('.e-input'); if (dt && ei) { dt.style.display = ''; ei.style.display = 'none'; } });
+            const ep = r.querySelector('.ep'); ep.querySelector('.dt').style.display = ''; ep.querySelector('.ep-edit').style.display = 'none';
+            r.querySelectorAll('.ecu,.esd,.eed').forEach(f => { f.style.display = 'none'; });
+            r.querySelector('.na').style.display = ''; r.querySelector('.ea').style.display = 'none';
+        }
         function da(id) { if (!confirm('确定删除这个番剧吗？')) return; fetch(`/api/anime/${id}`, { method: 'DELETE' }).then(r => r.json()).then(r => { if (r.code === 200) { toast('已删除', 'success'); ps(); us(); } else toast(r.message || '删除失败', 'error'); }).catch(() => toast('请求失败', 'error')); }
         function cs(id) { const v = document.getElementById('ss-' + id).value; if (!v) return; fetch(`/api/anime/${id}/status?status=${encodeURIComponent(v)}`, { method: 'POST' }).then(r => r.json()).then(r => { if (r.code === 200) { toast('状态已更新', 'success'); ps(); us(); } else toast(r.message || '修改失败', 'error'); }).catch(() => toast('请求失败', 'error')); }
 
+        /* Search */
         function ps() {
             const n = document.getElementById('searchName').value.trim(), s = document.getElementById('filterStatus').value, sb = document.getElementById('sortBy').value;
             let u = '/api/anime/search?';
@@ -471,34 +594,65 @@
             fetch(u).then(r => r.json()).then(r => { if (r.code === 200) rt(r.data); else toast(r.message || '搜索出错', 'error'); }).catch(() => toast('搜索出错', 'error'));
         }
 
+        /* Render table + gallery */
         function rt(list) {
-            const tb = document.querySelector('tbody'), tc = document.querySelector('.table-card'), em = document.getElementById('emptySearch');
+            const tb = document.querySelector('tbody'), tc = document.querySelector('.table-card'), em = document.getElementById('emptySearch'), gc = document.getElementById('galleryView');
             if (!tb) return; tb.innerHTML = '';
-            if (!list || list.length === 0) { if (tc) tc.style.display = 'none'; if (em) em.style.display = ''; return; }
-            if (tc) tc.style.display = ''; if (em) em.style.display = 'none';
+            if (!list || list.length === 0) {
+                if (tc) tc.style.display = 'none'; if (gc) gc.style.display = 'none'; if (em) em.style.display = ''; return;
+            }
+            if (em) em.style.display = 'none';
+            if (viewMode === 'table') { if (tc) tc.style.display = ''; if (gc) gc.style.display = 'none'; }
+            else { if (tc) tc.style.display = 'none'; if (gc) gc.style.display = ''; }
             list.forEach((a, i) => {
+                /* Table row */
                 const r = document.createElement('tr'); r.id = 'r-' + a.id;
                 const cv = a.coverUrl ? `<img src="${esc(a.coverUrl)}" class="cover-img" onerror="this.outerHTML='<div class=cover-empty>N/A</div>'">` : '<div class="cover-empty">N/A</div>';
-                const pc = a.status === 'watching' ? 'pill-watching' : a.status === 'finished' ? 'pill-finished' : a.status === 'planning' ? 'pill-planning' : 'pill-dropped';
                 r.innerHTML = `<td>${cv}</td><td>${i+1}</td>
                     <td class="en"><span class="dt">${esc(a.name)}</span><input type="text" class="e-input" value="${esc(a.name)}" style="display:none;"></td>
                     <td class="es"><span class="season-tag dt">${esc(a.season)}</span><input type="text" class="e-input" value="${esc(a.season)}" style="display:none;"></td>
                     <td><select class="e-select" id="ss-${a.id}" onchange="cs(${a.id})"><option value="watching" ${a.status==='watching'?'selected':''}>追中</option><option value="finished" ${a.status==='finished'?'selected':''}>已完成</option><option value="planning" ${a.status==='planning'?'selected':''}>计划</option><option value="dropped" ${a.status==='dropped'?'selected':''}>放弃</option></select></td>
                     <td class="esc"><span class="score-pill ${sc(a.score)} dt">${esc(String(a.score))}</span><input type="number" class="e-input" value="${a.score}" step="0.1" min="0" max="10" style="display:none;"></td>
-                    <td class="ep">${a.currentEpisode} / ${a.totalEpisodes}</td>
+                    <td class="ep"><span class="dt">${a.currentEpisode} / ${a.totalEpisodes}</span><span style="display:none;" class="ep-edit">${a.currentEpisode} / <input type="number" class="e-input ete" value="${a.totalEpisodes}" min="1" style="width:60px;"></span></td>
                     <td class="er"><span class="dt">${esc(a.remark)}</span><input type="text" class="e-input" value="${esc(a.remark)}" style="display:none;"></td>
-                    <td><div class="acts na"><button class="a-btn" onclick="te(${a.id})">编辑</button><button class="a-btn ep-btn" onclick="pe(${a.id})">-</button><button class="a-btn ep-btn" onclick="ne(${a.id})">+</button></div><div class="acts ea" style="display:none;"><button class="a-btn del" onclick="da(${a.id})">删除</button><button class="a-btn save" onclick="se(${a.id})">保存</button><button class="a-btn" onclick="ce(${a.id})">取消</button></div></td>`;
+                    <td><div class="acts na"><button class="a-btn" onclick="te(${a.id})">编辑</button><button class="a-btn ep-btn" onclick="pe(${a.id})">-</button><button class="a-btn ep-btn" onclick="ne(${a.id})">+</button></div><div class="acts ea" style="display:none;"><button class="a-btn del" onclick="da(${a.id})">删除</button><button class="a-btn save" onclick="se(${a.id})">保存</button><button class="a-btn" onclick="ce(${a.id})">取消</button></div></td>
+                    <td class="ecu" style="display:none;"><input type="text" class="e-input" value="${esc(a.coverUrl || '')}" placeholder="封面URL"></td>
+                    <td class="esd" style="display:none;"><input type="date" class="e-input" value="${a.startDate || ''}"></td>
+                    <td class="eed" style="display:none;"><input type="date" class="e-input" value="${a.endDate || ''}"></td>`;
                 tb.appendChild(r);
+            });
+            renderGallery(list);
+        }
+
+        function renderGallery(list) {
+            const g = document.getElementById('galleryGrid'); if (!g) return; g.innerHTML = '';
+            list.forEach(a => {
+                const card = document.createElement('div'); card.className = 'g-card'; card.id = 'gc-' + a.id;
+                const pct = a.totalEpisodes > 0 ? Math.round(a.currentEpisode / a.totalEpisodes * 100) : 0;
+                const cover = a.coverUrl ? `<img src="${esc(a.coverUrl)}" class="g-cover" onerror="this.outerHTML='<div class=g-cover-empty>${esc(a.name.charAt(0))}</div>'">` : `<div class="g-cover-empty">${esc(a.name.charAt(0))}</div>`;
+                card.innerHTML = `${cover}
+                    <div class="g-body">
+                        <div class="g-name">${esc(a.name)}</div>
+                        <div class="g-meta"><span class="g-tag g-season">${esc(a.season)}</span><span class="g-tag g-score ${sc(a.score)}">${a.score}</span></div>
+                        <div class="g-progress"><div class="g-progress-bar ${a.status}" style="width:${pct}%"></div></div>
+                        <div class="g-ep">${a.currentEpisode} / ${a.totalEpisodes} ep &middot; ${SM[a.status] || a.status}</div>
+                        <div class="g-actions"><button class="g-btn" onclick="te(${a.id});switchViewTable()">编辑</button><button class="g-btn ep" onclick="pe(${a.id})">-</button><button class="g-btn ep" onclick="ne(${a.id})">+</button><button class="g-btn del" onclick="da(${a.id})">删</button></div>
+                    </div>`;
+                g.appendChild(card);
             });
         }
 
+        function switchViewTable() { if (viewMode === 'gallery') toggleView('table'); }
+
         function resetSearch() { document.getElementById('searchName').value = ''; document.getElementById('filterStatus').value = ''; document.getElementById('sortBy').value = 'id-desc'; toast('已重置', 'info'); ps(); }
 
+        /* Stats */
         function us() {
             fetch('/api/anime/stats').then(r => r.json()).then(r => { if (r.code !== 200) return; const d = r.data; document.getElementById('stat-total').textContent = d.total || 0; document.getElementById('stat-watching').textContent = d.watching || 0; document.getElementById('stat-finished').textContent = d.finished || 0; document.getElementById('stat-planning').textContent = d.planning || 0; document.getElementById('stat-dropped').textContent = d.dropped || 0; }).catch(() => {});
             fetch('/api/anime/stats/detailed').then(r => r.json()).then(r => { if (r.code !== 200) return; const d = r.data; document.getElementById('stat-progress').textContent = (d.progressPercentage || 0).toFixed(1) + '%'; document.getElementById('stat-episodes').textContent = (d.watchedEpisodes || 0) + ' / ' + (d.totalEpisodes || 0); document.getElementById('stat-avg-score').textContent = (d.averageScore || 0).toFixed(1); document.getElementById('stat-high-score').textContent = d.highScore || 0; document.getElementById('stat-medium-score').textContent = d.mediumScore || 0; document.getElementById('stat-low-score').textContent = d.lowScore || 0; }).catch(() => {});
         }
 
+        /* Charts */
         let ch1 = null, ch2 = null;
         Chart.defaults.font.family = 'Inter';
         Chart.defaults.color = '#a89f94';
@@ -514,6 +668,7 @@
             fetch('/api/anime/stats/seasons').then(r => r.json()).then(r => { if (r.code !== 200) return; const c = document.getElementById('sg'); c.innerHTML = ''; (r.data.seasons || []).forEach(s => { const el = document.createElement('div'); el.className = 'season-card'; el.innerHTML = `<div class="sn">${esc(s.season)}</div><div class="sc">${s.count}</div><div class="sa">${s.avgScore != null ? 'avg ' + s.avgScore.toFixed(1) : '-'}</div>`; c.appendChild(el); }); }).catch(() => {});
         }
 
+        /* Timeline */
         function loadTL() {
             fetch('/api/anime/timeline').then(r => r.json()).then(r => {
                 if (r.code !== 200) return; const c = document.getElementById('tl'); c.innerHTML = '';
@@ -522,10 +677,19 @@
             }).catch(() => {});
         }
 
+        /* Export / Import */
         function exportData() { fetch('/api/anime/export').then(r => r.blob()).then(b => { const u = URL.createObjectURL(b), a = document.createElement('a'); a.href = u; a.download = 'otakulog_export.json'; a.click(); URL.revokeObjectURL(u); toast('导出成功', 'success'); }).catch(() => toast('导出失败', 'error')); }
         function importData(e) { const f = e.target.files[0]; if (!f) return; const rd = new FileReader(); rd.onload = function(ev) { fetch('/api/anime/import', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: ev.target.result }).then(r => r.json()).then(r => { if (r.code === 200) { toast(r.message || '导入成功', 'success'); ps(); us(); } else toast(r.message || '导入失败', 'error'); }).catch(() => toast('导入失败', 'error')); }; rd.readAsText(f); e.target.value = ''; }
 
-        function init() { if (window.__i) return; window.__i = true; us(); document.getElementById('searchName').addEventListener('input', ps); document.getElementById('filterStatus').addEventListener('change', ps); document.getElementById('sortBy').addEventListener('change', ps); }
+        /* Init */
+        function init() {
+            if (window.__i) return; window.__i = true;
+            us();
+            if (viewMode === 'gallery') { document.querySelector('.table-card').classList.add('hidden'); document.getElementById('galleryView').classList.add('active'); document.getElementById('viewTable').classList.remove('active'); document.getElementById('viewGallery').classList.add('active'); }
+            document.getElementById('searchName').addEventListener('input', ps);
+            document.getElementById('filterStatus').addEventListener('change', ps);
+            document.getElementById('sortBy').addEventListener('change', ps);
+        }
         if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
     </script>
 </body>

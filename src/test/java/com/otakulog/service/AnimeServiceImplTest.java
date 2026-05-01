@@ -171,8 +171,9 @@ class AnimeServiceImplTest {
         assertTrue(json.contains("番1"));
 
         animeRepository.deleteAll();
-        List<AnimeVO> imported = animeService.importJson(json);
-        assertEquals(2, imported.size());
+        Map<String, Object> result = animeService.importJson(json);
+        assertEquals(2, result.get("created"));
+        assertEquals(0, result.get("updated"));
     }
 
     @Test

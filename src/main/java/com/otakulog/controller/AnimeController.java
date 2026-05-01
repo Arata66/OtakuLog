@@ -166,10 +166,12 @@ public class AnimeController {
 
     @PostMapping("/api/anime/import")
     @ResponseBody
-    public ResponseEntity<ApiResponse<List<AnimeVO>>> importJson(@RequestBody String json) {
+    public ResponseEntity<ApiResponse<Map<String, Object>>> importJson(@RequestBody String json) {
         try {
-            List<AnimeVO> result = animeService.importJson(json);
-            return ResponseEntity.ok(ApiResponse.success("导入成功，共 " + result.size() + " 条", result));
+            Map<String, Object> result = animeService.importJson(json);
+            int created = (int) result.get("created");
+            int updated = (int) result.get("updated");
+            return ResponseEntity.ok(ApiResponse.success("已导入 " + created + " 条新记录，更新 " + updated + " 条", result));
         } catch (Exception e) {
             return ResponseEntity.ok(ApiResponse.error(e.getMessage()));
         }

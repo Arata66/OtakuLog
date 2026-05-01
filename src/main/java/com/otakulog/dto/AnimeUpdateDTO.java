@@ -8,6 +8,9 @@ public class AnimeUpdateDTO {
     @Size(max = 100, message = "名称长度不能超过100个字符")
     private String name;
 
+    @Min(value = 1, message = "总集数不能小于1")
+    private Integer totalEpisodes;
+
     @NotBlank(message = "季度不能为空")
     @Size(max = 50, message = "季度长度不能超过50个字符")
     private String season;
@@ -31,6 +34,14 @@ public class AnimeUpdateDTO {
 
     public void setName(String name) {
         this.name = name;
+    }
+
+    public Integer getTotalEpisodes() {
+        return totalEpisodes;
+    }
+
+    public void setTotalEpisodes(Integer totalEpisodes) {
+        this.totalEpisodes = totalEpisodes;
     }
 
     public String getSeason() {

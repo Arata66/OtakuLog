@@ -39,5 +39,5 @@ public interface AnimeService {
 
     String exportJson();
 
-    List<AnimeVO> importJson(String json);
+    Map<String, Object> importJson(String json);
 }
