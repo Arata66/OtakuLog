@@ -156,6 +156,9 @@
             margin-bottom: 20px; font-weight: 400;
         }
         .form-grid { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; }
+        .form-row { display: flex; gap: 8px; align-items: flex-end; flex: 1; min-width: 280px; }
+        .form-row .ff { flex: 1; }
+        .form-row .ff input { width: 100%; }
         .ff { display: flex; flex-direction: column; gap: 5px; }
         .ff label { font-size: 0.7em; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px; font-weight: 600; }
         .ff input {
@@ -464,6 +467,29 @@
         .btn-bangumi:hover { border-color: var(--coral); color: var(--coral); background: var(--coral-soft); }
         .btn-bangumi:disabled { opacity: 0.5; cursor: not-allowed; }
 
+        /* Edit Modal */
+        .modal-overlay {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.3);
+            z-index: 1000; display: flex; align-items: center; justify-content: center;
+            animation: fadeUp 0.2s ease;
+        }
+        .modal-card {
+            background: var(--card); border-radius: var(--radius);
+            box-shadow: 0 16px 48px rgba(0,0,0,0.12); padding: 32px;
+            width: 420px; max-width: 90vw; max-height: 85vh; overflow-y: auto;
+        }
+        .modal-card h3 { font-family: var(--serif); font-size: 1.1em; color: var(--text); margin-bottom: 20px; font-weight: 400; }
+        .modal-field { margin-bottom: 14px; }
+        .modal-field label { display: block; font-size: 0.72em; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px; font-weight: 600; margin-bottom: 5px; }
+        .modal-field input, .modal-field select {
+            width: 100%; background: var(--bg); border: 1.5px solid var(--border);
+            color: var(--text); padding: 10px 14px; border-radius: 10px;
+            font-size: 0.88em; font-family: inherit; transition: all 0.25s;
+        }
+        .modal-field input:focus, .modal-field select:focus { outline: none; border-color: var(--amber); box-shadow: 0 0 0 3px var(--amber-soft); background: var(--card); }
+        .modal-field select option { background: var(--card); }
+        .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 20px; }
+
         /* Gallery edit overlay */
         .g-edit-overlay {
             position: absolute; inset: 0; background: rgba(255,255,255,0.97);
@@ -553,8 +579,10 @@
                 <h3>添加新番</h3>
                 <form id="animeForm" onsubmit="addAnime(event)">
                     <div class="form-grid">
-                        <div class="ff" style="flex:1;min-width:180px;"><label>番剧名</label><input type="text" id="animeName" placeholder="输入名称后点击搜索自动填充" required></div>
-                        <button type="button" class="btn-bangumi" id="btnBangumi" onclick="searchBangumi()">从 Bangumi 搜索</button>
+                        <div class="form-row">
+                            <div class="ff"><label>番剧名</label><input type="text" id="animeName" placeholder="输入名称后搜索" required></div>
+                            <button type="button" class="btn-bangumi" id="btnBangumi" onclick="searchBangumi()">Bangumi 搜索</button>
+                        </div>
                         <div class="ff"><label>总集数</label><input type="number" id="totalEpisodes" placeholder="12" min="1" required></div>
                         <div class="ff"><label>季度</label><input type="text" id="animeSeason" placeholder="2024冬" required></div>
                         <div class="ff"><label>评分</label><input type="number" id="animeScore" placeholder="8.5" min="0" max="10" step="0.1" required></div>
@@ -579,7 +607,7 @@
 
             <div class="table-card" th:if="${!#lists.isEmpty(animeList)}">
                 <table>
-                    <thead><tr><th></th><th>#</th><th>作品名</th><th>季度</th><th>状态</th><th>评分</th><th>集数</th><th>备注</th><th></th><th style="display:none;"></th><th style="display:none;"></th><th style="display:none;"></th></tr></thead>
+                    <thead><tr><th></th><th>#</th><th>作品名</th><th>季度</th><th>状态</th><th>评分</th><th>集数</th><th>备注</th><th></th></tr></thead>
                     <tbody>
                         <tr th:each="a, s : ${animeList}" th:id="'r-' + ${a.id}">
                             <td><img th:if="${a.coverUrl != null and !a.coverUrl.isEmpty()}" th:src="${a.coverUrl}" class="cover-img" onerror="this.outerHTML='<div class=cover-empty>N/A</div>'"><div th:if="${a.coverUrl == null or a.coverUrl.isEmpty()}" class="cover-empty">N/A</div></td>
@@ -595,10 +623,7 @@
                             <td class="esc"><span class="dt" th:text="${a.score}"></span><input type="number" class="e-input" th:value="${a.score}" step="0.1" min="0" max="10" style="display:none;"></td>
                             <td class="ep"><span class="dt" th:text="${a.currentEpisode} + ' / ' + ${a.totalEpisodes}"></span><span style="display:none;" class="ep-edit"><span th:text="${a.currentEpisode}"></span> / <input type="number" class="e-input ete" th:value="${a.totalEpisodes}" min="1" style="width:60px;"></span></td>
                             <td class="er"><span class="dt" th:text="${a.remark}"></span><input type="text" class="e-input" th:value="${a.remark}" style="display:none;"></td>
-                            <td><div class="acts na"><button class="a-btn" th:onclick="'te(' + ${a.id} + ')'">编辑</button><button class="a-btn ep-btn" th:onclick="'pe(' + ${a.id} + ')'" title="上一集">-</button><button class="a-btn ep-btn" th:onclick="'ne(' + ${a.id} + ')'" title="下一集">+</button></div><div class="acts ea" style="display:none;"><button class="a-btn del" th:onclick="'da(' + ${a.id} + ')'">删除</button><button class="a-btn save" th:onclick="'se(' + ${a.id} + ')'">保存</button><button class="a-btn" th:onclick="'ce(' + ${a.id} + ')'">取消</button></div></td>
-                            <td class="ecu" style="display:none;"><input type="text" class="e-input" th:value="${a.coverUrl}" placeholder="封面URL"></td>
-                            <td class="esd" style="display:none;"><input type="date" class="e-input" th:value="${a.startDate}"></td>
-                            <td class="eed" style="display:none;"><input type="date" class="e-input" th:value="${a.endDate}"></td>
+                            <td><div class="acts na"><button class="a-btn" th:onclick="'openEditModal(' + ${a.id} + ')'">编辑</button><button class="a-btn ep-btn" th:onclick="'pe(' + ${a.id} + ')'" title="上一集">-</button><button class="a-btn ep-btn" th:onclick="'ne(' + ${a.id} + ')'" title="下一集">+</button></div></td>
                         </tr>
                     </tbody>
                 </table>
@@ -723,30 +748,40 @@
         }
         function closeBangumi() { document.getElementById('bangumiResults').classList.remove('active'); }
 
-        /* Inline edit - table */
-        function te(id) {
-            const r = document.getElementById('r-' + id);
-            r.querySelectorAll('.en,.es,.esc,.er').forEach(f => { const dt = f.querySelector('.dt'), ei = f.querySelector('.e-input'); if (dt && ei) { dt.style.display = 'none'; ei.style.display = 'inline-block'; } });
-            const ep = r.querySelector('.ep'); ep.querySelector('.dt').style.display = 'none'; ep.querySelector('.ep-edit').style.display = 'inline';
-            r.querySelectorAll('.ecu,.esd,.eed').forEach(f => { f.style.display = 'table-cell'; f.querySelector('.e-input').style.display = 'inline-block'; });
-            r.querySelector('.na').style.display = 'none'; r.querySelector('.ea').style.display = 'flex';
+        /* Edit modal */
+        function openEditModal(id) {
+            fetch(`/api/anime/search?sortBy=id-desc`).then(r => r.json()).then(r => {
+                if (r.code !== 200) return;
+                const a = r.data.find(x => x.id === id);
+                if (!a) { toast('未找到该番剧', 'error'); return; }
+                const overlay = document.createElement('div'); overlay.className = 'modal-overlay'; overlay.id = 'editModal'; overlay.onclick = function(e) { if (e.target === overlay) closeEditModal(); };
+                const card = document.createElement('div'); card.className = 'modal-card';
+                const statusOpts = ['watching','finished','planning','dropped'].map(s => `<option value="${s}" ${a.status===s?'selected':''}>${SM[s]}</option>`).join('');
+                card.innerHTML = `<h3>编辑 · ${esc(a.name)}</h3>
+                    <div class="modal-field"><label>番剧名</label><input type="text" id="m-name" value="${esc(a.name)}"></div>
+                    <div class="modal-field"><label>总集数</label><input type="number" id="m-total" value="${a.totalEpisodes}" min="1"></div>
+                    <div class="modal-field"><label>季度</label><input type="text" id="m-season" value="${esc(a.season)}"></div>
+                    <div class="modal-field"><label>评分</label><input type="number" id="m-score" value="${a.score}" min="0" max="10" step="0.1"></div>
+                    <div class="modal-field"><label>封面 URL</label><input type="text" id="m-cover" value="${esc(a.coverUrl || '')}"></div>
+                    <div class="modal-field"><label>开播日期</label><input type="date" id="m-start" value="${a.startDate || ''}"></div>
+                    <div class="modal-field"><label>完结日期</label><input type="date" id="m-end" value="${a.endDate || ''}"></div>
+                    <div class="modal-field"><label>备注</label><input type="text" id="m-remark" value="${esc(a.remark || '')}"></div>
+                    <div class="modal-field"><label>状态</label><select id="m-status">${statusOpts}</select></div>
+                    <div class="modal-actions"><button class="btn-h" onclick="closeEditModal()">取消</button><button class="btn-add" onclick="saveEditModal(${id})">保存</button></div>`;
+                overlay.appendChild(card); document.body.appendChild(overlay);
+            }).catch(() => toast('加载失败', 'error'));
         }
-        function se(id) {
-            const r = document.getElementById('r-' + id);
-            const n = r.querySelector('.en .e-input').value, s = r.querySelector('.es .e-input').value, sv = r.querySelector('.esc .e-input').value, rm = r.querySelector('.er .e-input').value;
-            if (!n.trim() || !s.trim() || !sv) { toast('请填写必填字段', 'error'); return; }
-            const tev = r.querySelector('.ete').value;
-            const cu = r.querySelector('.ecu .e-input').value || null;
-            const sd = r.querySelector('.esd .e-input').value || null;
-            const ed = r.querySelector('.eed .e-input').value || null;
-            fetch(`/api/anime/${id}/update`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: n, totalEpisodes: tev ? parseInt(tev) : null, season: s, score: parseFloat(sv), remark: rm, coverUrl: cu, startDate: sd, endDate: ed }) }).then(r => r.json()).then(r => { if (r.code === 200) { toast('已保存', 'success'); ps(); us(); } else toast(r.message || '保存失败', 'error'); }).catch(() => toast('请求失败', 'error'));
-        }
-        function ce(id) {
-            const r = document.getElementById('r-' + id);
-            r.querySelectorAll('.en,.es,.esc,.er').forEach(f => { const dt = f.querySelector('.dt'), ei = f.querySelector('.e-input'); if (dt && ei) { dt.style.display = ''; ei.style.display = 'none'; } });
-            const ep = r.querySelector('.ep'); ep.querySelector('.dt').style.display = ''; ep.querySelector('.ep-edit').style.display = 'none';
-            r.querySelectorAll('.ecu,.esd,.eed').forEach(f => { f.style.display = 'none'; });
-            r.querySelector('.na').style.display = ''; r.querySelector('.ea').style.display = 'none';
+        function closeEditModal() { const m = document.getElementById('editModal'); if (m) m.remove(); }
+        function saveEditModal(id) {
+            const n = document.getElementById('m-name').value.trim(), s = document.getElementById('m-season').value.trim(), sv = document.getElementById('m-score').value;
+            if (!n || !s || !sv) { toast('请填写必填字段', 'error'); return; }
+            const body = { name: n, totalEpisodes: parseInt(document.getElementById('m-total').value) || null, season: s, score: parseFloat(sv), coverUrl: document.getElementById('m-cover').value || null, startDate: document.getElementById('m-start').value || null, endDate: document.getElementById('m-end').value || null, remark: document.getElementById('m-remark').value || null };
+            const st = document.getElementById('m-status').value;
+            fetch(`/api/anime/${id}/update`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+                .then(r => r.json()).then(r => {
+                    if (r.code !== 200) { toast(r.message || '保存失败', 'error'); return; }
+                    if (st) { fetch(`/api/anime/${id}/status?status=${encodeURIComponent(st)}`, { method: 'POST' }).then(() => { closeEditModal(); toast('已保存', 'success'); ps(); us(); }); } else { closeEditModal(); toast('已保存', 'success'); ps(); us(); }
+                }).catch(() => toast('请求失败', 'error'));
         }
         function da(id) { if (!confirm('确定删除这个番剧吗？')) return; fetch(`/api/anime/${id}`, { method: 'DELETE' }).then(r => r.json()).then(r => { if (r.code === 200) { toast('已删除', 'success'); ps(); us(); } else toast(r.message || '删除失败', 'error'); }).catch(() => toast('请求失败', 'error')); }
         function cs(id) { const v = document.getElementById('ss-' + id).value; if (!v) return; fetch(`/api/anime/${id}/status?status=${encodeURIComponent(v)}`, { method: 'POST' }).then(r => r.json()).then(r => { if (r.code === 200) { toast('状态已更新', 'success'); ps(); us(); } else toast(r.message || '修改失败', 'error'); }).catch(() => toast('请求失败', 'error')); }
@@ -778,16 +813,13 @@
                 const r = document.createElement('tr'); r.id = 'r-' + a.id;
                 const cv = a.coverUrl ? `<img src="${esc(a.coverUrl)}" class="cover-img" onerror="this.outerHTML='<div class=cover-empty>N/A</div>'">` : '<div class="cover-empty">N/A</div>';
                 r.innerHTML = `<td>${cv}</td><td>${i+1}</td>
-                    <td class="en"><span class="dt">${esc(a.name)}</span><input type="text" class="e-input" value="${esc(a.name)}" style="display:none;"></td>
-                    <td class="es"><span class="season-tag dt">${esc(a.season)}</span><input type="text" class="e-input" value="${esc(a.season)}" style="display:none;"></td>
+                    <td>${esc(a.name)}</td>
+                    <td><span class="season-tag">${esc(a.season)}</span></td>
                     <td><select class="e-select" id="ss-${a.id}" onchange="cs(${a.id})"><option value="watching" ${a.status==='watching'?'selected':''}>追中</option><option value="finished" ${a.status==='finished'?'selected':''}>已完成</option><option value="planning" ${a.status==='planning'?'selected':''}>计划</option><option value="dropped" ${a.status==='dropped'?'selected':''}>放弃</option></select></td>
-                    <td class="esc"><span class="score-pill ${sc(a.score)} dt">${esc(String(a.score))}</span><input type="number" class="e-input" value="${a.score}" step="0.1" min="0" max="10" style="display:none;"></td>
-                    <td class="ep"><span class="dt">${a.currentEpisode} / ${a.totalEpisodes}</span><span style="display:none;" class="ep-edit">${a.currentEpisode} / <input type="number" class="e-input ete" value="${a.totalEpisodes}" min="1" style="width:60px;"></span></td>
-                    <td class="er"><span class="dt">${esc(a.remark)}</span><input type="text" class="e-input" value="${esc(a.remark)}" style="display:none;"></td>
-                    <td><div class="acts na"><button class="a-btn" onclick="te(${a.id})">编辑</button><button class="a-btn ep-btn" onclick="pe(${a.id})">-</button><button class="a-btn ep-btn" onclick="ne(${a.id})">+</button></div><div class="acts ea" style="display:none;"><button class="a-btn del" onclick="da(${a.id})">删除</button><button class="a-btn save" onclick="se(${a.id})">保存</button><button class="a-btn" onclick="ce(${a.id})">取消</button></div></td>
-                    <td class="ecu" style="display:none;"><input type="text" class="e-input" value="${esc(a.coverUrl || '')}" placeholder="封面URL"></td>
-                    <td class="esd" style="display:none;"><input type="date" class="e-input" value="${a.startDate || ''}"></td>
-                    <td class="eed" style="display:none;"><input type="date" class="e-input" value="${a.endDate || ''}"></td>`;
+                    <td><span class="score-pill ${sc(a.score)}">${esc(String(a.score))}</span></td>
+                    <td class="ep">${a.currentEpisode} / ${a.totalEpisodes}</td>
+                    <td>${esc(a.remark)}</td>
+                    <td><div class="acts"><button class="a-btn" onclick="openEditModal(${a.id})">编辑</button><button class="a-btn ep-btn" onclick="pe(${a.id})">-</button><button class="a-btn ep-btn" onclick="ne(${a.id})">+</button></div></td>`;
                 tb.appendChild(r);
             });
             renderDetail(list);
@@ -806,7 +838,7 @@
                         <div class="dt-meta"><span class="dt-tag dt-season">${esc(a.season)}</span><span class="dt-tag dt-score ${sc(a.score)}">${a.score}</span></div>
                         <div class="dt-progress-wrap"><div class="dt-progress-label"><span>${a.currentEpisode} / ${a.totalEpisodes} ep</span><span>${pct}%</span></div><div class="dt-progress"><div class="dt-progress-bar ${a.status}" style="width:${pct}%"></div></div></div>
                         ${a.remark ? `<div class="dt-remark">${esc(a.remark)}</div>` : '<div class="dt-remark" style="visibility:hidden;">-</div>'}
-                        <div class="dt-actions"><button class="dt-btn" onclick="te(${a.id});switchViewTable()">编辑</button><button class="dt-btn ep" onclick="pe(${a.id})">-</button><button class="dt-btn ep" onclick="ne(${a.id})">+</button><button class="dt-btn del" onclick="da(${a.id})">删除</button></div>
+                        <div class="dt-actions"><button class="dt-btn" onclick="openEditModal(${a.id})">编辑</button><button class="dt-btn ep" onclick="pe(${a.id})">-</button><button class="dt-btn ep" onclick="ne(${a.id})">+</button><button class="dt-btn del" onclick="da(${a.id})">删除</button></div>
                     </div>`;
                 g.appendChild(card);
             });
@@ -824,13 +856,11 @@
                         <div class="g-meta"><span class="g-tag g-season">${esc(a.season)}</span><span class="g-tag g-score ${sc(a.score)}">${a.score}</span></div>
                         <div class="g-progress"><div class="g-progress-bar ${a.status}" style="width:${pct}%"></div></div>
                         <div class="g-ep">${a.currentEpisode} / ${a.totalEpisodes} ep &middot; ${SM[a.status] || a.status}</div>
-                        <div class="g-actions"><button class="g-btn" onclick="te(${a.id});switchViewTable()">编辑</button><button class="g-btn ep" onclick="pe(${a.id})">-</button><button class="g-btn ep" onclick="ne(${a.id})">+</button><button class="g-btn del" onclick="da(${a.id})">删</button></div>
+                        <div class="g-actions"><button class="g-btn" onclick="openEditModal(${a.id})">编辑</button><button class="g-btn ep" onclick="pe(${a.id})">-</button><button class="g-btn ep" onclick="ne(${a.id})">+</button><button class="g-btn del" onclick="da(${a.id})">删</button></div>
                     </div>`;
                 g.appendChild(card);
             });
         }
-
-        function switchViewTable() { if (viewMode !== 'table') toggleView('table'); }
 
         function resetSearch() { document.getElementById('searchName').value = ''; document.getElementById('filterStatus').value = ''; document.getElementById('sortBy').value = 'id-desc'; toast('已重置', 'info'); ps(); }
 
