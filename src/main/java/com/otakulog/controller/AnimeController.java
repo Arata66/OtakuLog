@@ -13,6 +13,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -115,10 +116,11 @@ public class AnimeController {
     public ResponseEntity<ApiResponse<List<AnimeVO>>> searchAnime(
             @RequestParam(required = false) String name,
             @RequestParam(required = false) String status,
-            @RequestParam(required = false, defaultValue = "id-desc") String sortBy) {
+            @RequestParam(required = false, defaultValue = "id-desc") String sortBy,
+            @RequestParam(required = false) String tag) {
 
         AnimeStatus animeStatus = parseStatus(status);
-        List<AnimeVO> results = animeService.searchAnime(name, animeStatus, sortBy);
+        List<AnimeVO> results = animeService.searchAnime(name, animeStatus, sortBy, tag);
         return ResponseEntity.ok(ApiResponse.success(results));
     }
 
@@ -128,11 +130,13 @@ public class AnimeController {
             @RequestParam(required = false) String name,
             @RequestParam(required = false) String status,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size) {
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(required = false, defaultValue = "id-desc") String sortBy,
+            @RequestParam(required = false) String tag) {
 
         AnimeStatus animeStatus = parseStatus(status);
-        Pageable pageable = PageRequest.of(page, size);
-        Page<AnimeVO> results = animeService.searchAnimePaged(name, animeStatus, pageable);
+        Pageable pageable = PageRequest.of(page, size, buildSort(sortBy));
+        Page<AnimeVO> results = animeService.searchAnimePaged(name, animeStatus, pageable, tag);
         return ResponseEntity.ok(ApiResponse.success(results));
     }
 
@@ -152,6 +156,12 @@ public class AnimeController {
     @ResponseBody
     public ResponseEntity<ApiResponse<Map<String, Object>>> getSeasonStats() {
         return ResponseEntity.ok(ApiResponse.success(animeService.getSeasonStats()));
+    }
+
+    @GetMapping("/api/anime/stats/enhanced")
+    @ResponseBody
+    public ResponseEntity<ApiResponse<Map<String, Object>>> getEnhancedStats() {
+        return ResponseEntity.ok(ApiResponse.success(animeService.getEnhancedStats()));
     }
 
     @GetMapping("/api/anime/timeline")
@@ -195,6 +205,13 @@ public class AnimeController {
         }
     }
 
+    @PostMapping("/api/anime/reorder")
+    @ResponseBody
+    public ResponseEntity<ApiResponse<Void>> reorderAnime(@RequestBody List<Map<String, Object>> orders) {
+        animeService.reorderAnime(orders);
+        return ResponseEntity.ok(ApiResponse.success("排序已更新", null));
+    }
+
     private AnimeStatus parseStatus(String status) {
         if (status == null || status.trim().isEmpty()) return null;
         try {
@@ -202,5 +219,17 @@ public class AnimeController {
         } catch (IllegalArgumentException ignored) {
             return null;
         }
+    }
+
+    private Sort buildSort(String sortBy) {
+        return switch (sortBy != null ? sortBy : "id-desc") {
+            case "score-desc" -> Sort.by(Sort.Direction.DESC, "score");
+            case "score-asc" -> Sort.by(Sort.Direction.ASC, "score");
+            case "progress-desc" -> Sort.by(Sort.Direction.DESC, "currentEpisode");
+            case "progress-asc" -> Sort.by(Sort.Direction.ASC, "currentEpisode");
+            case "name-asc" -> Sort.by(Sort.Direction.ASC, "name");
+            case "sortOrder-asc" -> Sort.by(Sort.Direction.ASC, "sortOrder");
+            default -> Sort.by(Sort.Direction.DESC, "id");
+        };
     }
 }

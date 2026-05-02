@@ -125,7 +125,7 @@ class AnimeServiceImplTest {
         animeService.addAnime(createDTO("进击的巨人", 87, "2013春", 9.5));
         animeService.addAnime(createDTO("间谍过家家", 25, "2022春", 8.0));
 
-        List<AnimeVO> results = animeService.searchAnime("芙莉莲", null, "id-desc");
+        List<AnimeVO> results = animeService.searchAnime("芙莉莲", null, "id-desc", null);
         assertEquals(1, results.size());
         assertEquals("葬送的芙莉莲", results.get(0).getName());
     }
@@ -136,7 +136,7 @@ class AnimeServiceImplTest {
         animeService.addAnime(createDTO("番2", 12, "2024冬", 7.0));
         animeService.nextEpisode(v1.getId());
 
-        List<AnimeVO> watching = animeService.searchAnime(null, AnimeStatus.WATCHING, "id-desc");
+        List<AnimeVO> watching = animeService.searchAnime(null, AnimeStatus.WATCHING, "id-desc", null);
         assertTrue(watching.size() >= 1);
     }
 
@@ -204,7 +204,7 @@ class AnimeServiceImplTest {
         }
 
         var page = animeService.searchAnimePaged(null, null,
-                org.springframework.data.domain.PageRequest.of(0, 10));
+                org.springframework.data.domain.PageRequest.of(0, 10), null);
         assertEquals(10, page.getContent().size());
         assertEquals(15, page.getTotalElements());
     }

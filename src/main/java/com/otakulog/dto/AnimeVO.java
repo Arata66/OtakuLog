@@ -15,6 +15,8 @@ public class AnimeVO {
     private String coverUrl;
     private String startDate;
     private String endDate;
+    private String tags;
+    private Integer sortOrder;
 
     public AnimeVO() {
     }
@@ -121,5 +123,21 @@ public class AnimeVO {
 
     public void setEndDate(String endDate) {
         this.endDate = endDate;
+    }
+
+    public String getTags() {
+        return tags;
+    }
+
+    public void setTags(String tags) {
+        this.tags = tags;
+    }
+
+    public Integer getSortOrder() {
+        return sortOrder;
+    }
+
+    public void setSortOrder(Integer sortOrder) {
+        this.sortOrder = sortOrder;
     }
 }

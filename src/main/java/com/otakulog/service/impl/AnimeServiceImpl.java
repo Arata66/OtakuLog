@@ -37,6 +37,7 @@ public class AnimeServiceImpl implements AnimeService {
         anime.setCoverUrl(dto.getCoverUrl());
         anime.setStartDate(parseDate(dto.getStartDate()));
         anime.setEndDate(parseDate(dto.getEndDate()));
+        anime.setTags(dto.getTags());
         anime.setCurrentEpisode(1);
         anime.setStatus(AnimeStatus.WATCHING);
 
@@ -94,6 +95,7 @@ public class AnimeServiceImpl implements AnimeService {
         anime.setCoverUrl(dto.getCoverUrl());
         anime.setStartDate(parseDate(dto.getStartDate()));
         anime.setEndDate(parseDate(dto.getEndDate()));
+        anime.setTags(dto.getTags());
 
         return toVO(animeRepository.save(anime));
     }
@@ -119,8 +121,12 @@ public class AnimeServiceImpl implements AnimeService {
     }
 
     @Override
-    public List<AnimeVO> searchAnime(String name, AnimeStatus status, String sortBy) {
+    public List<AnimeVO> searchAnime(String name, AnimeStatus status, String sortBy, String tag) {
         Sort sort = buildSort(sortBy);
+        boolean hasTag = tag != null && !tag.trim().isEmpty();
+        if (hasTag) {
+            return animeRepository.findByTagContaining(tag.trim(), sort).stream().map(this::toVO).collect(Collectors.toList());
+        }
         boolean hasName = name != null && !name.trim().isEmpty();
         boolean hasStatus = status != null;
         List<Anime> results;
@@ -139,7 +145,13 @@ public class AnimeServiceImpl implements AnimeService {
     }
 
     @Override
-    public Page<AnimeVO> searchAnimePaged(String name, AnimeStatus status, Pageable pageable) {
+    public Page<AnimeVO> searchAnimePaged(String name, AnimeStatus status, Pageable pageable, String tag) {
+        boolean hasTag = tag != null && !tag.trim().isEmpty();
+        if (hasTag) {
+            Page<Anime> page = animeRepository.findByTagContaining(tag.trim(), pageable);
+            List<AnimeVO> voList = page.getContent().stream().map(this::toVO).collect(Collectors.toList());
+            return new PageImpl<>(voList, pageable, page.getTotalElements());
+        }
         Page<Anime> page;
         boolean hasName = name != null && !name.trim().isEmpty();
         boolean hasStatus = status != null;
@@ -248,6 +260,7 @@ public class AnimeServiceImpl implements AnimeService {
                 map.put("coverUrl", a.getCoverUrl());
                 map.put("startDate", a.getStartDate() != null ? a.getStartDate().toString() : null);
                 map.put("endDate", a.getEndDate() != null ? a.getEndDate().toString() : null);
+                map.put("tags", a.getTags());
                 exportList.add(map);
             }
             return mapper.writerWithDefaultPrettyPrinter().writeValueAsString(exportList);
@@ -283,6 +296,7 @@ public class AnimeServiceImpl implements AnimeService {
                 anime.setEndDate(parseDate((String) map.get("endDate")));
                 String status = (String) map.getOrDefault("status", "watching");
                 anime.setStatus(AnimeStatus.valueOf(status.toUpperCase()));
+                anime.setTags((String) map.get("tags"));
 
                 result.add(toVO(animeRepository.save(anime)));
                 if (isNew) created++; else updated++;
@@ -300,6 +314,82 @@ public class AnimeServiceImpl implements AnimeService {
         }
     }
 
+    @Override
+    public Map<String, Object> getEnhancedStats() {
+        Map<String, Object> stats = new HashMap<>();
+
+        // Yearly stats
+        List<Object[]> yearlyRows = animeRepository.getYearlyStats();
+        List<Map<String, Object>> yearly = new ArrayList<>();
+        for (Object[] row : yearlyRows) {
+            Map<String, Object> entry = new HashMap<>();
+            entry.put("year", row[0]);
+            entry.put("count", row[1]);
+            entry.put("avgScore", row[2] != null ? Math.round(((Double) row[2]) * 10.0) / 10.0 : null);
+            yearly.add(entry);
+        }
+        stats.put("yearly", yearly);
+
+        // Score distribution
+        List<Object[]> scoreRows = animeRepository.getScoreDistribution();
+        List<Map<String, Object>> scoreDist = new ArrayList<>();
+        for (Object[] row : scoreRows) {
+            Map<String, Object> entry = new HashMap<>();
+            entry.put("bucket", row[0]);
+            entry.put("count", row[1]);
+            scoreDist.add(entry);
+        }
+        stats.put("scoreDistribution", scoreDist);
+
+        // Tag breakdown
+        List<Anime> all = animeRepository.findAll();
+        Map<String, Integer> tagCounts = new HashMap<>();
+        for (Anime a : all) {
+            if (a.getTags() != null && !a.getTags().trim().isEmpty()) {
+                for (String tag : a.getTags().split(",")) {
+                    String t = tag.trim();
+                    if (!t.isEmpty()) tagCounts.merge(t, 1, Integer::sum);
+                }
+            }
+        }
+        List<Map<String, Object>> tagList = new ArrayList<>();
+        tagCounts.entrySet().stream().sorted(Map.Entry.<String, Integer>comparingByValue().reversed()).limit(15)
+                .forEach(e -> { Map<String, Object> m = new HashMap<>(); m.put("tag", e.getKey()); m.put("count", e.getValue()); tagList.add(m); });
+        stats.put("tags", tagList);
+
+        // Watching habits
+        long totalWatched = 0;
+        long totalDays = 0;
+        int counted = 0;
+        for (Anime a : all) {
+            if (a.getStartDate() != null && a.getCurrentEpisode() != null && a.getCurrentEpisode() > 0) {
+                LocalDate end = a.getEndDate() != null ? a.getEndDate() : LocalDate.now();
+                long days = java.time.temporal.ChronoUnit.DAYS.between(a.getStartDate(), end);
+                if (days > 0) {
+                    totalWatched += a.getCurrentEpisode();
+                    totalDays += days;
+                    counted++;
+                }
+            }
+        }
+        double epPerDay = totalDays > 0 ? Math.round((double) totalWatched / totalDays * 100.0) / 100.0 : 0;
+        double epPerMonth = totalDays > 0 ? Math.round((double) totalWatched / totalDays * 30 * 10.0) / 10.0 : 0;
+        stats.put("episodesPerDay", epPerDay);
+        stats.put("episodesPerMonth", epPerMonth);
+        stats.put("animeCountedForHabits", counted);
+
+        return stats;
+    }
+
+    @Override
+    public void reorderAnime(List<Map<String, Object>> orders) {
+        for (Map<String, Object> item : orders) {
+            Long id = Long.valueOf(item.get("id").toString());
+            Integer order = Integer.valueOf(item.get("sortOrder").toString());
+            animeRepository.findById(id).ifPresent(a -> { a.setSortOrder(order); animeRepository.save(a); });
+        }
+    }
+
     private Sort buildSort(String sortBy) {
         return switch (sortBy != null ? sortBy : "id-desc") {
             case "score-desc" -> Sort.by(Sort.Direction.DESC, "score");
@@ -307,6 +397,7 @@ public class AnimeServiceImpl implements AnimeService {
             case "progress-desc" -> Sort.by(Sort.Direction.DESC, "currentEpisode");
             case "progress-asc" -> Sort.by(Sort.Direction.ASC, "currentEpisode");
             case "name-asc" -> Sort.by(Sort.Direction.ASC, "name");
+            case "sortOrder-asc" -> Sort.by(Sort.Direction.ASC, "sortOrder");
             default -> Sort.by(Sort.Direction.DESC, "id");
         };
     }
@@ -325,6 +416,8 @@ public class AnimeServiceImpl implements AnimeService {
         vo.setCoverUrl(anime.getCoverUrl());
         vo.setStartDate(anime.getStartDate() != null ? anime.getStartDate().toString() : null);
         vo.setEndDate(anime.getEndDate() != null ? anime.getEndDate().toString() : null);
+        vo.setTags(anime.getTags());
+        vo.setSortOrder(anime.getSortOrder());
         if (anime.getTotalEpisodes() != null && anime.getTotalEpisodes() > 0) {
             vo.setProgress(Math.round((double) anime.getCurrentEpisode() / anime.getTotalEpisodes() * 1000.0) / 10.0);
         }

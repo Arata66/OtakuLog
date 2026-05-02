@@ -28,6 +28,8 @@ public class AnimeUpdateDTO {
 
     private String endDate;
 
+    private String tags;
+
     public String getName() {
         return name;
     }
@@ -90,5 +92,13 @@ public class AnimeUpdateDTO {
 
     public void setEndDate(String endDate) {
         this.endDate = endDate;
+    }
+
+    public String getTags() {
+        return tags;
+    }
+
+    public void setTags(String tags) {
+        this.tags = tags;
     }
 }

@@ -23,9 +23,9 @@ public interface AnimeService {
 
     void deleteAnime(Long id);
 
-    List<AnimeVO> searchAnime(String name, AnimeStatus status, String sortBy);
+    List<AnimeVO> searchAnime(String name, AnimeStatus status, String sortBy, String tag);
 
-    Page<AnimeVO> searchAnimePaged(String name, AnimeStatus status, Pageable pageable);
+    Page<AnimeVO> searchAnimePaged(String name, AnimeStatus status, Pageable pageable, String tag);
 
     Map<String, Object> getStats();
 
@@ -35,7 +35,11 @@ public interface AnimeService {
 
     Map<String, Object> getSeasonStats();
 
+    Map<String, Object> getEnhancedStats();
+
     List<AnimeVO> getTimeline();
+
+    void reorderAnime(List<Map<String, Object>> orders);
 
     String exportJson();
 

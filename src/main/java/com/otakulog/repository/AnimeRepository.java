@@ -58,4 +58,18 @@ public interface AnimeRepository extends JpaRepository<Anime, Long> {
     // Season grouping for timeline
     @Query("SELECT a.season, COUNT(a), AVG(a.score) FROM Anime a WHERE a.score IS NOT NULL GROUP BY a.season ORDER BY a.season DESC")
     List<Object[]> getSeasonStats();
+
+    // Tag filtering
+    @Query("SELECT a FROM Anime a WHERE a.tags LIKE CONCAT('%', :tag, '%')")
+    List<Anime> findByTagContaining(@org.springframework.data.repository.query.Param("tag") String tag, Sort sort);
+
+    @Query("SELECT a FROM Anime a WHERE a.tags LIKE CONCAT('%', :tag, '%')")
+    Page<Anime> findByTagContaining(@org.springframework.data.repository.query.Param("tag") String tag, Pageable pageable);
+
+    // Enhanced stats
+    @Query("SELECT FUNCTION('YEAR', a.startDate) as yr, COUNT(a), AVG(a.score) FROM Anime a WHERE a.startDate IS NOT NULL AND a.score IS NOT NULL AND a.score > 0 GROUP BY yr ORDER BY yr DESC")
+    List<Object[]> getYearlyStats();
+
+    @Query("SELECT ROUND(a.score) as bucket, COUNT(a) FROM Anime a WHERE a.score IS NOT NULL AND a.score > 0 GROUP BY bucket ORDER BY bucket")
+    List<Object[]> getScoreDistribution();
 }

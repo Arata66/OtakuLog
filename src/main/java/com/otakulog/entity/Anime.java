@@ -43,6 +43,12 @@ public class Anime {
     @Column(name = "end_date")
     private LocalDate endDate;
 
+    @Column(name = "tags", length = 500)
+    private String tags;
+
+    @Column(name = "sort_order")
+    private Integer sortOrder;
+
     public Anime() {
     }
 
@@ -132,5 +138,21 @@ public class Anime {
 
     public void setEndDate(LocalDate endDate) {
         this.endDate = endDate;
+    }
+
+    public String getTags() {
+        return tags;
+    }
+
+    public void setTags(String tags) {
+        this.tags = tags;
+    }
+
+    public Integer getSortOrder() {
+        return sortOrder;
+    }
+
+    public void setSortOrder(Integer sortOrder) {
+        this.sortOrder = sortOrder;
     }
 }
