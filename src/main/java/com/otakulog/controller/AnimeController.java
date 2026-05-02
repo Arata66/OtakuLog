@@ -5,6 +5,7 @@ import com.otakulog.dto.AnimeDTO;
 import com.otakulog.dto.AnimeUpdateDTO;
 import com.otakulog.dto.AnimeVO;
 import com.otakulog.dto.BangumiResult;
+import com.otakulog.dto.BatchRequest;
 import com.otakulog.enums.AnimeStatus;
 import com.otakulog.service.AnimeService;
 import com.otakulog.service.BangumiService;
@@ -108,6 +109,25 @@ public class AnimeController {
             return ResponseEntity.ok(ApiResponse.success("删除成功", null));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.ok(ApiResponse.error(404, e.getMessage()));
+        }
+    }
+
+    @PostMapping("/api/anime/batch-delete")
+    @ResponseBody
+    public ResponseEntity<ApiResponse<Void>> batchDelete(@RequestBody BatchRequest request) {
+        animeService.batchDelete(request.getIds());
+        return ResponseEntity.ok(ApiResponse.success("批量删除成功", null));
+    }
+
+    @PostMapping("/api/anime/batch-status")
+    @ResponseBody
+    public ResponseEntity<ApiResponse<Void>> batchUpdateStatus(@RequestBody BatchRequest request) {
+        try {
+            AnimeStatus animeStatus = AnimeStatus.valueOf(request.getStatus().toUpperCase());
+            animeService.batchUpdateStatus(request.getIds(), animeStatus);
+            return ResponseEntity.ok(ApiResponse.success("批量状态更新成功", null));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.ok(ApiResponse.error(400, e.getMessage()));
         }
     }
 

@@ -6,6 +6,8 @@
     <title>追番列表 | OtakuLog</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked@12/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dompurify@3/dist/purify.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Inter:wght@300;400;500;600;700&display=swap');
 
@@ -175,12 +177,13 @@
         .form-row .ff input { width: 100%; }
         .ff { display: flex; flex-direction: column; gap: 5px; }
         .ff label { font-size: 0.7em; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px; font-weight: 600; }
-        .ff input {
+        .ff input, .ff textarea {
             background: var(--bg); border: 1.5px solid var(--border);
             color: var(--text); padding: 10px 14px; border-radius: 10px;
             font-size: 0.85em; width: 150px; font-family: inherit; transition: all 0.25s;
         }
-        .ff input:focus { outline: none; border-color: var(--amber); box-shadow: 0 0 0 3px var(--amber-soft); background: var(--card); }
+        .ff textarea { resize: vertical; min-height: 40px; }
+        .ff input:focus, .ff textarea:focus { outline: none; border-color: var(--amber); box-shadow: 0 0 0 3px var(--amber-soft); background: var(--card); }
         .btn-add {
             background: var(--text); color: var(--bg); border: none;
             padding: 11px 28px; border-radius: 10px; cursor: pointer;
@@ -229,6 +232,21 @@
         .ep { color: var(--text-mid); font-variant-numeric: tabular-nums; font-weight: 500; }
         .season-tag { background: var(--bg); padding: 4px 12px; border-radius: 8px; font-size: 0.82em; color: var(--text-mid); border: 1px solid var(--border-light); }
         .tag-pill { display: inline-block; padding: 2px 8px; border-radius: 6px; font-size: 0.68em; font-weight: 500; background: var(--purple-soft); color: #7a6a9a; margin: 1px 2px; }
+
+        /* Batch selection */
+        .batch-cb { appearance: none; -webkit-appearance: none; width: 18px; height: 18px; border: 2px solid var(--border); border-radius: 4px; cursor: pointer; transition: all 0.2s; vertical-align: middle; position: relative; }
+        .batch-cb:checked { background: var(--coral); border-color: var(--coral); }
+        .batch-cb:checked::after { content: ''; position: absolute; left: 4px; top: 1px; width: 6px; height: 10px; border: solid white; border-width: 0 2px 2px 0; transform: rotate(45deg); }
+        tbody tr.selected { background: var(--amber-soft) !important; }
+        .batch-toolbar { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: var(--text); color: var(--bg); padding: 14px 24px; border-radius: 14px; box-shadow: 0 8px 32px rgba(0,0,0,0.2); display: none; align-items: center; gap: 16px; z-index: 900; font-size: 0.85em; animation: fadeUp 0.3s ease; }
+        .batch-toolbar.active { display: flex; }
+        .batch-toolbar .bt-count { font-weight: 600; }
+        .batch-toolbar .bt-btn { padding: 8px 18px; border-radius: 8px; border: none; cursor: pointer; font-weight: 500; font-size: 0.85em; font-family: inherit; transition: all 0.2s; }
+        .batch-toolbar .bt-del { background: var(--rose); color: white; }
+        .batch-toolbar .bt-del:hover { filter: brightness(1.1); }
+        .batch-toolbar select { padding: 8px 12px; border-radius: 8px; border: none; background: var(--blue); color: white; font-size: 0.85em; font-family: inherit; cursor: pointer; }
+        .batch-toolbar .bt-cancel { background: var(--bg-warm); color: var(--text); }
+        .batch-toolbar .bt-cancel:hover { background: var(--border-light); }
 
         /* Actions */
         .acts { display: flex; gap: 6px; flex-wrap: wrap; }
@@ -511,11 +529,25 @@
         .detail-progress-bar.planning { background: var(--amber); }
         .detail-progress-bar.dropped { background: var(--rose); }
         .detail-remark { font-size: 0.88em; color: var(--text-dim); line-height: 1.5; margin-bottom: 20px; padding: 12px 16px; background: var(--bg); border-radius: var(--radius-sm); border: 1px solid var(--border-light); }
+        .detail-remark p { margin: 0 0 8px; }
+        .detail-remark p:last-child { margin-bottom: 0; }
+        .detail-remark ul, .detail-remark ol { margin: 4px 0 8px 20px; }
+        .detail-remark li { margin-bottom: 2px; }
+        .detail-remark code { background: var(--border-light); padding: 2px 6px; border-radius: 4px; font-size: 0.9em; }
+        .detail-remark pre { background: var(--bg); padding: 12px; border-radius: 8px; overflow-x: auto; margin: 8px 0; border: 1px solid var(--border-light); }
+        .detail-remark pre code { background: none; padding: 0; }
+        .detail-remark blockquote { border-left: 3px solid var(--amber); padding-left: 12px; margin: 8px 0; color: var(--text-mid); }
+        .detail-remark a { color: var(--coral); text-decoration: underline; }
+        .dt-remark p { margin: 0; }
+        .dt-remark ul, .dt-remark ol { margin: 2px 0 2px 16px; }
+        .dt-remark code { background: var(--border-light); padding: 1px 4px; border-radius: 3px; font-size: 0.85em; }
         .detail-actions { display: flex; gap: 8px; flex-wrap: wrap; }
         .detail-actions .a-btn { padding: 8px 18px; font-size: 0.82em; }
 
         .clickable-name { cursor: pointer; transition: color 0.2s; }
         .clickable-name:hover { color: var(--coral); }
+        mark { background: rgba(212,165,116,0.3); color: inherit; border-radius: 2px; padding: 0 2px; }
+        :root[data-theme="dark"] mark { background: rgba(212,165,116,0.25); }
 
         /* Edit Modal */
         .modal-overlay {
@@ -531,12 +563,13 @@
         .modal-card h3 { font-family: var(--serif); font-size: 1.1em; color: var(--text); margin-bottom: 20px; font-weight: 400; }
         .modal-field { margin-bottom: 14px; }
         .modal-field label { display: block; font-size: 0.72em; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px; font-weight: 600; margin-bottom: 5px; }
-        .modal-field input, .modal-field select {
+        .modal-field input, .modal-field select, .modal-field textarea {
             width: 100%; background: var(--bg); border: 1.5px solid var(--border);
             color: var(--text); padding: 10px 14px; border-radius: 10px;
             font-size: 0.88em; font-family: inherit; transition: all 0.25s;
         }
-        .modal-field input:focus, .modal-field select:focus { outline: none; border-color: var(--amber); box-shadow: 0 0 0 3px var(--amber-soft); background: var(--card); }
+        .modal-field textarea { resize: vertical; min-height: 60px; }
+        .modal-field input:focus, .modal-field select:focus, .modal-field textarea:focus { outline: none; border-color: var(--amber); box-shadow: 0 0 0 3px var(--amber-soft); background: var(--card); }
         .modal-field select option { background: var(--card); }
         .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 20px; }
 
@@ -568,6 +601,18 @@
 </head>
 <body>
     <div class="tw" id="tw"></div>
+    <div class="batch-toolbar" id="batchToolbar">
+        <span class="bt-count" id="batchCount">已选 0 项</span>
+        <button class="bt-btn bt-del" onclick="batchDelete()">批量删除</button>
+        <select id="batchStatusSelect" onchange="batchChangeStatus(this.value);this.value='';">
+            <option value="">批量改状态</option>
+            <option value="watching">追中</option>
+            <option value="finished">已完成</option>
+            <option value="planning">计划</option>
+            <option value="dropped">放弃</option>
+        </select>
+        <button class="bt-btn bt-cancel" onclick="clearSelection()">取消</button>
+    </div>
 
     <div class="app">
         <!-- Header -->
@@ -643,7 +688,7 @@
                         <div class="ff"><label>封面URL</label><input type="text" id="animeCover" placeholder="可选"></div>
                         <div class="ff"><label>开播日期</label><input type="date" id="animeStartDate"></div>
                         <div class="ff"><label>完结日期</label><input type="date" id="animeEndDate"></div>
-                        <div class="ff"><label>备注</label><input type="text" id="animeRemark" placeholder="强烈推荐"></div>
+                        <div class="ff"><label>备注 (Markdown)</label><textarea id="animeRemark" rows="2" placeholder="支持 **Markdown**"></textarea></div>
                         <div class="ff"><label>标签</label><input type="text" id="animeTags" placeholder="热血,奇幻"></div>
                         <button type="submit" class="btn-add">+ 添加</button>
                     </div>
@@ -655,7 +700,7 @@
             </div>
 
             <!-- Table (JS-rendered) -->
-            <div class="table-card"><table><thead><tr><th></th><th></th><th>#</th><th>作品名</th><th>季度</th><th>状态</th><th>评分</th><th>集数</th><th>备注</th><th></th></tr></thead><tbody></tbody></table></div>
+            <div class="table-card"><table><thead><tr><th></th><th style="width:36px;padding:16px 8px;text-align:center;"><input type="checkbox" class="batch-cb" id="selectAll" onclick="toggleSelectAll(this)"></th><th></th><th>#</th><th>作品名</th><th>季度</th><th>状态</th><th>评分</th><th>集数</th><th>备注</th><th></th></tr></thead><tbody></tbody></table></div>
             <div class="empty" id="emptySearch" style="display:none;"><div class="e-icon">~</div><p>还没有追番记录，快去添加一部吧</p></div>
 
             <!-- Detail -->
@@ -706,6 +751,63 @@
         function toast(m, t = 'info') { const c = document.getElementById('tw'), el = document.createElement('div'); el.className = 'toast ' + t; el.textContent = m; c.appendChild(el); setTimeout(() => el.remove(), 3000); }
         function sc(s) { return s >= 8 ? 'sc-high' : s >= 6 ? 'sc-mid' : 'sc-low'; }
         function renderTags(tags) { if (!tags) return ''; return tags.split(',').map(t => t.trim()).filter(Boolean).map(t => `<span class="tag-pill">${esc(t)}</span>`).join(''); }
+        function highlightText(text, keyword) {
+            if (!text || !keyword) return esc(text);
+            const escaped = esc(text);
+            const safeKw = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const re = new RegExp('(' + safeKw + ')', 'gi');
+            return escaped.replace(re, '<mark>$1</mark>');
+        }
+        function renderRemark(text) {
+            if (!text) return '';
+            if (typeof marked === 'undefined' || typeof DOMPurify === 'undefined') return esc(text);
+            const raw = marked.parse(text, { breaks: true, gfm: true });
+            return DOMPurify.sanitize(raw, { USE_PROFILES: { html: true } });
+        }
+
+        /* Batch selection */
+        const selectedIds = new Set();
+        function toggleRowSelect(id, checked) {
+            if (checked) selectedIds.add(id); else selectedIds.delete(id);
+            const row = document.getElementById('r-' + id);
+            if (row) row.classList.toggle('selected', checked);
+            updateBatchToolbar();
+        }
+        function toggleSelectAll(cb) {
+            document.querySelectorAll('.batch-cb[data-id]').forEach(c => {
+                c.checked = cb.checked;
+                const id = parseInt(c.dataset.id);
+                if (cb.checked) selectedIds.add(id); else selectedIds.delete(id);
+                const row = document.getElementById('r-' + id);
+                if (row) row.classList.toggle('selected', cb.checked);
+            });
+            updateBatchToolbar();
+        }
+        function updateBatchToolbar() {
+            const bar = document.getElementById('batchToolbar');
+            const cnt = document.getElementById('batchCount');
+            if (selectedIds.size > 0) { bar.classList.add('active'); cnt.textContent = '已选 ' + selectedIds.size + ' 项'; }
+            else { bar.classList.remove('active'); }
+        }
+        function clearSelection() {
+            selectedIds.clear();
+            document.querySelectorAll('.batch-cb[data-id]').forEach(c => { c.checked = false; });
+            document.querySelectorAll('tbody tr.selected').forEach(r => r.classList.remove('selected'));
+            const sa = document.getElementById('selectAll'); if (sa) sa.checked = false;
+            updateBatchToolbar();
+        }
+        function batchDelete() {
+            if (!confirm('确定删除选中的 ' + selectedIds.size + ' 项？')) return;
+            fetch('/api/anime/batch-delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids: [...selectedIds] }) })
+                .then(r => r.json()).then(r => { if (r.code === 200) { toast('批量删除成功', 'success'); clearSelection(); ps(); us(); } else toast(r.message || '删除失败', 'error'); })
+                .catch(() => toast('删除失败', 'error'));
+        }
+        function batchChangeStatus(status) {
+            if (!status) return;
+            fetch('/api/anime/batch-status', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids: [...selectedIds], status }) })
+                .then(r => r.json()).then(r => { if (r.code === 200) { toast('批量更新成功', 'success'); clearSelection(); ps(); us(); } else toast(r.message || '更新失败', 'error'); })
+                .catch(() => toast('更新失败', 'error'));
+        }
 
         /* Theme */
         function toggleTheme() {
@@ -824,7 +926,7 @@
                         <div class="detail-info-item"><div class="detail-info-label">完结</div><div class="detail-info-val">${a.endDate || '-'}</div></div>
                     </div>
                     <div class="detail-progress-wrap"><div class="detail-progress-label"><span>进度</span><span>${pct}%</span></div><div class="detail-progress"><div class="detail-progress-bar ${a.status}" style="width:${pct}%"></div></div></div>
-                    ${a.remark ? `<div class="detail-remark">${esc(a.remark)}</div>` : ''}
+                    ${a.remark ? `<div class="detail-remark">${renderRemark(a.remark)}</div>` : ''}
                     <div class="detail-actions"><button class="a-btn" onclick="closeDetailModal();openEditModal(${a.id})">编辑</button><button class="a-btn ep-btn" onclick="pe(${a.id})">上一集</button><button class="a-btn ep-btn" onclick="ne(${a.id})">下一集</button><button class="a-btn del" onclick="da(${a.id});closeDetailModal()">删除</button></div>
                 </div>`;
             overlay.appendChild(card); document.body.appendChild(overlay);
@@ -847,7 +949,7 @@
                     <div class="modal-field"><label>封面 URL</label><input type="text" id="m-cover" value="${esc(a.coverUrl || '')}"></div>
                     <div class="modal-field"><label>开播日期</label><input type="date" id="m-start" value="${a.startDate || ''}"></div>
                     <div class="modal-field"><label>完结日期</label><input type="date" id="m-end" value="${a.endDate || ''}"></div>
-                    <div class="modal-field"><label>备注</label><input type="text" id="m-remark" value="${esc(a.remark || '')}"></div>
+                    <div class="modal-field"><label>备注 (支持 Markdown)</label><textarea id="m-remark" rows="3">${esc(a.remark || '')}</textarea></div>
                     <div class="modal-field"><label>标签</label><input type="text" id="m-tags" value="${esc(a.tags || '')}" placeholder="热血,奇幻"></div>
                     <div class="modal-field"><label>状态</label><select id="m-status">${statusOpts}</select></div>
                     <div class="modal-actions"><button class="btn-h" onclick="closeEditModal()">取消</button><button class="btn-add" onclick="saveEditModal(${id})">保存</button></div>`;
@@ -871,7 +973,7 @@
 
         /* Search with pagination */
         function ps(reset) {
-            if (reset !== false) { currentPage = 0; hasMore = true; }
+            if (reset !== false) { currentPage = 0; hasMore = true; clearSelection(); }
             if (isLoading || !hasMore) return;
             isLoading = true;
             const n = document.getElementById('searchName').value.trim(), s = document.getElementById('filterStatus').value, sb = document.getElementById('sortBy').value, tg = document.getElementById('filterTag').value.trim();
@@ -893,6 +995,7 @@
         function rt(list) {
             const tb = document.querySelector('tbody'), tc = document.querySelector('.table-card'), em = document.getElementById('emptySearch');
             const dc = document.getElementById('detailView'), gc = document.getElementById('galleryView');
+            const kw = document.getElementById('searchName').value.trim();
             if (!tb) return; tb.innerHTML = '';
             if (!list || list.length === 0) {
                 if (tc) tc.style.display = 'none'; if (dc) dc.style.display = 'none'; if (gc) gc.style.display = 'none'; if (em) em.style.display = ''; return;
@@ -906,8 +1009,8 @@
                 /* Table row */
                 const r = document.createElement('tr'); r.id = 'r-' + a.id;
                 const cv = a.coverUrl ? `<img src="${esc(a.coverUrl)}" class="cover-img" onerror="this.outerHTML='<div class=cover-empty>N/A</div>'">` : '<div class="cover-empty">N/A</div>';
-                r.innerHTML = `<td class="drag-handle" style="cursor:grab;color:var(--text-faint);padding:8px;">⠿</td><td>${cv}</td><td>${i+1}</td>
-                    <td><span class="clickable-name" onclick="openDetailModal(${a.id})">${esc(a.name)}</span>${a.tags ? '<div style="margin-top:4px;">' + renderTags(a.tags) + '</div>' : ''}</td>
+                r.innerHTML = `<td class="drag-handle" style="cursor:grab;color:var(--text-faint);padding:8px;">⠿</td><td style="width:36px;padding:16px 8px;text-align:center;"><input type="checkbox" class="batch-cb" data-id="${a.id}" onchange="toggleRowSelect(${a.id}, this.checked)"></td><td>${cv}</td><td>${i+1}</td>
+                    <td><span class="clickable-name" onclick="openDetailModal(${a.id})">${highlightText(a.name, kw)}</span>${a.tags ? '<div style="margin-top:4px;">' + renderTags(a.tags) + '</div>' : ''}</td>
                     <td><span class="season-tag">${esc(a.season)}</span></td>
                     <td><select class="e-select" id="ss-${a.id}" onchange="cs(${a.id})"><option value="watching" ${a.status==='watching'?'selected':''}>追中</option><option value="finished" ${a.status==='finished'?'selected':''}>已完成</option><option value="planning" ${a.status==='planning'?'selected':''}>计划</option><option value="dropped" ${a.status==='dropped'?'selected':''}>放弃</option></select></td>
                     <td><span class="score-pill ${sc(a.score)}">${esc(String(a.score))}</span></td>
@@ -916,11 +1019,11 @@
                     <td><div class="acts"><button class="a-btn" onclick="openEditModal(${a.id})">编辑</button><button class="a-btn ep-btn" onclick="pe(${a.id})">-</button><button class="a-btn ep-btn" onclick="ne(${a.id})">+</button></div></td>`;
                 tb.appendChild(r);
             });
-            renderDetail(list);
-            renderGallery(list);
+            renderDetail(list, kw);
+            renderGallery(list, kw);
         }
 
-        function renderDetail(list) {
+        function renderDetail(list, kw) {
             const g = document.getElementById('detailGrid'); if (!g) return; g.innerHTML = '';
             list.forEach(a => {
                 const card = document.createElement('div'); card.className = 'dt-card';
@@ -928,17 +1031,17 @@
                 const cover = a.coverUrl ? `<img src="${esc(a.coverUrl)}" class="dt-cover" onerror="this.outerHTML='<div class=dt-cover-empty>${esc(a.name.charAt(0))}</div>'">` : `<div class="dt-cover-empty">${esc(a.name.charAt(0))}</div>`;
                 card.innerHTML = `<div class="dt-cover-wrap">${cover}<span class="dt-status-badge ${a.status}">${SM[a.status] || a.status}</span></div>
                     <div class="dt-body">
-                        <div class="dt-name clickable-name" onclick="openDetailModal(${a.id})">${esc(a.name)}</div>
+                        <div class="dt-name clickable-name" onclick="openDetailModal(${a.id})">${highlightText(a.name, kw)}</div>
                         <div class="dt-meta"><span class="dt-tag dt-season">${esc(a.season)}</span><span class="dt-tag dt-score ${sc(a.score)}">${a.score}</span>${a.tags ? renderTags(a.tags) : ''}</div>
                         <div class="dt-progress-wrap"><div class="dt-progress-label"><span>${a.currentEpisode} / ${a.totalEpisodes} ep</span><span>${pct}%</span></div><div class="dt-progress"><div class="dt-progress-bar ${a.status}" style="width:${pct}%"></div></div></div>
-                        ${a.remark ? `<div class="dt-remark">${esc(a.remark)}</div>` : '<div class="dt-remark" style="visibility:hidden;">-</div>'}
+                        ${a.remark ? `<div class="dt-remark">${renderRemark(a.remark)}</div>` : '<div class="dt-remark" style="visibility:hidden;">-</div>'}
                         <div class="dt-actions"><button class="dt-btn" onclick="openEditModal(${a.id})">编辑</button><button class="dt-btn ep" onclick="pe(${a.id})">-</button><button class="dt-btn ep" onclick="ne(${a.id})">+</button><button class="dt-btn del" onclick="da(${a.id})">删除</button></div>
                     </div>`;
                 g.appendChild(card);
             });
         }
 
-        function renderGallery(list) {
+        function renderGallery(list, kw) {
             const g = document.getElementById('galleryGrid'); if (!g) return; g.innerHTML = '';
             list.forEach(a => {
                 const card = document.createElement('div'); card.className = 'g-card'; card.id = 'gc-' + a.id;
@@ -946,7 +1049,7 @@
                 const cover = a.coverUrl ? `<img src="${esc(a.coverUrl)}" class="g-cover" onerror="this.outerHTML='<div class=g-cover-empty>${esc(a.name.charAt(0))}</div>'">` : `<div class="g-cover-empty">${esc(a.name.charAt(0))}</div>`;
                 card.innerHTML = `${cover}
                     <div class="g-body">
-                        <div class="g-name clickable-name" onclick="openDetailModal(${a.id})">${esc(a.name)}</div>
+                        <div class="g-name clickable-name" onclick="openDetailModal(${a.id})">${highlightText(a.name, kw)}</div>
                         <div class="g-meta"><span class="g-tag g-season">${esc(a.season)}</span><span class="g-tag g-score ${sc(a.score)}">${a.score}</span>${a.tags ? renderTags(a.tags) : ''}</div>
                         <div class="g-progress"><div class="g-progress-bar ${a.status}" style="width:${pct}%"></div></div>
                         <div class="g-ep">${a.currentEpisode} / ${a.totalEpisodes} ep &middot; ${SM[a.status] || a.status}</div>
@@ -960,13 +1063,14 @@
         function appendResults(list) {
             if (!list || list.length === 0) return;
             list.forEach(a => _cache[a.id] = a);
+            const kw = document.getElementById('searchName').value.trim();
             const tb = document.querySelector('tbody'), dg = document.getElementById('detailGrid'), gg = document.getElementById('galleryGrid');
             const existing = tb ? tb.querySelectorAll('tr').length : 0;
             list.forEach((a, i) => {
                 const r = document.createElement('tr'); r.id = 'r-' + a.id;
                 const cv = a.coverUrl ? `<img src="${esc(a.coverUrl)}" class="cover-img" onerror="this.outerHTML='<div class=cover-empty>N/A</div>'">` : '<div class="cover-empty">N/A</div>';
-                r.innerHTML = `<td class="drag-handle" style="cursor:grab;color:var(--text-faint);padding:8px;">⠿</td><td>${cv}</td><td>${existing + i + 1}</td>
-                    <td><span class="clickable-name" onclick="openDetailModal(${a.id})">${esc(a.name)}</span>${a.tags ? '<div style="margin-top:4px;">' + renderTags(a.tags) + '</div>' : ''}</td>
+                r.innerHTML = `<td class="drag-handle" style="cursor:grab;color:var(--text-faint);padding:8px;">⠿</td><td style="width:36px;padding:16px 8px;text-align:center;"><input type="checkbox" class="batch-cb" data-id="${a.id}" onchange="toggleRowSelect(${a.id}, this.checked)"></td><td>${cv}</td><td>${existing + i + 1}</td>
+                    <td><span class="clickable-name" onclick="openDetailModal(${a.id})">${highlightText(a.name, kw)}</span>${a.tags ? '<div style="margin-top:4px;">' + renderTags(a.tags) + '</div>' : ''}</td>
                     <td><span class="season-tag">${esc(a.season)}</span></td>
                     <td><select class="e-select" id="ss-${a.id}" onchange="cs(${a.id})"><option value="watching" ${a.status==='watching'?'selected':''}>追中</option><option value="finished" ${a.status==='finished'?'selected':''}>已完成</option><option value="planning" ${a.status==='planning'?'selected':''}>计划</option><option value="dropped" ${a.status==='dropped'?'selected':''}>放弃</option></select></td>
                     <td><span class="score-pill ${sc(a.score)}">${esc(String(a.score))}</span></td>
@@ -979,14 +1083,14 @@
                 const card = document.createElement('div'); card.className = 'dt-card';
                 const pct = a.totalEpisodes > 0 ? Math.round(a.currentEpisode / a.totalEpisodes * 100) : 0;
                 const cover = a.coverUrl ? `<img src="${esc(a.coverUrl)}" class="dt-cover" onerror="this.outerHTML='<div class=dt-cover-empty>${esc(a.name.charAt(0))}</div>'">` : `<div class="dt-cover-empty">${esc(a.name.charAt(0))}</div>`;
-                card.innerHTML = `<div class="dt-cover-wrap">${cover}<span class="dt-status-badge ${a.status}">${SM[a.status] || a.status}</span></div><div class="dt-body"><div class="dt-name clickable-name" onclick="openDetailModal(${a.id})">${esc(a.name)}</div><div class="dt-meta"><span class="dt-tag dt-season">${esc(a.season)}</span><span class="dt-tag dt-score ${sc(a.score)}">${a.score}</span>${a.tags ? renderTags(a.tags) : ''}</div><div class="dt-progress-wrap"><div class="dt-progress-label"><span>${a.currentEpisode} / ${a.totalEpisodes} ep</span><span>${pct}%</span></div><div class="dt-progress"><div class="dt-progress-bar ${a.status}" style="width:${pct}%"></div></div></div>${a.remark ? `<div class="dt-remark">${esc(a.remark)}</div>` : '<div class="dt-remark" style="visibility:hidden;">-</div>'}<div class="dt-actions"><button class="dt-btn" onclick="openEditModal(${a.id})">编辑</button><button class="dt-btn ep" onclick="pe(${a.id})">-</button><button class="dt-btn ep" onclick="ne(${a.id})">+</button><button class="dt-btn del" onclick="da(${a.id})">删除</button></div></div>`;
+                card.innerHTML = `<div class="dt-cover-wrap">${cover}<span class="dt-status-badge ${a.status}">${SM[a.status] || a.status}</span></div><div class="dt-body"><div class="dt-name clickable-name" onclick="openDetailModal(${a.id})">${highlightText(a.name, kw)}</div><div class="dt-meta"><span class="dt-tag dt-season">${esc(a.season)}</span><span class="dt-tag dt-score ${sc(a.score)}">${a.score}</span>${a.tags ? renderTags(a.tags) : ''}</div><div class="dt-progress-wrap"><div class="dt-progress-label"><span>${a.currentEpisode} / ${a.totalEpisodes} ep</span><span>${pct}%</span></div><div class="dt-progress"><div class="dt-progress-bar ${a.status}" style="width:${pct}%"></div></div></div>${a.remark ? `<div class="dt-remark">${renderRemark(a.remark)}</div>` : '<div class="dt-remark" style="visibility:hidden;">-</div>'}<div class="dt-actions"><button class="dt-btn" onclick="openEditModal(${a.id})">编辑</button><button class="dt-btn ep" onclick="pe(${a.id})">-</button><button class="dt-btn ep" onclick="ne(${a.id})">+</button><button class="dt-btn del" onclick="da(${a.id})">删除</button></div></div>`;
                 dg.appendChild(card);
             });
             if (gg) list.forEach(a => {
                 const card = document.createElement('div'); card.className = 'g-card'; card.id = 'gc-' + a.id;
                 const pct = a.totalEpisodes > 0 ? Math.round(a.currentEpisode / a.totalEpisodes * 100) : 0;
                 const cover = a.coverUrl ? `<img src="${esc(a.coverUrl)}" class="g-cover" onerror="this.outerHTML='<div class=g-cover-empty>${esc(a.name.charAt(0))}</div>'">` : `<div class="g-cover-empty">${esc(a.name.charAt(0))}</div>`;
-                card.innerHTML = `${cover}<div class="g-body"><div class="g-name clickable-name" onclick="openDetailModal(${a.id})">${esc(a.name)}</div><div class="g-meta"><span class="g-tag g-season">${esc(a.season)}</span><span class="g-tag g-score ${sc(a.score)}">${a.score}</span>${a.tags ? renderTags(a.tags) : ''}</div><div class="g-progress"><div class="g-progress-bar ${a.status}" style="width:${pct}%"></div></div><div class="g-ep">${a.currentEpisode} / ${a.totalEpisodes} ep &middot; ${SM[a.status] || a.status}</div><div class="g-actions"><button class="g-btn" onclick="openEditModal(${a.id})">编辑</button><button class="g-btn ep" onclick="pe(${a.id})">-</button><button class="g-btn ep" onclick="ne(${a.id})">+</button><button class="g-btn del" onclick="da(${a.id})">删</button></div></div>`;
+                card.innerHTML = `${cover}<div class="g-body"><div class="g-name clickable-name" onclick="openDetailModal(${a.id})">${highlightText(a.name, kw)}</div><div class="g-meta"><span class="g-tag g-season">${esc(a.season)}</span><span class="g-tag g-score ${sc(a.score)}">${a.score}</span>${a.tags ? renderTags(a.tags) : ''}</div><div class="g-progress"><div class="g-progress-bar ${a.status}" style="width:${pct}%"></div></div><div class="g-ep">${a.currentEpisode} / ${a.totalEpisodes} ep &middot; ${SM[a.status] || a.status}</div><div class="g-actions"><button class="g-btn" onclick="openEditModal(${a.id})">编辑</button><button class="g-btn ep" onclick="pe(${a.id})">-</button><button class="g-btn ep" onclick="ne(${a.id})">+</button><button class="g-btn del" onclick="da(${a.id})">删</button></div></div>`;
                 gg.appendChild(card);
             });
         }

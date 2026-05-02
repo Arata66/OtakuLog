@@ -121,6 +121,24 @@ public class AnimeServiceImpl implements AnimeService {
     }
 
     @Override
+    public void batchDelete(List<Long> ids) {
+        animeRepository.deleteAllById(ids);
+    }
+
+    @Override
+    public void batchUpdateStatus(List<Long> ids, AnimeStatus status) {
+        for (Long id : ids) {
+            animeRepository.findById(id).ifPresent(anime -> {
+                anime.setStatus(status);
+                if (status == AnimeStatus.FINISHED) {
+                    anime.setEndDate(LocalDate.now());
+                }
+                animeRepository.save(anime);
+            });
+        }
+    }
+
+    @Override
     public List<AnimeVO> searchAnime(String name, AnimeStatus status, String sortBy, String tag) {
         Sort sort = buildSort(sortBy);
         boolean hasTag = tag != null && !tag.trim().isEmpty();

@@ -23,6 +23,10 @@ public interface AnimeService {
 
     void deleteAnime(Long id);
 
+    void batchDelete(List<Long> ids);
+
+    void batchUpdateStatus(List<Long> ids, AnimeStatus status);
+
     List<AnimeVO> searchAnime(String name, AnimeStatus status, String sortBy, String tag);
 
     Page<AnimeVO> searchAnimePaged(String name, AnimeStatus status, Pageable pageable, String tag);
