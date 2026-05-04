@@ -17,6 +17,8 @@ public class AnimeVO {
     private String endDate;
     private String tags;
     private Integer sortOrder;
+    private Integer broadcastDay;
+    private Integer bangumiId;
 
     public AnimeVO() {
     }
@@ -139,5 +141,21 @@ public class AnimeVO {
 
     public void setSortOrder(Integer sortOrder) {
         this.sortOrder = sortOrder;
+    }
+
+    public Integer getBroadcastDay() {
+        return broadcastDay;
+    }
+
+    public void setBroadcastDay(Integer broadcastDay) {
+        this.broadcastDay = broadcastDay;
+    }
+
+    public Integer getBangumiId() {
+        return bangumiId;
+    }
+
+    public void setBangumiId(Integer bangumiId) {
+        this.bangumiId = bangumiId;
     }
 }

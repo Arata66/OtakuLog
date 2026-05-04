@@ -48,4 +48,6 @@ public interface AnimeService {
     String exportJson();
 
     Map<String, Object> importJson(String json);
+
+    Map<Integer, List<AnimeVO>> getCalendarData();
 }

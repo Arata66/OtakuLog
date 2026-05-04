@@ -38,6 +38,8 @@ public class AnimeServiceImpl implements AnimeService {
         anime.setStartDate(parseDate(dto.getStartDate()));
         anime.setEndDate(parseDate(dto.getEndDate()));
         anime.setTags(dto.getTags());
+        anime.setBroadcastDay(dto.getBroadcastDay());
+        anime.setBangumiId(dto.getBangumiId());
         anime.setCurrentEpisode(1);
         anime.setStatus(AnimeStatus.WATCHING);
 
@@ -96,6 +98,10 @@ public class AnimeServiceImpl implements AnimeService {
         anime.setStartDate(parseDate(dto.getStartDate()));
         anime.setEndDate(parseDate(dto.getEndDate()));
         anime.setTags(dto.getTags());
+        anime.setBroadcastDay(dto.getBroadcastDay());
+        if (dto.getBangumiId() != null) {
+            anime.setBangumiId(dto.getBangumiId());
+        }
 
         return toVO(animeRepository.save(anime));
     }
@@ -279,6 +285,8 @@ public class AnimeServiceImpl implements AnimeService {
                 map.put("startDate", a.getStartDate() != null ? a.getStartDate().toString() : null);
                 map.put("endDate", a.getEndDate() != null ? a.getEndDate().toString() : null);
                 map.put("tags", a.getTags());
+                map.put("broadcastDay", a.getBroadcastDay());
+                map.put("bangumiId", a.getBangumiId());
                 exportList.add(map);
             }
             return mapper.writerWithDefaultPrettyPrinter().writeValueAsString(exportList);
@@ -315,6 +323,8 @@ public class AnimeServiceImpl implements AnimeService {
                 String status = (String) map.getOrDefault("status", "watching");
                 anime.setStatus(AnimeStatus.valueOf(status.toUpperCase()));
                 anime.setTags((String) map.get("tags"));
+                anime.setBroadcastDay(toIntOrNull(map.get("broadcastDay")));
+                anime.setBangumiId(toIntOrNull(map.get("bangumiId")));
 
                 result.add(toVO(animeRepository.save(anime)));
                 if (isNew) created++; else updated++;
@@ -400,6 +410,18 @@ public class AnimeServiceImpl implements AnimeService {
     }
 
     @Override
+    public Map<Integer, List<AnimeVO>> getCalendarData() {
+        Map<Integer, List<AnimeVO>> calendar = new LinkedHashMap<>();
+        Sort sort = Sort.by(Sort.Direction.ASC, "sortOrder").and(Sort.by(Sort.Direction.ASC, "name"));
+        for (int day = 1; day <= 7; day++) {
+            List<AnimeVO> list = animeRepository.findByBroadcastDay(day, sort)
+                    .stream().map(this::toVO).collect(Collectors.toList());
+            calendar.put(day, list);
+        }
+        return calendar;
+    }
+
+    @Override
     public void reorderAnime(List<Map<String, Object>> orders) {
         for (Map<String, Object> item : orders) {
             Long id = Long.valueOf(item.get("id").toString());
@@ -436,6 +458,8 @@ public class AnimeServiceImpl implements AnimeService {
         vo.setEndDate(anime.getEndDate() != null ? anime.getEndDate().toString() : null);
         vo.setTags(anime.getTags());
         vo.setSortOrder(anime.getSortOrder());
+        vo.setBroadcastDay(anime.getBroadcastDay());
+        vo.setBangumiId(anime.getBangumiId());
         if (anime.getTotalEpisodes() != null && anime.getTotalEpisodes() > 0) {
             vo.setProgress(Math.round((double) anime.getCurrentEpisode() / anime.getTotalEpisodes() * 1000.0) / 10.0);
         }
@@ -456,6 +480,13 @@ public class AnimeServiceImpl implements AnimeService {
         if (obj instanceof Integer i) return i;
         if (obj instanceof Number n) return n.intValue();
         return Integer.parseInt(obj.toString());
+    }
+
+    private Integer toIntOrNull(Object obj) {
+        if (obj == null) return null;
+        if (obj instanceof Integer i) return i;
+        if (obj instanceof Number n) return n.intValue();
+        try { return Integer.parseInt(obj.toString()); } catch (Exception e) { return null; }
     }
 
     private Double toDouble(Object obj) {

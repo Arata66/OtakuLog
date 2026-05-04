@@ -72,4 +72,6 @@ public interface AnimeRepository extends JpaRepository<Anime, Long> {
 
     @Query("SELECT ROUND(a.score) as bucket, COUNT(a) FROM Anime a WHERE a.score IS NOT NULL AND a.score > 0 GROUP BY bucket ORDER BY bucket")
     List<Object[]> getScoreDistribution();
+
+    List<Anime> findByBroadcastDay(Integer broadcastDay, Sort sort);
 }

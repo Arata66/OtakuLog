@@ -31,6 +31,10 @@ public class AnimeDTO {
 
     private String tags;
 
+    private Integer broadcastDay;
+
+    private Integer bangumiId;
+
     public String getName() {
         return name;
     }
@@ -101,5 +105,21 @@ public class AnimeDTO {
 
     public void setTags(String tags) {
         this.tags = tags;
+    }
+
+    public Integer getBroadcastDay() {
+        return broadcastDay;
+    }
+
+    public void setBroadcastDay(Integer broadcastDay) {
+        this.broadcastDay = broadcastDay;
+    }
+
+    public Integer getBangumiId() {
+        return bangumiId;
+    }
+
+    public void setBangumiId(Integer bangumiId) {
+        this.bangumiId = bangumiId;
     }
 }

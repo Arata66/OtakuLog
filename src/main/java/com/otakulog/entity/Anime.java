@@ -49,6 +49,12 @@ public class Anime {
     @Column(name = "sort_order")
     private Integer sortOrder;
 
+    @Column(name = "broadcast_day")
+    private Integer broadcastDay;  // 1=周一..7=周日
+
+    @Column(name = "bangumi_id")
+    private Integer bangumiId;
+
     public Anime() {
     }
 
@@ -154,5 +160,21 @@ public class Anime {
 
     public void setSortOrder(Integer sortOrder) {
         this.sortOrder = sortOrder;
+    }
+
+    public Integer getBroadcastDay() {
+        return broadcastDay;
+    }
+
+    public void setBroadcastDay(Integer broadcastDay) {
+        this.broadcastDay = broadcastDay;
+    }
+
+    public Integer getBangumiId() {
+        return bangumiId;
+    }
+
+    public void setBangumiId(Integer bangumiId) {
+        this.bangumiId = bangumiId;
     }
 }
