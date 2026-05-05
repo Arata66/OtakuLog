@@ -219,18 +219,19 @@ public class AnimeServiceImpl implements AnimeService {
     public Map<String, Object> getDetailedStats() {
         Map<String, Object> stats = new HashMap<>();
 
-        Object[] row = animeRepository.getAggregatedStats();
-        long total = ((Number) row[0]).longValue();
-        long watching = ((Number) row[1]).longValue();
-        long finished = ((Number) row[2]).longValue();
-        long planning = ((Number) row[3]).longValue();
-        long dropped = ((Number) row[4]).longValue();
-        long totalEpisodes = ((Number) row[5]).longValue();
-        long watchedEpisodes = ((Number) row[6]).longValue();
-        double avgScore = ((Number) row[7]).doubleValue();
-        long highScore = ((Number) row[8]).longValue();
-        long mediumScore = ((Number) row[9]).longValue();
-        long lowScore = ((Number) row[10]).longValue();
+        List<Object[]> rows = animeRepository.getAggregatedStats();
+        Object[] row = (rows != null && !rows.isEmpty()) ? rows.get(0) : new Object[11];
+        long total = toLong(row[0]);
+        long watching = toLong(row[1]);
+        long finished = toLong(row[2]);
+        long planning = toLong(row[3]);
+        long dropped = toLong(row[4]);
+        long totalEpisodes = toLong(row[5]);
+        long watchedEpisodes = toLong(row[6]);
+        double avgScore = toDouble(row[7]);
+        long highScore = toLong(row[8]);
+        long mediumScore = toLong(row[9]);
+        long lowScore = toLong(row[10]);
 
         stats.put("total", total);
         stats.put("watching", watching);
@@ -515,6 +516,13 @@ public class AnimeServiceImpl implements AnimeService {
         if (obj instanceof Integer i) return i;
         if (obj instanceof Number n) return n.intValue();
         try { return Integer.parseInt(obj.toString()); } catch (Exception e) { return null; }
+    }
+
+    private long toLong(Object obj) {
+        if (obj == null) return 0L;
+        if (obj instanceof Long l) return l;
+        if (obj instanceof Number n) return n.longValue();
+        return Long.parseLong(obj.toString());
     }
 
     private Double toDouble(Object obj) {

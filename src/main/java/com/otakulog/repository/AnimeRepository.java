@@ -81,7 +81,7 @@ public interface AnimeRepository extends JpaRepository<Anime, Long> {
             "SUM(CASE WHEN a.score IS NOT NULL AND a.score >= 6.0 AND a.score < 8.0 THEN 1 ELSE 0 END), " +
             "SUM(CASE WHEN a.score IS NOT NULL AND a.score > 0 AND a.score < 6.0 THEN 1 ELSE 0 END) " +
             "FROM Anime a")
-    Object[] getAggregatedStats();
+    List<Object[]> getAggregatedStats();
 
     // Batch update status
     @Modifying
