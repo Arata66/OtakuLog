@@ -60,15 +60,11 @@ public interface AnimeRepository extends JpaRepository<Anime, Long> {
     @Query("SELECT a.season, COUNT(a), AVG(a.score) FROM Anime a WHERE a.score IS NOT NULL GROUP BY a.season ORDER BY a.season DESC")
     List<Object[]> getSeasonStats();
 
-    // Tag filtering — FIND_IN_SET 精确匹配，避免 LIKE 的子串误匹配
-    @Query(value = "SELECT * FROM anime a WHERE FIND_IN_SET(:tag, a.tags) > 0",
-            countQuery = "SELECT COUNT(*) FROM anime a WHERE FIND_IN_SET(:tag, a.tags) > 0",
-            nativeQuery = true)
+    // Tag 精确匹配：用逗号边界避免子串误匹配（如 "热血" 不会匹配 "热血战斗"）
+    @Query("SELECT a FROM Anime a WHERE CONCAT(',', a.tags, ',') LIKE CONCAT('%,', :tag, ',%')")
     List<Anime> findByTagContaining(@org.springframework.data.repository.query.Param("tag") String tag, Sort sort);
 
-    @Query(value = "SELECT * FROM anime a WHERE FIND_IN_SET(:tag, a.tags) > 0",
-            countQuery = "SELECT COUNT(*) FROM anime a WHERE FIND_IN_SET(:tag, a.tags) > 0",
-            nativeQuery = true)
+    @Query("SELECT a FROM Anime a WHERE CONCAT(',', a.tags, ',') LIKE CONCAT('%,', :tag, ',%')")
     Page<Anime> findByTagContaining(@org.springframework.data.repository.query.Param("tag") String tag, Pageable pageable);
 
     // Merged stats: returns [total, watching, finished, planning, dropped, sumTotal, sumCurrent, avgScore, highScore, midScore, lowScore]
