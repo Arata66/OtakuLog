@@ -35,6 +35,10 @@ public class AnimeDTO {
 
     private Integer bangumiId;
 
+    private String watchStartDate;
+
+    private Boolean legacy;
+
     public String getName() {
         return name;
     }
@@ -121,5 +125,21 @@ public class AnimeDTO {
 
     public void setBangumiId(Integer bangumiId) {
         this.bangumiId = bangumiId;
+    }
+
+    public String getWatchStartDate() {
+        return watchStartDate;
+    }
+
+    public void setWatchStartDate(String watchStartDate) {
+        this.watchStartDate = watchStartDate;
+    }
+
+    public Boolean getLegacy() {
+        return legacy;
+    }
+
+    public void setLegacy(Boolean legacy) {
+        this.legacy = legacy;
     }
 }

@@ -169,7 +169,7 @@
             e.preventDefault();
             const bd = document.getElementById('animeBroadcastDay').value;
             const bgId = document.getElementById('animeBangumiId').value;
-            const b = { name: document.getElementById('animeName').value, totalEpisodes: parseInt(document.getElementById('totalEpisodes').value), season: document.getElementById('animeSeason').value, score: parseFloat(document.getElementById('animeScore').value), remark: document.getElementById('animeRemark').value, coverUrl: document.getElementById('animeCover').value || null, startDate: document.getElementById('animeStartDate').value || null, endDate: document.getElementById('animeEndDate').value || null, tags: document.getElementById('animeTags').value || null, broadcastDay: bd ? parseInt(bd) : null, bangumiId: bgId ? parseInt(bgId) : null };
+            const b = { name: document.getElementById('animeName').value, totalEpisodes: parseInt(document.getElementById('totalEpisodes').value), season: document.getElementById('animeSeason').value, score: parseFloat(document.getElementById('animeScore').value), remark: document.getElementById('animeRemark').value, coverUrl: document.getElementById('animeCover').value || null, startDate: document.getElementById('animeStartDate').value || null, endDate: document.getElementById('animeEndDate').value || null, tags: document.getElementById('animeTags').value || null, broadcastDay: bd ? parseInt(bd) : null, bangumiId: bgId ? parseInt(bgId) : null, legacy: document.getElementById('animeLegacy').checked };
             const r = await fetchApi('/api/anime/add', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b) });
             if (r && r.code === 200) { toast('已添加', 'success'); document.getElementById('animeForm').reset(); closeBangumi(); performSearch(); updateStats(); } else if (r) toast(r.message || '添加失败', 'error');
         }
@@ -402,6 +402,11 @@
                     <div class="modal-field"><label>放送日</label><select id="m-broadcastDay"><option value="">未设置</option><option value="1" ${a.broadcastDay===1?'selected':''}>周一</option><option value="2" ${a.broadcastDay===2?'selected':''}>周二</option><option value="3" ${a.broadcastDay===3?'selected':''}>周三</option><option value="4" ${a.broadcastDay===4?'selected':''}>周四</option><option value="5" ${a.broadcastDay===5?'selected':''}>周五</option><option value="6" ${a.broadcastDay===6?'selected':''}>周六</option><option value="7" ${a.broadcastDay===7?'selected':''}>周日</option></select></div>
                     <div class="modal-field"><label>标签</label><input type="text" id="m-tags" value="${esc(a.tags || '')}" placeholder="热血,奇幻"></div>
                     <div class="modal-field"><label>状态</label><select id="m-status">${statusOpts}</select></div>
+                    <div class="modal-field"><label>追番开始日</label><input type="date" id="m-watchStart" value="${a.watchStartDate || ''}"></div>
+                    <div class="modal-field" style="flex-direction:row;align-items:center;gap:8px;">
+                        <input type="checkbox" id="m-legacy" ${a.legacy ? 'checked' : ''} style="width:auto;">
+                        <label for="m-legacy" style="text-transform:none;letter-spacing:0;font-size:0.82em;cursor:pointer;">旧番（不计入追番统计）</label>
+                    </div>
                     <div class="modal-actions"><button class="btn-h" onclick="closeEditModal()">取消</button><button class="btn-add" onclick="saveEditModal(${id})">保存</button></div>`;
                 overlay.appendChild(card); document.body.appendChild(overlay);
                 trapFocus(overlay);
@@ -412,7 +417,7 @@
             const n = document.getElementById('m-name').value.trim(), s = document.getElementById('m-season').value.trim(), sv = document.getElementById('m-score').value;
             if (!n || !s || !sv) { toast('请填写必填字段', 'error'); return; }
             const bd = document.getElementById('m-broadcastDay').value;
-            const body = { name: n, totalEpisodes: parseInt(document.getElementById('m-total').value) || null, season: s, score: parseFloat(sv), coverUrl: document.getElementById('m-cover').value || null, startDate: document.getElementById('m-start').value || null, endDate: document.getElementById('m-end').value || null, remark: document.getElementById('m-remark').value || null, tags: document.getElementById('m-tags').value || null, broadcastDay: bd ? parseInt(bd) : null };
+            const body = { name: n, totalEpisodes: parseInt(document.getElementById('m-total').value) || null, season: s, score: parseFloat(sv), coverUrl: document.getElementById('m-cover').value || null, startDate: document.getElementById('m-start').value || null, endDate: document.getElementById('m-end').value || null, remark: document.getElementById('m-remark').value || null, tags: document.getElementById('m-tags').value || null, broadcastDay: bd ? parseInt(bd) : null, watchStartDate: document.getElementById('m-watchStart').value || null, legacy: document.getElementById('m-legacy').checked };
             const st = document.getElementById('m-status').value;
             const r = await fetchApi(`/api/anime/${id}/update`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
             if (!r || r.code !== 200) { if (r) toast(r.message || '保存失败', 'error'); return; }
@@ -629,6 +634,10 @@
                 }
                 document.getElementById('stat-ep-day').textContent = d.episodesPerDay || '0';
                 document.getElementById('stat-ep-month').textContent = d.episodesPerMonth || '0';
+                // 旧番数量提示
+                const lc = d.legacyCount || 0;
+                const epDaySub = document.getElementById('stat-ep-day')?.closest('.d-card')?.querySelector('.d-sub');
+                if (epDaySub) epDaySub.textContent = lc > 0 ? `排除 ${lc} 部旧番` : '观看习惯';
             }
         }
 
@@ -814,12 +823,25 @@
         }
 
         /* Timeline */
+        let timelineMode = 'watch';
+        function switchTimelineMode(mode) {
+            timelineMode = mode;
+            document.getElementById('tlViewWatch').classList.toggle('active', mode === 'watch');
+            document.getElementById('tlViewAir').classList.toggle('active', mode === 'air');
+            loadTL();
+        }
         async function loadTL() {
-            const r = await fetchApi('/api/anime/timeline');
+            const r = await fetchApi('/api/anime/timeline?mode=' + timelineMode);
             if (!r || r.code !== 200) return;
             const c = document.getElementById('tl'); c.innerHTML = '';
             if (!r.data || r.data.length === 0) { c.innerHTML = '<p style="text-align:center;color:var(--text-faint);padding:40px 0;">暂无数据</p>'; return; }
-            r.data.forEach(a => { const el = document.createElement('div'); el.className = 'tl'; el.innerHTML = `<div class="t-date">${esc(a.startDate || 'Unknown')}</div><div class="t-name">${esc(a.name)}</div><div class="t-meta">${SM[a.status] || a.status} · ${a.currentEpisode}/${a.totalEpisodes} ep · ${esc(String(a.score))}</div>`; c.appendChild(el); });
+            r.data.forEach(a => {
+                const dateField = timelineMode === 'air' ? a.startDate : (a.watchStartDate || a.startDate);
+                const dateLabel = timelineMode === 'air' ? '开播' : '追番';
+                const el = document.createElement('div'); el.className = 'tl';
+                el.innerHTML = `<div class="t-date">${esc(dateField || 'Unknown')} · ${dateLabel}</div><div class="t-name">${esc(a.name)}${a.legacy ? ' <span style="font-size:0.7em;color:var(--text-faint);">旧番</span>' : ''}</div><div class="t-meta">${SM[a.status] || a.status} · ${a.currentEpisode}/${a.totalEpisodes} ep · ${esc(String(a.score))}</div>`;
+                c.appendChild(el);
+            });
         }
 
         /* Export / Import */

@@ -54,6 +54,8 @@ public class AnimeServiceImpl implements AnimeService {
         anime.setBangumiId(dto.getBangumiId());
         anime.setCurrentEpisode(1);
         anime.setStatus(AnimeStatus.WATCHING);
+        anime.setLegacy(dto.getLegacy() != null && dto.getLegacy());
+        anime.setWatchStartDate(parseDate(dto.getWatchStartDate()) != null ? parseDate(dto.getWatchStartDate()) : LocalDate.now());
 
         return toVO(animeRepository.save(anime));
     }
@@ -113,6 +115,12 @@ public class AnimeServiceImpl implements AnimeService {
         anime.setBroadcastDay(dto.getBroadcastDay());
         if (dto.getBangumiId() != null) {
             anime.setBangumiId(dto.getBangumiId());
+        }
+        if (dto.getLegacy() != null) {
+            anime.setLegacy(dto.getLegacy());
+        }
+        if (dto.getWatchStartDate() != null) {
+            anime.setWatchStartDate(parseDate(dto.getWatchStartDate()));
         }
 
         return toVO(animeRepository.save(anime));
@@ -274,8 +282,9 @@ public class AnimeServiceImpl implements AnimeService {
     }
 
     @Override
-    public List<AnimeVO> getTimeline() {
-        return animeRepository.findAll(Sort.by(Sort.Direction.DESC, "startDate")).stream()
+    public List<AnimeVO> getTimeline(String mode) {
+        String sortField = "air".equals(mode) ? "startDate" : "watchStartDate";
+        return animeRepository.findAll(Sort.by(Sort.Direction.DESC, sortField)).stream()
                 .map(this::toVO)
                 .collect(Collectors.toList());
     }
@@ -302,6 +311,8 @@ public class AnimeServiceImpl implements AnimeService {
                 map.put("broadcastDay", a.getBroadcastDay());
                 map.put("bangumiId", a.getBangumiId());
                 map.put("sortOrder", a.getSortOrder());
+                map.put("watchStartDate", a.getWatchStartDate() != null ? a.getWatchStartDate().toString() : null);
+                map.put("legacy", a.isLegacy());
                 exportList.add(map);
             }
             return mapper.writerWithDefaultPrettyPrinter().writeValueAsString(exportList);
@@ -341,6 +352,9 @@ public class AnimeServiceImpl implements AnimeService {
                 anime.setBroadcastDay(toIntOrNull(map.get("broadcastDay")));
                 anime.setBangumiId(toIntOrNull(map.get("bangumiId")));
                 anime.setSortOrder(toIntOrNull(map.get("sortOrder")));
+                anime.setWatchStartDate(parseDate((String) map.get("watchStartDate")));
+                Object legacyObj = map.get("legacy");
+                anime.setLegacy(legacyObj != null && Boolean.TRUE.equals(legacyObj));
 
                 result.add(toVO(animeRepository.save(anime)));
                 if (isNew) created++; else updated++;
@@ -401,14 +415,17 @@ public class AnimeServiceImpl implements AnimeService {
                 .forEach(e -> { Map<String, Object> m = new HashMap<>(); m.put("tag", e.getKey()); m.put("count", e.getValue()); tagList.add(m); });
         stats.put("tags", tagList);
 
-        // Watching habits
+        // Watching habits — 只统计非旧番，用 watchStartDate
         long totalWatched = 0;
         long totalDays = 0;
         int counted = 0;
+        int legacyCount = 0;
         for (Anime a : all) {
-            if (a.getStartDate() != null && a.getCurrentEpisode() != null && a.getCurrentEpisode() > 0) {
+            if (a.isLegacy()) { legacyCount++; continue; }
+            LocalDate watchStart = a.getWatchStartDate() != null ? a.getWatchStartDate() : (a.getCreatedAt() != null ? a.getCreatedAt().toLocalDate() : null);
+            if (watchStart != null && a.getCurrentEpisode() != null && a.getCurrentEpisode() > 0) {
                 LocalDate end = a.getEndDate() != null ? a.getEndDate() : LocalDate.now();
-                long days = java.time.temporal.ChronoUnit.DAYS.between(a.getStartDate(), end);
+                long days = java.time.temporal.ChronoUnit.DAYS.between(watchStart, end);
                 if (days > 0) {
                     totalWatched += a.getCurrentEpisode();
                     totalDays += days;
@@ -421,6 +438,7 @@ public class AnimeServiceImpl implements AnimeService {
         stats.put("episodesPerDay", epPerDay);
         stats.put("episodesPerMonth", epPerMonth);
         stats.put("animeCountedForHabits", counted);
+        stats.put("legacyCount", legacyCount);
 
         return stats;
     }
@@ -489,6 +507,8 @@ public class AnimeServiceImpl implements AnimeService {
         vo.setSortOrder(anime.getSortOrder());
         vo.setBroadcastDay(anime.getBroadcastDay());
         vo.setBangumiId(anime.getBangumiId());
+        vo.setWatchStartDate(anime.getWatchStartDate() != null ? anime.getWatchStartDate().toString() : null);
+        vo.setLegacy(anime.isLegacy());
         if (anime.getTotalEpisodes() != null && anime.getTotalEpisodes() > 0) {
             vo.setProgress(Math.round((double) anime.getCurrentEpisode() / anime.getTotalEpisodes() * 1000.0) / 10.0);
         }

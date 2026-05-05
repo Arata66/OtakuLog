@@ -41,7 +41,7 @@ public interface AnimeService {
 
     Map<String, Object> getEnhancedStats();
 
-    List<AnimeVO> getTimeline();
+    List<AnimeVO> getTimeline(String mode);
 
     void reorderAnime(List<Map<String, Object>> orders);
 

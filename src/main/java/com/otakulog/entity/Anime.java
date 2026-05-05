@@ -59,6 +59,12 @@ public class Anime extends BaseEntity {
     @Column(name = "bangumi_id")
     private Integer bangumiId;
 
+    @Column(name = "watch_start_date")
+    private LocalDate watchStartDate;
+
+    @Column(name = "legacy")
+    private boolean legacy;
+
     public Anime() {
     }
 
@@ -180,5 +186,21 @@ public class Anime extends BaseEntity {
 
     public void setBangumiId(Integer bangumiId) {
         this.bangumiId = bangumiId;
+    }
+
+    public LocalDate getWatchStartDate() {
+        return watchStartDate;
+    }
+
+    public void setWatchStartDate(LocalDate watchStartDate) {
+        this.watchStartDate = watchStartDate;
+    }
+
+    public boolean isLegacy() {
+        return legacy;
+    }
+
+    public void setLegacy(boolean legacy) {
+        this.legacy = legacy;
     }
 }

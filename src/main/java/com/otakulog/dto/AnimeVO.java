@@ -158,4 +158,23 @@ public class AnimeVO {
     public void setBangumiId(Integer bangumiId) {
         this.bangumiId = bangumiId;
     }
+
+    private String watchStartDate;
+    private boolean legacy;
+
+    public String getWatchStartDate() {
+        return watchStartDate;
+    }
+
+    public void setWatchStartDate(String watchStartDate) {
+        this.watchStartDate = watchStartDate;
+    }
+
+    public boolean isLegacy() {
+        return legacy;
+    }
+
+    public void setLegacy(boolean legacy) {
+        this.legacy = legacy;
+    }
 }

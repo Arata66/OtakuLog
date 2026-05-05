@@ -211,8 +211,9 @@ public class AnimeController {
     @Operation(summary = "获取时间线")
     @GetMapping("/api/anime/timeline")
     @ResponseBody
-    public ResponseEntity<ApiResponse<List<AnimeVO>>> getTimeline() {
-        return ResponseEntity.ok(ApiResponse.success(animeService.getTimeline()));
+    public ResponseEntity<ApiResponse<List<AnimeVO>>> getTimeline(
+            @RequestParam(defaultValue = "watch") String mode) {
+        return ResponseEntity.ok(ApiResponse.success(animeService.getTimeline(mode)));
     }
 
     @Operation(summary = "获取日历数据")

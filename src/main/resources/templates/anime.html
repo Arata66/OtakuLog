@@ -124,6 +124,10 @@
                         <div class="ff"><label data-i18n="form.remark">备注 (Markdown)</label><textarea id="animeRemark" rows="2" data-i18n-placeholder="form.remarkPlaceholder" placeholder="支持 **Markdown**"></textarea></div>
                         <div class="ff"><label data-i18n="form.broadcastDay">放送日</label><select id="animeBroadcastDay"><option value="" data-i18n="form.broadcastDayUnset">未设置</option><option value="1" data-i18n="day.mon">周一</option><option value="2" data-i18n="day.tue">周二</option><option value="3" data-i18n="day.wed">周三</option><option value="4" data-i18n="day.thu">周四</option><option value="5" data-i18n="day.fri">周五</option><option value="6" data-i18n="day.sat">周六</option><option value="7" data-i18n="day.sun">周日</option></select></div>
                         <div class="ff"><label data-i18n="form.tags">标签</label><input type="text" id="animeTags" data-i18n-placeholder="form.tagsPlaceholder" placeholder="热血,奇幻"></div>
+                        <div class="ff" style="flex-direction:row;align-items:center;gap:6px;">
+                            <input type="checkbox" id="animeLegacy" style="width:auto;">
+                            <label for="animeLegacy" style="text-transform:none;letter-spacing:0;font-size:0.82em;cursor:pointer;">旧番（不计入追番统计）</label>
+                        </div>
                         <button type="submit" class="btn-add" data-i18n="form.submit">+ 添加</button>
                     </div>
                 </form>
@@ -186,7 +190,16 @@
 
         <!-- ===== Timeline ===== -->
         <div id="tab-timeline" class="tab-content">
-            <div class="chart-card"><h4>追番时间线</h4><div class="timeline" id="tl"></div></div>
+            <div class="chart-card">
+                <div class="cal-top-bar">
+                    <h4 style="margin:0;">追番时间线</h4>
+                    <div class="cal-toggle">
+                        <button class="cal-toggle-btn active" id="tlViewWatch" onclick="switchTimelineMode('watch')">追番</button>
+                        <button class="cal-toggle-btn" id="tlViewAir" onclick="switchTimelineMode('air')">开播</button>
+                    </div>
+                </div>
+                <div class="timeline" id="tl"></div>
+            </div>
         </div>
     </div>
 

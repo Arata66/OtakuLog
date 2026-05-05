@@ -121,4 +121,23 @@ public class AnimeUpdateDTO {
     public void setBangumiId(Integer bangumiId) {
         this.bangumiId = bangumiId;
     }
+
+    private String watchStartDate;
+    private Boolean legacy;
+
+    public String getWatchStartDate() {
+        return watchStartDate;
+    }
+
+    public void setWatchStartDate(String watchStartDate) {
+        this.watchStartDate = watchStartDate;
+    }
+
+    public Boolean getLegacy() {
+        return legacy;
+    }
+
+    public void setLegacy(Boolean legacy) {
+        this.legacy = legacy;
+    }
 }
