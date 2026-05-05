@@ -19,6 +19,7 @@
         <button class="mobile-nav-btn active" onclick="switchTab('list');updateMobileNav(0)"><span class="mobile-nav-icon">☰</span>列表</button>
         <button class="mobile-nav-btn" onclick="switchTab('charts');updateMobileNav(1)"><span class="mobile-nav-icon">📊</span>图表</button>
         <button class="mobile-nav-btn" onclick="switchTab('calendar');updateMobileNav(2)"><span class="mobile-nav-icon">📅</span>日历</button>
+        <button class="mobile-nav-btn" onclick="switchTab('timeline');updateMobileNav(3)"><span class="mobile-nav-icon">📈</span>时间线</button>
         <button class="mobile-nav-btn" onclick="document.querySelector('.add-form').scrollIntoView({behavior:'smooth'})"><span class="mobile-nav-icon">＋</span>添加</button>
     </div></div>
     <div class="batch-toolbar" id="batchToolbar">
@@ -192,7 +193,7 @@
         <div id="tab-timeline" class="tab-content">
             <div class="chart-card">
                 <div class="cal-top-bar">
-                    <h4 style="margin:0;">追番时间线</h4>
+                    <h4 style="margin:0;" id="tlTitle">追番时间线</h4>
                     <div class="cal-toggle">
                         <button class="cal-toggle-btn active" id="tlViewWatch" onclick="switchTimelineMode('watch')">追番</button>
                         <button class="cal-toggle-btn" id="tlViewAir" onclick="switchTimelineMode('air')">开播</button>

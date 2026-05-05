@@ -70,6 +70,10 @@ public class AnimeServiceImpl implements AnimeService {
         }
 
         anime.setCurrentEpisode(anime.getCurrentEpisode() + 1);
+        // 自动设置追番开始日
+        if (anime.getWatchStartDate() == null) {
+            anime.setWatchStartDate(LocalDate.now());
+        }
         if (anime.getCurrentEpisode().equals(anime.getTotalEpisodes())) {
             anime.setStatus(AnimeStatus.FINISHED);
             anime.setEndDate(LocalDate.now());
@@ -426,9 +430,9 @@ public class AnimeServiceImpl implements AnimeService {
             if (watchStart != null && a.getCurrentEpisode() != null && a.getCurrentEpisode() > 0) {
                 LocalDate end = a.getEndDate() != null ? a.getEndDate() : LocalDate.now();
                 long days = java.time.temporal.ChronoUnit.DAYS.between(watchStart, end);
-                if (days > 0) {
+                if (days >= 0) {
                     totalWatched += a.getCurrentEpisode();
-                    totalDays += days;
+                    totalDays += Math.max(days, 1); // 同一天视为 1 天
                     counted++;
                 }
             }

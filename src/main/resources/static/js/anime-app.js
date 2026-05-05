@@ -828,6 +828,7 @@
             timelineMode = mode;
             document.getElementById('tlViewWatch').classList.toggle('active', mode === 'watch');
             document.getElementById('tlViewAir').classList.toggle('active', mode === 'air');
+            document.getElementById('tlTitle').textContent = mode === 'air' ? '开播时间线' : '追番时间线';
             loadTL();
         }
         async function loadTL() {
