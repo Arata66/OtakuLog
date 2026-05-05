@@ -4,30 +4,21 @@ import com.otakulog.common.ApiResponse;
 import com.otakulog.dto.AnimeDTO;
 import com.otakulog.dto.AnimeUpdateDTO;
 import com.otakulog.dto.AnimeVO;
-import com.otakulog.dto.BangumiEpisode;
-import com.otakulog.dto.BangumiResult;
-import com.otakulog.dto.BangumiSubjectDetail;
 import com.otakulog.dto.BatchRequest;
 import com.otakulog.enums.AnimeStatus;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import com.otakulog.service.AiringScheduleService;
 import com.otakulog.service.AnimeService;
-import com.otakulog.service.BangumiService;
-import com.otakulog.service.TraceMoeService;
-import com.otakulog.service.WebDavSyncService;
+import com.otakulog.util.SortUtil;
 import jakarta.validation.Valid;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
+
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
-import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.multipart.MultipartFile;
-
 import java.util.List;
 import java.util.Map;
 
@@ -35,25 +26,16 @@ import java.util.Map;
 @Controller
 public class AnimeController {
 
-    @Autowired
-    private AnimeService animeService;
+    private final AnimeService animeService;
+    private final AiringScheduleService airingScheduleService;
 
-    @Autowired
-    private BangumiService bangumiService;
-
-    @Autowired
-    private AiringScheduleService airingScheduleService;
-
-    @Autowired
-    private TraceMoeService traceMoeService;
-
-    @Autowired
-    private WebDavSyncService webDavSyncService;
+    public AnimeController(AnimeService animeService, AiringScheduleService airingScheduleService) {
+        this.animeService = animeService;
+        this.airingScheduleService = airingScheduleService;
+    }
 
     @GetMapping("/")
-    public String index(Model model) {
-        List<AnimeVO> animeList = animeService.findAll();
-        model.addAttribute("animeList", animeList);
+    public String index() {
         return "anime";
     }
 
@@ -61,8 +43,18 @@ public class AnimeController {
     @PostMapping("/api/anime/add")
     @ResponseBody
     public ResponseEntity<ApiResponse<AnimeVO>> addAnime(@Valid @RequestBody AnimeDTO dto) {
-        AnimeVO vo = animeService.addAnime(dto);
-        return ResponseEntity.ok(ApiResponse.success("添加成功", vo));
+        try {
+            AnimeVO vo = animeService.addAnime(dto);
+            return ResponseEntity.ok(ApiResponse.success("添加成功", vo));
+        } catch (IllegalArgumentException e) {
+            if ("duplicate_name".equals(e.getMessage())) {
+                return ResponseEntity.status(409).body(ApiResponse.error(409, "已存在同名番剧"));
+            }
+            if ("duplicate_bangumi".equals(e.getMessage())) {
+                return ResponseEntity.status(409).body(ApiResponse.error(409, "该 Bangumi 作品已添加"));
+            }
+            return ResponseEntity.badRequest().body(ApiResponse.error(400, e.getMessage()));
+        }
     }
 
     @Operation(summary = "下一集")
@@ -74,9 +66,9 @@ public class AnimeController {
             return ResponseEntity.ok(ApiResponse.success(vo));
         } catch (IllegalArgumentException e) {
             if ("reached_max".equals(e.getMessage())) {
-                return ResponseEntity.ok(ApiResponse.error(400, "reached_max"));
+                return ResponseEntity.badRequest().body(ApiResponse.error(400, "reached_max"));
             }
-            return ResponseEntity.ok(ApiResponse.error(404, e.getMessage()));
+            return ResponseEntity.status(404).body(ApiResponse.error(404, e.getMessage()));
         }
     }
 
@@ -89,9 +81,9 @@ public class AnimeController {
             return ResponseEntity.ok(ApiResponse.success(vo));
         } catch (IllegalArgumentException e) {
             if ("reached_min".equals(e.getMessage())) {
-                return ResponseEntity.ok(ApiResponse.error(400, "reached_min"));
+                return ResponseEntity.badRequest().body(ApiResponse.error(400, "reached_min"));
             }
-            return ResponseEntity.ok(ApiResponse.error(404, e.getMessage()));
+            return ResponseEntity.status(404).body(ApiResponse.error(404, e.getMessage()));
         }
     }
 
@@ -105,7 +97,7 @@ public class AnimeController {
             AnimeVO vo = animeService.updateAnime(id, dto);
             return ResponseEntity.ok(ApiResponse.success("更新成功", vo));
         } catch (IllegalArgumentException e) {
-            return ResponseEntity.ok(ApiResponse.error(404, e.getMessage()));
+            return ResponseEntity.status(404).body(ApiResponse.error(404, e.getMessage()));
         }
     }
 
@@ -120,7 +112,7 @@ public class AnimeController {
             AnimeVO vo = animeService.updateStatus(id, animeStatus);
             return ResponseEntity.ok(ApiResponse.success(vo));
         } catch (IllegalArgumentException e) {
-            return ResponseEntity.ok(ApiResponse.error(400, e.getMessage()));
+            return ResponseEntity.badRequest().body(ApiResponse.error(400, e.getMessage()));
         }
     }
 
@@ -132,7 +124,7 @@ public class AnimeController {
             animeService.deleteAnime(id);
             return ResponseEntity.ok(ApiResponse.success("删除成功", null));
         } catch (IllegalArgumentException e) {
-            return ResponseEntity.ok(ApiResponse.error(404, e.getMessage()));
+            return ResponseEntity.status(404).body(ApiResponse.error(404, e.getMessage()));
         }
     }
 
@@ -183,7 +175,7 @@ public class AnimeController {
             @RequestParam(required = false) String tag) {
 
         AnimeStatus animeStatus = parseStatus(status);
-        Pageable pageable = PageRequest.of(page, size, buildSort(sortBy));
+        Pageable pageable = PageRequest.of(page, size, SortUtil.buildSort(sortBy));
         Page<AnimeVO> results = animeService.searchAnimePaged(name, animeStatus, pageable, tag);
         return ResponseEntity.ok(ApiResponse.success(results));
     }
@@ -257,72 +249,7 @@ public class AnimeController {
             int updated = (int) result.get("updated");
             return ResponseEntity.ok(ApiResponse.success("已导入 " + created + " 条新记录，更新 " + updated + " 条", result));
         } catch (Exception e) {
-            return ResponseEntity.ok(ApiResponse.error(e.getMessage()));
-        }
-    }
-
-    @Operation(summary = "搜索Bangumi")
-    @GetMapping("/api/bangumi/search")
-    @ResponseBody
-    public ResponseEntity<ApiResponse<List<BangumiResult>>> searchBangumi(
-            @RequestParam String keyword,
-            @RequestParam(defaultValue = "8") int limit) {
-        try {
-            List<BangumiResult> results = bangumiService.search(keyword, limit);
-            return ResponseEntity.ok(ApiResponse.success(results));
-        } catch (Exception e) {
-            return ResponseEntity.ok(ApiResponse.error("Bangumi 搜索失败: " + e.getMessage()));
-        }
-    }
-
-    @Operation(summary = "获取Bangumi作品详情")
-    @GetMapping("/api/bangumi/subject/{id}")
-    @ResponseBody
-    public ResponseEntity<ApiResponse<BangumiSubjectDetail>> getBangumiSubject(@PathVariable int id) {
-        try {
-            BangumiSubjectDetail detail = bangumiService.getSubject(id);
-            return ResponseEntity.ok(ApiResponse.success(detail));
-        } catch (Exception e) {
-            return ResponseEntity.ok(ApiResponse.error("获取作品详情失败: " + e.getMessage()));
-        }
-    }
-
-    @Operation(summary = "获取Bangumi剧集列表")
-    @GetMapping("/api/bangumi/subject/{id}/episodes")
-    @ResponseBody
-    public ResponseEntity<ApiResponse<List<BangumiEpisode>>> getBangumiEpisodes(@PathVariable int id) {
-        try {
-            List<BangumiEpisode> episodes = bangumiService.getSubjectEpisodes(id);
-            return ResponseEntity.ok(ApiResponse.success(episodes));
-        } catch (Exception e) {
-            return ResponseEntity.ok(ApiResponse.error("获取剧集列表失败: " + e.getMessage()));
-        }
-    }
-
-    @Operation(summary = "获取Bangumi放送日历")
-    @GetMapping("/api/bangumi/calendar")
-    @ResponseBody
-    public ResponseEntity<ApiResponse<List<Map<String, Object>>>> getBangumiCalendar() {
-        try {
-            List<Map<String, Object>> calendar = bangumiService.getCalendar();
-            return ResponseEntity.ok(ApiResponse.success(calendar));
-        } catch (Exception e) {
-            return ResponseEntity.ok(ApiResponse.error("获取放送日历失败: " + e.getMessage()));
-        }
-    }
-
-    @Operation(summary = "以图搜番(trace.moe)")
-    @PostMapping("/api/tracemoe/search")
-    @ResponseBody
-    public ResponseEntity<ApiResponse<Map<String, Object>>> searchByImage(@RequestParam("image") MultipartFile image) {
-        try {
-            Map<String, Object> result = traceMoeService.searchByImage(image);
-            if (result == null) {
-                return ResponseEntity.ok(ApiResponse.error("未识别到番剧"));
-            }
-            return ResponseEntity.ok(ApiResponse.success(result));
-        } catch (Exception e) {
-            return ResponseEntity.ok(ApiResponse.error("搜索失败: " + e.getMessage()));
+            return ResponseEntity.badRequest().body(ApiResponse.error(400, e.getMessage()));
         }
     }
 
@@ -334,35 +261,6 @@ public class AnimeController {
         return ResponseEntity.ok(ApiResponse.success("排序已更新", null));
     }
 
-    @Operation(summary = "WebDAV推送")
-    @PostMapping("/api/sync/push")
-    @ResponseBody
-    public ResponseEntity<ApiResponse<Map<String, Object>>> syncPush() {
-        try {
-            return ResponseEntity.ok(ApiResponse.success(webDavSyncService.push()));
-        } catch (Exception e) {
-            return ResponseEntity.ok(ApiResponse.error("推送失败: " + e.getMessage()));
-        }
-    }
-
-    @Operation(summary = "WebDAV拉取")
-    @PostMapping("/api/sync/pull")
-    @ResponseBody
-    public ResponseEntity<ApiResponse<Map<String, Object>>> syncPull() {
-        try {
-            return ResponseEntity.ok(ApiResponse.success(webDavSyncService.pull()));
-        } catch (Exception e) {
-            return ResponseEntity.ok(ApiResponse.error("拉取失败: " + e.getMessage()));
-        }
-    }
-
-    @Operation(summary = "WebDAV状态")
-    @GetMapping("/api/sync/status")
-    @ResponseBody
-    public ResponseEntity<ApiResponse<Map<String, Object>>> syncStatus() {
-        return ResponseEntity.ok(ApiResponse.success(webDavSyncService.getStatus()));
-    }
-
     private AnimeStatus parseStatus(String status) {
         if (status == null || status.trim().isEmpty()) return null;
         try {
@@ -372,15 +270,4 @@ public class AnimeController {
         }
     }
 
-    private Sort buildSort(String sortBy) {
-        return switch (sortBy != null ? sortBy : "id-desc") {
-            case "score-desc" -> Sort.by(Sort.Direction.DESC, "score");
-            case "score-asc" -> Sort.by(Sort.Direction.ASC, "score");
-            case "progress-desc" -> Sort.by(Sort.Direction.DESC, "currentEpisode");
-            case "progress-asc" -> Sort.by(Sort.Direction.ASC, "currentEpisode");
-            case "name-asc" -> Sort.by(Sort.Direction.ASC, "name");
-            case "sortOrder-asc" -> Sort.by(Sort.Direction.ASC, "sortOrder");
-            default -> Sort.by(Sort.Direction.DESC, "id");
-        };
-    }
 }

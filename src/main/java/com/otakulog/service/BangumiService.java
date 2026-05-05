@@ -4,9 +4,11 @@ import com.otakulog.dto.BangumiEpisode;
 import com.otakulog.dto.BangumiResult;
 import com.otakulog.dto.BangumiSubjectDetail;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.MediaType;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
-import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.client.RestClient;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -14,10 +16,18 @@ import java.util.stream.Collectors;
 @Service
 public class BangumiService {
 
-    private final WebClient client = WebClient.builder()
-            .baseUrl("https://api.bgm.tv")
-            .defaultHeader("User-Agent", "OtakuLog/1.0")
-            .build();
+    private final RestClient client;
+
+    public BangumiService() {
+        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(10_000);
+        factory.setReadTimeout(10_000);
+        this.client = RestClient.builder()
+                .baseUrl("https://api.bgm.tv")
+                .defaultHeader("User-Agent", "OtakuLog/1.0")
+                .requestFactory(factory)
+                .build();
+    }
 
     public List<BangumiResult> search(String keyword, int limit) {
         Map<String, Object> body = new HashMap<>();
@@ -25,13 +35,12 @@ public class BangumiService {
         body.put("sort", "match");
         body.put("filter", Map.of("type", List.of(2)));
 
-        Map response = client.post()
+        Map<String, Object> response = client.post()
                 .uri(uriBuilder -> uriBuilder.path("/v0/search/subjects").queryParam("limit", limit).build())
                 .contentType(MediaType.APPLICATION_JSON)
-                .bodyValue(body)
+                .body(body)
                 .retrieve()
-                .bodyToMono(Map.class)
-                .block();
+                .body(new ParameterizedTypeReference<>() {});
 
         if (response == null || !response.containsKey("data")) return List.of();
 
@@ -41,11 +50,10 @@ public class BangumiService {
 
     @Cacheable(value = "bangumiSubject", key = "#subjectId")
     public BangumiSubjectDetail getSubject(int subjectId) {
-        Map response = client.get()
+        Map<String, Object> response = client.get()
                 .uri("/v0/subjects/{id}", subjectId)
                 .retrieve()
-                .bodyToMono(Map.class)
-                .block();
+                .body(new ParameterizedTypeReference<>() {});
 
         if (response == null) return null;
 
@@ -95,15 +103,14 @@ public class BangumiService {
     @Cacheable(value = "bangumiEpisodes", key = "#subjectId")
     @SuppressWarnings("unchecked")
     public List<BangumiEpisode> getSubjectEpisodes(int subjectId) {
-        Map response = client.get()
+        Map<String, Object> response = client.get()
                 .uri(uriBuilder -> uriBuilder.path("/v0/episodes")
                         .queryParam("subject_id", subjectId)
                         .queryParam("limit", 200)
                         .queryParam("type", 0)
                         .build())
                 .retrieve()
-                .bodyToMono(Map.class)
-                .block();
+                .body(new ParameterizedTypeReference<>() {});
 
         if (response == null || !response.containsKey("data")) return List.of();
 
@@ -114,17 +121,15 @@ public class BangumiService {
     @Cacheable("bangumiCalendar")
     @SuppressWarnings("unchecked")
     public List<Map<String, Object>> getCalendar() {
-        List<Map> response = client.get()
+        List<Map<String, Object>> response = client.get()
                 .uri("/calendar")
                 .retrieve()
-                .bodyToFlux(Map.class)
-                .collectList()
-                .block();
+                .body(new ParameterizedTypeReference<>() {});
 
         if (response == null) return List.of();
 
         List<Map<String, Object>> result = new ArrayList<>();
-        for (Map dayEntry : response) {
+        for (Map<String, Object> dayEntry : response) {
             Object weekdayObj = dayEntry.get("weekday");
             int weekday;
             if (weekdayObj instanceof Map) {
@@ -140,7 +145,6 @@ public class BangumiService {
                     entry.put("id", item.get("id"));
                     entry.put("name", item.get("name"));
                     entry.put("nameCn", item.getOrDefault("name_cn", ""));
-                    // images is an object {large, common, medium, small, grid}
                     Object images = item.get("images");
                     String imageUrl = null;
                     if (images instanceof Map imgMap) {
@@ -180,7 +184,7 @@ public class BangumiService {
         return r;
     }
 
-    private BangumiEpisode mapEpisode(Map item) {
+    private BangumiEpisode mapEpisode(Map<String, Object> item) {
         BangumiEpisode ep = new BangumiEpisode();
         ep.setId(((Number) item.get("id")).intValue());
         ep.setName((String) item.getOrDefault("name", ""));

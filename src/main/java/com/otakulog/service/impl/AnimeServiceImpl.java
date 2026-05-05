@@ -7,14 +7,15 @@ import com.otakulog.entity.Anime;
 import com.otakulog.enums.AnimeStatus;
 import com.otakulog.repository.AnimeRepository;
 import com.otakulog.service.AnimeService;
+import com.otakulog.util.SortUtil;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.util.*;
@@ -23,11 +24,22 @@ import java.util.stream.Collectors;
 @Service
 public class AnimeServiceImpl implements AnimeService {
 
-    @Autowired
-    private AnimeRepository animeRepository;
+    private final AnimeRepository animeRepository;
+
+    public AnimeServiceImpl(AnimeRepository animeRepository) {
+        this.animeRepository = animeRepository;
+    }
 
     @Override
     public AnimeVO addAnime(AnimeDTO dto) {
+        // 重复检测
+        if (dto.getName() != null && animeRepository.existsByName(dto.getName())) {
+            throw new IllegalArgumentException("duplicate_name");
+        }
+        if (dto.getBangumiId() != null && animeRepository.existsByBangumiId(dto.getBangumiId())) {
+            throw new IllegalArgumentException("duplicate_bangumi");
+        }
+
         Anime anime = new Anime();
         anime.setName(dto.getName());
         anime.setTotalEpisodes(dto.getTotalEpisodes());
@@ -132,21 +144,19 @@ public class AnimeServiceImpl implements AnimeService {
     }
 
     @Override
+    @Transactional
     public void batchUpdateStatus(List<Long> ids, AnimeStatus status) {
-        for (Long id : ids) {
-            animeRepository.findById(id).ifPresent(anime -> {
-                anime.setStatus(status);
-                if (status == AnimeStatus.FINISHED) {
-                    anime.setEndDate(LocalDate.now());
-                }
-                animeRepository.save(anime);
-            });
+        if (ids == null || ids.isEmpty()) return;
+        if (status == AnimeStatus.FINISHED) {
+            animeRepository.batchFinishByIds(ids);
+        } else {
+            animeRepository.batchUpdateStatusByIds(ids, status);
         }
     }
 
     @Override
     public List<AnimeVO> searchAnime(String name, AnimeStatus status, String sortBy, String tag) {
-        Sort sort = buildSort(sortBy);
+        Sort sort = SortUtil.buildSort(sortBy);
         boolean hasTag = tag != null && !tag.trim().isEmpty();
         if (hasTag) {
             return animeRepository.findByTagContaining(tag.trim(), sort).stream().map(this::toVO).collect(Collectors.toList());
@@ -209,11 +219,18 @@ public class AnimeServiceImpl implements AnimeService {
     public Map<String, Object> getDetailedStats() {
         Map<String, Object> stats = new HashMap<>();
 
-        long total = animeRepository.count();
-        long watching = animeRepository.countByStatus(AnimeStatus.WATCHING);
-        long finished = animeRepository.countByStatus(AnimeStatus.FINISHED);
-        long planning = animeRepository.countByStatus(AnimeStatus.PLANNING);
-        long dropped = animeRepository.countByStatus(AnimeStatus.DROPPED);
+        Object[] row = animeRepository.getAggregatedStats();
+        long total = ((Number) row[0]).longValue();
+        long watching = ((Number) row[1]).longValue();
+        long finished = ((Number) row[2]).longValue();
+        long planning = ((Number) row[3]).longValue();
+        long dropped = ((Number) row[4]).longValue();
+        long totalEpisodes = ((Number) row[5]).longValue();
+        long watchedEpisodes = ((Number) row[6]).longValue();
+        double avgScore = ((Number) row[7]).doubleValue();
+        long highScore = ((Number) row[8]).longValue();
+        long mediumScore = ((Number) row[9]).longValue();
+        long lowScore = ((Number) row[10]).longValue();
 
         stats.put("total", total);
         stats.put("watching", watching);
@@ -221,19 +238,15 @@ public class AnimeServiceImpl implements AnimeService {
         stats.put("planning", planning);
         stats.put("dropped", dropped);
 
-        long totalEpisodes = animeRepository.sumTotalEpisodes();
-        long watchedEpisodes = animeRepository.sumCurrentEpisodes();
         double progressPercentage = totalEpisodes > 0 ? (watchedEpisodes * 100.0 / totalEpisodes) : 0;
         stats.put("totalEpisodes", totalEpisodes);
         stats.put("watchedEpisodes", watchedEpisodes);
         stats.put("progressPercentage", Math.round(progressPercentage * 10.0) / 10.0);
 
-        Double avgScore = animeRepository.averageScore();
         stats.put("averageScore", Math.round(avgScore * 10.0) / 10.0);
-
-        stats.put("highScore", animeRepository.countHighScore());
-        stats.put("mediumScore", animeRepository.countMediumScore());
-        stats.put("lowScore", animeRepository.countLowScore());
+        stats.put("highScore", highScore);
+        stats.put("mediumScore", mediumScore);
+        stats.put("lowScore", lowScore);
 
         return stats;
     }
@@ -287,6 +300,7 @@ public class AnimeServiceImpl implements AnimeService {
                 map.put("tags", a.getTags());
                 map.put("broadcastDay", a.getBroadcastDay());
                 map.put("bangumiId", a.getBangumiId());
+                map.put("sortOrder", a.getSortOrder());
                 exportList.add(map);
             }
             return mapper.writerWithDefaultPrettyPrinter().writeValueAsString(exportList);
@@ -325,6 +339,7 @@ public class AnimeServiceImpl implements AnimeService {
                 anime.setTags((String) map.get("tags"));
                 anime.setBroadcastDay(toIntOrNull(map.get("broadcastDay")));
                 anime.setBangumiId(toIntOrNull(map.get("bangumiId")));
+                anime.setSortOrder(toIntOrNull(map.get("sortOrder")));
 
                 result.add(toVO(animeRepository.save(anime)));
                 if (isNew) created++; else updated++;
@@ -422,24 +437,37 @@ public class AnimeServiceImpl implements AnimeService {
     }
 
     @Override
+    @Transactional
     public void reorderAnime(List<Map<String, Object>> orders) {
-        for (Map<String, Object> item : orders) {
-            Long id = Long.valueOf(item.get("id").toString());
-            Integer order = Integer.valueOf(item.get("sortOrder").toString());
-            animeRepository.findById(id).ifPresent(a -> { a.setSortOrder(order); animeRepository.save(a); });
+        if (orders == null || orders.isEmpty()) return;
+        // 分批处理，每批最多 20 条
+        for (int i = 0; i < orders.size(); i += 20) {
+            List<Map<String, Object>> batch = orders.subList(i, Math.min(i + 20, orders.size()));
+            List<Long> ids = new ArrayList<>();
+            Long[] idArr = new Long[20];
+            Integer[] orderArr = new Integer[20];
+            for (int j = 0; j < 20; j++) {
+                if (j < batch.size()) {
+                    Long id = Long.valueOf(batch.get(j).get("id").toString());
+                    Integer order = Integer.valueOf(batch.get(j).get("sortOrder").toString());
+                    ids.add(id);
+                    idArr[j] = id;
+                    orderArr[j] = order;
+                } else {
+                    // 填充占位值（不会匹配任何记录）
+                    idArr[j] = -1L;
+                    orderArr[j] = 0;
+                }
+            }
+            animeRepository.batchUpdateSortOrder(ids,
+                    idArr[0], orderArr[0], idArr[1], orderArr[1], idArr[2], orderArr[2],
+                    idArr[3], orderArr[3], idArr[4], orderArr[4], idArr[5], orderArr[5],
+                    idArr[6], orderArr[6], idArr[7], orderArr[7], idArr[8], orderArr[8],
+                    idArr[9], orderArr[9], idArr[10], orderArr[10], idArr[11], orderArr[11],
+                    idArr[12], orderArr[12], idArr[13], orderArr[13], idArr[14], orderArr[14],
+                    idArr[15], orderArr[15], idArr[16], orderArr[16], idArr[17], orderArr[17],
+                    idArr[18], orderArr[18], idArr[19], orderArr[19]);
         }
-    }
-
-    private Sort buildSort(String sortBy) {
-        return switch (sortBy != null ? sortBy : "id-desc") {
-            case "score-desc" -> Sort.by(Sort.Direction.DESC, "score");
-            case "score-asc" -> Sort.by(Sort.Direction.ASC, "score");
-            case "progress-desc" -> Sort.by(Sort.Direction.DESC, "currentEpisode");
-            case "progress-asc" -> Sort.by(Sort.Direction.ASC, "currentEpisode");
-            case "name-asc" -> Sort.by(Sort.Direction.ASC, "name");
-            case "sortOrder-asc" -> Sort.by(Sort.Direction.ASC, "sortOrder");
-            default -> Sort.by(Sort.Direction.DESC, "id");
-        };
     }
 
     private AnimeVO toVO(Anime anime) {

@@ -1,11 +1,13 @@
-const CACHE_NAME = 'otakulog-v1';
+const CACHE_NAME = 'otakulog-v2';
 const STATIC_ASSETS = [
     '/',
-    '/css/',
+    '/css/anime.css',
+    '/js/anime-app.js',
     '/js/i18n.js',
     '/manifest.json'
 ];
 
+// 预缓存静态资源
 self.addEventListener('install', event => {
     event.waitUntil(
         caches.open(CACHE_NAME).then(cache => cache.addAll(STATIC_ASSETS))
@@ -13,6 +15,7 @@ self.addEventListener('install', event => {
     self.skipWaiting();
 });
 
+// 清理旧版本缓存
 self.addEventListener('activate', event => {
     event.waitUntil(
         caches.keys().then(keys =>
@@ -24,17 +27,48 @@ self.addEventListener('activate', event => {
 
 self.addEventListener('fetch', event => {
     const url = new URL(event.request.url);
+    const method = event.request.method;
+
+    // API 请求：GET 用 network-first，其他方法直接走网络
     if (url.pathname.startsWith('/api/')) {
+        if (method !== 'GET') {
+            // POST/PUT/DELETE 不缓存，失败时返回离线提示
+            event.respondWith(
+                fetch(event.request).catch(() =>
+                    new Response(JSON.stringify({ code: 503, message: '网络离线，操作失败' }), {
+                        headers: { 'Content-Type': 'application/json' }
+                    })
+                )
+            );
+            return;
+        }
+        // GET API：network-first，失败时尝试缓存
         event.respondWith(
-            fetch(event.request).catch(() =>
-                new Response(JSON.stringify({ code: 503, message: 'Network error' }), {
-                    headers: { 'Content-Type': 'application/json' }
+            fetch(event.request)
+                .then(response => {
+                    if (response.ok) {
+                        const cloned = response.clone();
+                        caches.open(CACHE_NAME).then(cache => cache.put(event.request, cloned));
+                    }
+                    return response;
                 })
-            )
+                .catch(() => caches.match(event.request))
         );
-    } else {
-        event.respondWith(
-            caches.match(event.request).then(cached => cached || fetch(event.request))
-        );
+        return;
     }
+
+    // 静态资源：stale-while-revalidate
+    event.respondWith(
+        caches.match(event.request).then(cached => {
+            const fetchPromise = fetch(event.request).then(response => {
+                if (response.ok) {
+                    const cloned = response.clone();
+                    caches.open(CACHE_NAME).then(cache => cache.put(event.request, cloned));
+                }
+                return response;
+            }).catch(() => cached);
+
+            return cached || fetchPromise;
+        })
+    );
 });

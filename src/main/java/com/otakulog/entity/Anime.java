@@ -5,8 +5,12 @@ import jakarta.persistence.*;
 import java.time.LocalDate;
 
 @Entity
-@Table(name = "anime")
-public class Anime {
+@Table(name = "anime", indexes = {
+    @Index(name = "idx_anime_name", columnList = "name"),
+    @Index(name = "idx_anime_status", columnList = "status"),
+    @Index(name = "idx_anime_broadcast_day", columnList = "broadcast_day")
+})
+public class Anime extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

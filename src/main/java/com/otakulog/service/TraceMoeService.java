@@ -1,17 +1,27 @@
 package com.otakulog.service;
 
+import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestClient;
 import org.springframework.web.multipart.MultipartFile;
-import org.springframework.web.reactive.function.client.WebClient;
 
 import java.util.*;
 
 @Service
 public class TraceMoeService {
 
-    private final WebClient client = WebClient.builder()
-            .baseUrl("https://api.trace.moe")
-            .build();
+    private final RestClient client;
+
+    public TraceMoeService() {
+        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(10_000);
+        factory.setReadTimeout(10_000);
+        this.client = RestClient.builder()
+                .baseUrl("https://api.trace.moe")
+                .requestFactory(factory)
+                .build();
+    }
 
     public Map<String, Object> searchByImage(MultipartFile image) {
         try {
@@ -19,14 +29,13 @@ public class TraceMoeService {
             String base64 = Base64.getEncoder().encodeToString(imageBytes);
             String dataUri = "data:" + image.getContentType() + ";base64," + base64;
 
-            Map response = client.get()
+            Map<String, Object> response = client.get()
                     .uri(uriBuilder -> uriBuilder
                             .path("/search")
                             .queryParam("url", dataUri)
                             .build())
                     .retrieve()
-                    .bodyToMono(Map.class)
-                    .block();
+                    .body(new ParameterizedTypeReference<>() {});
 
             if (response == null || !response.containsKey("result")) return null;
 
@@ -46,7 +55,7 @@ public class TraceMoeService {
             result.put("image", top.get("image"));
             result.put("video", top.get("video"));
 
-            // Extract anime name from filename (usually "Anime Name - EP01.mkv")
+            // Extract anime name from filename
             String filename = (String) top.get("filename");
             if (filename != null && filename.contains(" - ")) {
                 result.put("animeName", filename.substring(0, filename.indexOf(" - ")));
@@ -54,7 +63,6 @@ public class TraceMoeService {
                 result.put("animeName", filename);
             }
 
-            // Include all results
             List<Map<String, Object>> allResults = new ArrayList<>();
             for (Map<String, Object> r : results.subList(0, Math.min(5, results.size()))) {
                 Map<String, Object> entry = new LinkedHashMap<>();

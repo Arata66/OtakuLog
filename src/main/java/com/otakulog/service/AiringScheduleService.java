@@ -2,7 +2,6 @@ package com.otakulog.service;
 
 import com.otakulog.entity.Anime;
 import com.otakulog.repository.AnimeRepository;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
@@ -14,11 +13,13 @@ import java.util.stream.Collectors;
 @Service
 public class AiringScheduleService {
 
-    @Autowired
-    private BangumiService bangumiService;
+    private final BangumiService bangumiService;
+    private final AnimeRepository animeRepository;
 
-    @Autowired
-    private AnimeRepository animeRepository;
+    public AiringScheduleService(BangumiService bangumiService, AnimeRepository animeRepository) {
+        this.bangumiService = bangumiService;
+        this.animeRepository = animeRepository;
+    }
 
     public Map<String, Object> getAiringSchedule() {
         Map<String, Object> result = new LinkedHashMap<>();

@@ -1,9 +1,10 @@
 package com.otakulog.service;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
-import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.client.RestClient;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -14,8 +15,11 @@ import java.util.Map;
 @Service
 public class WebDavSyncService {
 
-    @Autowired
-    private AnimeService animeService;
+    private final AnimeService animeService;
+
+    public WebDavSyncService(AnimeService animeService) {
+        this.animeService = animeService;
+    }
 
     @Value("${otakulog.webdav.url:}")
     private String webdavUrl;
@@ -32,19 +36,35 @@ public class WebDavSyncService {
     private String lastSyncTime = null;
     private String lastSyncType = null;
 
+    private volatile RestClient cachedClient;
+
+    private RestClient buildClient() {
+        if (cachedClient != null) return cachedClient;
+        synchronized (this) {
+            if (cachedClient != null) return cachedClient;
+            String auth = Base64.getEncoder().encodeToString((username + ":" + password).getBytes());
+            SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+            factory.setConnectTimeout(10_000);
+            factory.setReadTimeout(10_000);
+            cachedClient = RestClient.builder()
+                    .defaultHeader("Authorization", "Basic " + auth)
+                    .requestFactory(factory)
+                    .build();
+            return cachedClient;
+        }
+    }
+
     public Map<String, Object> push() {
         validateConfig();
         String json = animeService.exportJson();
         String fullUrl = webdavUrl.endsWith("/") ? webdavUrl + filename : webdavUrl + "/" + filename;
 
-        WebClient client = buildClient();
-        client.put()
+        buildClient().put()
                 .uri(fullUrl)
                 .header("Content-Type", "application/json")
-                .bodyValue(json)
+                .body(json)
                 .retrieve()
-                .toBodilessEntity()
-                .block();
+                .toBodilessEntity();
 
         lastSyncTime = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
         lastSyncType = "push";
@@ -60,12 +80,10 @@ public class WebDavSyncService {
         validateConfig();
         String fullUrl = webdavUrl.endsWith("/") ? webdavUrl + filename : webdavUrl + "/" + filename;
 
-        WebClient client = buildClient();
-        String json = client.get()
+        String json = buildClient().get()
                 .uri(fullUrl)
                 .retrieve()
-                .bodyToMono(String.class)
-                .block();
+                .body(String.class);
 
         if (json == null || json.isEmpty()) {
             throw new RuntimeException("WebDAV 文件为空或不存在");
@@ -94,13 +112,11 @@ public class WebDavSyncService {
 
         if (!webdavUrl.isEmpty()) {
             try {
-                WebClient client = buildClient();
                 String fullUrl = webdavUrl.endsWith("/") ? webdavUrl : webdavUrl + "/";
-                client.method(org.springframework.http.HttpMethod.HEAD)
+                buildClient().method(HttpMethod.HEAD)
                         .uri(fullUrl)
                         .retrieve()
-                        .toBodilessEntity()
-                        .block();
+                        .toBodilessEntity();
                 status.put("connected", true);
             } catch (Exception e) {
                 status.put("connected", false);
@@ -109,13 +125,6 @@ public class WebDavSyncService {
         }
 
         return status;
-    }
-
-    private WebClient buildClient() {
-        String auth = Base64.getEncoder().encodeToString((username + ":" + password).getBytes());
-        return WebClient.builder()
-                .defaultHeader("Authorization", "Basic " + auth)
-                .build();
     }
 
     private void validateConfig() {
