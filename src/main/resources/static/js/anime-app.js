@@ -131,6 +131,8 @@
             if (idx >= 0 && tabs[idx]) tabs[idx].classList.add('active');
             const content = document.getElementById('tab-' + n);
             if (content) content.classList.add('active');
+            localStorage.setItem('otakulog-tab', n);
+            updateMobileNav(idx >= 0 ? idx : 0);
             if (n === 'charts') loadCharts();
             if (n === 'timeline') loadTL();
             if (n === 'calendar') loadCalendar();
@@ -888,6 +890,8 @@
             if (typeof i18n !== 'undefined') i18n.translatePage();
             if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
             updateStats(); performSearch();
+            const savedTab = localStorage.getItem('otakulog-tab');
+            if (savedTab && savedTab !== 'list') switchTab(savedTab);
             if (viewMode !== 'table') {
                 document.querySelector('.table-card').classList.add('hidden');
                 document.getElementById('viewTable').classList.remove('active');
