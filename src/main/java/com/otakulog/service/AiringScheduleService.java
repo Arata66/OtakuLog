@@ -45,11 +45,20 @@ public class AiringScheduleService {
                     .map(a -> a.getName().toLowerCase().trim())
                     .collect(Collectors.toSet());
 
+            // 构建本季番剧 ID/名称集合，用于过滤"我的"日历
+            Set<Integer> currentSeasonBangumiIds = new HashSet<>();
+            Set<String> currentSeasonNames = new HashSet<>();
+
             for (Map<String, Object> item : bangumiCalendar) {
                 int weekday = ((Number) item.get("weekday")).intValue();
                 String name = (String) item.get("name");
                 String nameCn = (String) item.get("nameCn");
                 int bangumiId = ((Number) item.get("id")).intValue();
+
+                // 记录本季番剧
+                currentSeasonBangumiIds.add(bangumiId);
+                if (name != null) currentSeasonNames.add(name.toLowerCase().trim());
+                if (nameCn != null && !nameCn.isEmpty()) currentSeasonNames.add(nameCn.toLowerCase().trim());
 
                 // Build lookup maps
                 if (name != null) bangumiNameToDay.put(name.toLowerCase().trim(), weekday);
@@ -66,10 +75,15 @@ public class AiringScheduleService {
                 bangumiByDay.computeIfAbsent(weekday, k -> new ArrayList<>()).add(entry);
             }
             result.put("bangumiSchedule", bangumiByDay);
+            result.put("currentSeasonBangumiIds", currentSeasonBangumiIds);
+            result.put("currentSeasonNames", currentSeasonNames);
 
-            // Auto-update broadcastDay for tracked anime that don't have it
+            // 只为本季番自动更新 broadcastDay
             for (Anime anime : allTracked) {
                 if (anime.getBroadcastDay() == null || anime.getBroadcastDay() == 0) {
+                    boolean isCurrentSeason = (anime.getBangumiId() != null && currentSeasonBangumiIds.contains(anime.getBangumiId()))
+                            || (anime.getName() != null && currentSeasonNames.contains(anime.getName().toLowerCase().trim()));
+                    if (!isCurrentSeason) continue;
                     Integer day = null;
                     if (anime.getName() != null) {
                         day = bangumiNameToDay.get(anime.getName().toLowerCase().trim());
@@ -85,12 +99,19 @@ public class AiringScheduleService {
             result.put("bangumiSchedule", bangumiByDay);
         }
 
-        // Get user's tracked anime grouped by broadcastDay
+        // Get user's tracked anime grouped by broadcastDay, filtered to current season
+        @SuppressWarnings("unchecked")
+        Set<Integer> currentIds = (Set<Integer>) result.getOrDefault("currentSeasonBangumiIds", Collections.emptySet());
+        @SuppressWarnings("unchecked")
+        Set<String> currentNames = (Set<String>) result.getOrDefault("currentSeasonNames", Collections.emptySet());
         Map<Integer, List<Map<String, Object>>> mySchedule = new LinkedHashMap<>();
         Sort sort = Sort.by(Sort.Direction.ASC, "sortOrder").and(Sort.by(Sort.Direction.ASC, "name"));
         for (int day = 1; day <= 7; day++) {
             List<Map<String, Object>> items = animeRepository.findByBroadcastDay(day, sort)
-                    .stream().map(this::animeToScheduleItem).collect(Collectors.toList());
+                    .stream()
+                    .filter(a -> isCurrentSeason(a, currentIds, currentNames))
+                    .map(this::animeToScheduleItem)
+                    .collect(Collectors.toList());
             mySchedule.put(day, items);
         }
         result.put("mySchedule", mySchedule);
@@ -102,6 +123,18 @@ public class AiringScheduleService {
         result.put("todayDay", todayDay);
 
         return result;
+    }
+
+    private boolean isCurrentSeason(Anime a, Set<Integer> currentSeasonBangumiIds, Set<String> currentSeasonNames) {
+        // 通过 bangumiId 匹配
+        if (a.getBangumiId() != null && currentSeasonBangumiIds.contains(a.getBangumiId())) {
+            return true;
+        }
+        // 通过名称匹配
+        if (a.getName() != null && currentSeasonNames.contains(a.getName().toLowerCase().trim())) {
+            return true;
+        }
+        return false;
     }
 
     private Map<String, Object> animeToScheduleItem(Anime a) {

@@ -52,8 +52,16 @@ public class AnimeServiceImpl implements AnimeService {
         anime.setTags(dto.getTags());
         anime.setBroadcastDay(dto.getBroadcastDay());
         anime.setBangumiId(dto.getBangumiId());
-        anime.setCurrentEpisode(1);
-        anime.setStatus(AnimeStatus.WATCHING);
+        // 支持从表单选择状态，默认追中
+        AnimeStatus targetStatus;
+        if (dto.getStatus() != null && !dto.getStatus().trim().isEmpty()) {
+            targetStatus = AnimeStatus.valueOf(dto.getStatus().toUpperCase());
+        } else {
+            targetStatus = AnimeStatus.WATCHING;
+        }
+        anime.setStatus(targetStatus);
+        // 计划状态从第 0 集开始，追中从第 1 集开始
+        anime.setCurrentEpisode(targetStatus == AnimeStatus.PLANNING ? 0 : 1);
         anime.setLegacy(dto.getLegacy() != null && dto.getLegacy());
         anime.setWatchStartDate(parseDate(dto.getWatchStartDate()) != null ? parseDate(dto.getWatchStartDate()) : LocalDate.now());
 
@@ -138,6 +146,13 @@ public class AnimeServiceImpl implements AnimeService {
         anime.setStatus(status);
         if (status == AnimeStatus.FINISHED) {
             anime.setEndDate(LocalDate.now());
+        }
+        // 从计划改为追中时，自动设置集数为 1
+        if (status == AnimeStatus.WATCHING && anime.getCurrentEpisode() == 0) {
+            anime.setCurrentEpisode(1);
+            if (anime.getWatchStartDate() == null) {
+                anime.setWatchStartDate(LocalDate.now());
+            }
         }
         return toVO(animeRepository.save(anime));
     }
