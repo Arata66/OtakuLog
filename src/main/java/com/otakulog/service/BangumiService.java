@@ -118,7 +118,7 @@ public class BangumiService {
         return data.stream().map(this::mapEpisode).collect(Collectors.toList());
     }
 
-    @Cacheable("bangumiCalendar")
+    @Cacheable(value = "bangumiCalendar", unless = "#result.isEmpty()")
     @SuppressWarnings("unchecked")
     public List<Map<String, Object>> getCalendar() {
         List<Map<String, Object>> response = client.get()
