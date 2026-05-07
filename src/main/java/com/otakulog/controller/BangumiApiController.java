@@ -73,6 +73,34 @@ public class BangumiApiController {
         }
     }
 
+    @Operation(summary = "Bangumi排行榜")
+    @GetMapping("/api/bangumi/rankings")
+    public ResponseEntity<ApiResponse<List<BangumiResult>>> getRankings(
+            @RequestParam(defaultValue = "rank") String sort,
+            @RequestParam(defaultValue = "20") int limit,
+            @RequestParam(defaultValue = "0") int offset) {
+        try {
+            List<BangumiResult> results = bangumiService.getSubjectRankings(sort, limit, offset);
+            return ResponseEntity.ok(ApiResponse.success(results));
+        } catch (Exception e) {
+            return ResponseEntity.status(502).body(ApiResponse.error(502, "获取排行榜失败: " + e.getMessage()));
+        }
+    }
+
+    @Operation(summary = "当季新番列表")
+    @GetMapping("/api/bangumi/season")
+    public ResponseEntity<ApiResponse<List<BangumiResult>>> getSeasonAnime(
+            @RequestParam(defaultValue = "rank") String sort,
+            @RequestParam(defaultValue = "20") int limit,
+            @RequestParam(defaultValue = "0") int offset) {
+        try {
+            List<BangumiResult> results = bangumiService.getSeasonAnime(sort, limit, offset);
+            return ResponseEntity.ok(ApiResponse.success(results));
+        } catch (Exception e) {
+            return ResponseEntity.status(502).body(ApiResponse.error(502, "获取季度列表失败: " + e.getMessage()));
+        }
+    }
+
     @Operation(summary = "以图搜番(trace.moe)")
     @PostMapping("/api/tracemoe/search")
     public ResponseEntity<ApiResponse<Map<String, Object>>> searchByImage(@RequestParam("image") MultipartFile image) {

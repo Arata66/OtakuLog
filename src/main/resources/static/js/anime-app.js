@@ -707,11 +707,14 @@
                     card.onclick = () => openDetailModal(a.id);
                     const cover = a.coverUrl ? `<img src="${esc(a.coverUrl)}" class="cc-cover" onerror="this.outerHTML='<div class=cc-cover-empty>${esc(a.name.charAt(0))}</div>'">` : `<div class="cc-cover-empty">${esc(a.name.charAt(0))}</div>`;
                     const scClass = a.score >= 8 ? 'sc-high' : a.score >= 6 ? 'sc-mid' : 'sc-low';
+                    const countdown = a.daysUntilAir != null ? (a.daysUntilAir > 0 ? `<div class="cc-countdown future">开播 ${a.daysUntilAir} 天后</div>` : a.daysUntilAir === 0 ? `<div class="cc-countdown future">今天开播</div>` : `<div class="cc-countdown past">已放送 ${Math.abs(a.daysUntilAir)} 天</div>`) : '';
+                    const airDateHtml = a.airDate ? `<div class="cc-airdate">${a.airDate}</div>` : '';
                     card.innerHTML = `${cover}<span class="cc-badge ${a.status}">${SM[a.status] || a.status}</span>
                         <div class="cc-body">
                             <div class="cc-name">${esc(a.name)}</div>
                             <div class="cc-meta"><span class="cc-tag cc-score ${scClass}">${a.score || '-'}</span></div>
                             <div class="cc-ep">${a.currentEpisode}/${a.totalEpisodes} ep</div>
+                            ${airDateHtml}${countdown}
                         </div>`;
                 } else {
                     const imgUrl = a.image ? (a.image.startsWith('//') ? 'https:' + a.image : a.image) : '';
@@ -721,10 +724,13 @@
                     const scClass = scoreNum >= 8 ? 'sc-high' : scoreNum >= 6 ? 'sc-mid' : 'sc-low';
                     const eps = a.eps || '?';
                     const badgeText = a.isTracked ? '已追' : `${eps}集`;
+                    const countdown = a.daysUntilAir != null ? (a.daysUntilAir > 0 ? `<div class="cc-countdown future">开播 ${a.daysUntilAir} 天后</div>` : a.daysUntilAir === 0 ? `<div class="cc-countdown future">今天开播</div>` : '') : '';
+                    const airDateHtml = a.airDate ? `<div class="cc-airdate">${a.airDate}</div>` : '';
                     card.innerHTML = `${cover}<span class="cc-badge ${a.isTracked ? 'tracked' : ''}">${badgeText}</span>
                         <div class="cc-body">
                             <div class="cc-name">${esc(displayName)}</div>
                             <div class="cc-meta"><span class="cc-tag cc-score ${scClass}">${scoreNum > 0 ? scoreNum.toFixed(1) : '-'}</span></div>
+                            ${airDateHtml}${countdown}
                         </div>`;
                     if (a.isTracked) {
                         card.onclick = () => {
@@ -739,6 +745,98 @@
                 grid.appendChild(card);
             });
             content.appendChild(grid);
+        }
+
+        /* Calendar mode switch (calendar / season / rank) */
+        let calMode = 'calendar';
+        let _seasonSort = 'score', _seasonOffset = 0, _rankSort = 'rank', _rankOffset = 0;
+        function switchCalMode(mode) {
+            calMode = mode;
+            document.getElementById('modeCal').classList.toggle('active', mode === 'calendar');
+            document.getElementById('modeSeason').classList.toggle('active', mode === 'season');
+            document.getElementById('modeRank').classList.toggle('active', mode === 'rank');
+            document.getElementById('calModeCalendar').style.display = mode === 'calendar' ? '' : 'none';
+            document.getElementById('calModeSeason').style.display = mode === 'season' ? '' : 'none';
+            document.getElementById('calModeRank').style.display = mode === 'rank' ? '' : 'none';
+            if (mode === 'season' && !document.getElementById('seasonGrid').children.length) loadSeasonAnime('rank');
+            if (mode === 'rank' && !document.getElementById('rankGrid').children.length) loadRankings('rank');
+        }
+
+        async function loadSeasonAnime(sort, append) {
+            if (sort) { _seasonSort = sort; _seasonOffset = 0; }
+            const grid = document.getElementById('seasonGrid');
+            if (!append) grid.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-faint);">加载中...</div>';
+            const r = await fetchApi(`/api/bangumi/season?sort=${_seasonSort}&limit=20&offset=${_seasonOffset}`);
+            if (!r || r.code !== 200) { grid.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-faint);">加载失败</div>'; return; }
+            const list = r.data || [];
+            if (!append) grid.innerHTML = '';
+            list.forEach(item => grid.appendChild(renderBrowseCard(item)));
+            _seasonOffset += list.length;
+            document.getElementById('seasonLoadMore').style.display = list.length >= 20 ? '' : 'none';
+            // 更新按钮 active 状态
+            document.querySelectorAll('#calModeSeason .cal-toggle-btn').forEach(b => b.classList.remove('active'));
+            const labels = { rank: '排名', date: '时间' };
+            document.querySelectorAll('#calModeSeason .cal-toggle-btn').forEach(b => { if (b.textContent === labels[_seasonSort]) b.classList.add('active'); });
+        }
+
+        async function loadRankings(sort, append) {
+            if (sort) { _rankSort = sort; _rankOffset = 0; }
+            const grid = document.getElementById('rankGrid');
+            if (!append) grid.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-faint);">加载中...</div>';
+            const r = await fetchApi(`/api/bangumi/rankings?sort=${_rankSort}&limit=20&offset=${_rankOffset}`);
+            if (!r || r.code !== 200) { grid.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-faint);">加载失败</div>'; return; }
+            const list = r.data || [];
+            if (!append) grid.innerHTML = '';
+            list.forEach(item => grid.appendChild(renderBrowseCard(item)));
+            _rankOffset += list.length;
+            document.getElementById('rankLoadMore').style.display = list.length >= 20 ? '' : 'none';
+            document.querySelectorAll('#calModeRank .cal-toggle-btn').forEach(b => b.classList.remove('active'));
+            const labels = { rank: '排名', date: '时间' };
+            document.querySelectorAll('#calModeRank .cal-toggle-btn').forEach(b => { if (b.textContent === labels[_rankSort]) b.classList.add('active'); });
+        }
+
+        function renderBrowseCard(item) {
+            const card = document.createElement('div'); card.className = 'browse-card';
+            const isTracked = Object.values(_cache).some(a => a.bangumiId === item.id);
+            const imgUrl = item.image ? (item.image.startsWith('//') ? 'https:' + item.image : item.image) : '';
+            const cover = imgUrl ? `<img src="${esc(imgUrl)}" class="browse-cover" onerror="this.outerHTML='<div class=browse-cover-empty>${esc((item.nameCn||item.name||'?').charAt(0))}</div>'">` : `<div class="browse-cover-empty">${esc((item.nameCn||item.name||'?').charAt(0))}</div>`;
+            const displayName = item.nameCn || item.name || '';
+            const scoreNum = item.score ? Number(item.score) : 0;
+            const scClass = scoreNum >= 8 ? 'sc-high' : scoreNum >= 6 ? 'sc-mid' : 'sc-low';
+            const eps = item.eps || '?';
+            const rankBadge = item.rank ? `<span class="browse-rank">#${item.rank}</span>` : '';
+            card.innerHTML = `${cover}<div class="browse-info">
+                <div class="browse-name" title="${esc(displayName)}">${esc(displayName)}</div>
+                <div class="browse-sub" title="${esc(item.name)}">${esc(item.name)}</div>
+                <div class="browse-meta">${rankBadge}<span class="browse-score ${scClass}">${scoreNum > 0 ? scoreNum.toFixed(1) : '-'}</span><span>${eps} 集</span><span>${esc(item.date || '')}</span></div>
+                <div class="browse-actions">${isTracked ? '<span class="browse-btn tracked">已追</span>' : `<button class="browse-btn" onclick="event.stopPropagation();addToTrackingFromBrowse(${item.id},'${esc(item.nameCn || item.name || '')}',${item.eps || 0},'${esc(item.date || '')}','${esc(imgUrl)}')">+ 添加</button>`}</div>
+            </div>`;
+            if (!isTracked) card.onclick = () => openBangumiDetailModal(item.id);
+            return card;
+        }
+
+        function addToTrackingFromBrowse(bangumiId, name, eps, date, image) {
+            document.getElementById('animeBangumiId').value = bangumiId;
+            document.getElementById('animeName').value = name;
+            if (eps) document.getElementById('totalEpisodes').value = eps;
+            if (image) document.getElementById('animeCover').value = image;
+            if (date) {
+                document.getElementById('animeStartDate').value = date;
+                const m = parseInt(date.split('-')[1]);
+                const y = date.split('-')[0];
+                if (m && y) {
+                    const seasons = { 1:'冬',2:'冬',3:'春',4:'春',5:'春',6:'夏',7:'夏',8:'夏',9:'秋',10:'秋',11:'秋',12:'冬' };
+                    document.getElementById('animeSeason').value = y + seasons[m];
+                }
+                try {
+                    const d = new Date(date);
+                    const jsDay = d.getDay();
+                    document.getElementById('animeBroadcastDay').value = jsDay === 0 ? 7 : jsDay;
+                } catch(e) {}
+            }
+            switchTab('list');
+            setTimeout(() => document.querySelector('.add-form')?.scrollIntoView({ behavior: 'smooth' }), 200);
+            toast('已填充 ' + name, 'success');
         }
 
         /* Bangumi detail modal for untracked anime */

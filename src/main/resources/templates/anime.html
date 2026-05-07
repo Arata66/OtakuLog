@@ -177,16 +177,49 @@
 
         <!-- ===== Calendar ===== -->
         <div id="tab-calendar" class="tab-content">
-            <div class="chart-card">
-                <div class="cal-top-bar">
-                    <h4 style="margin:0;">放送日历</h4>
-                    <div class="cal-toggle">
-                        <button class="cal-toggle-btn active" id="calViewMine" onclick="switchCalView('mine')">我的</button>
-                        <button class="cal-toggle-btn" id="calViewAll" onclick="switchCalView('all')">本季</button>
+            <div class="cal-mode-bar">
+                <button class="cal-mode-btn active" id="modeCal" onclick="switchCalMode('calendar')">放送日历</button>
+                <button class="cal-mode-btn" id="modeSeason" onclick="switchCalMode('season')">本季新番</button>
+                <button class="cal-mode-btn" id="modeRank" onclick="switchCalMode('rank')">排行榜</button>
+            </div>
+            <div id="calModeCalendar">
+                <div class="chart-card">
+                    <div class="cal-top-bar">
+                        <h4 style="margin:0;">放送日历</h4>
+                        <div class="cal-toggle">
+                            <button class="cal-toggle-btn active" id="calViewMine" onclick="switchCalView('mine')">我的</button>
+                            <button class="cal-toggle-btn" id="calViewAll" onclick="switchCalView('all')">本季</button>
+                        </div>
                     </div>
+                    <div class="cal-days" id="calDays"></div>
+                    <div class="cal-content" id="calContent"></div>
                 </div>
-                <div class="cal-days" id="calDays"></div>
-                <div class="cal-content" id="calContent"></div>
+            </div>
+            <div id="calModeSeason" style="display:none;">
+                <div class="chart-card">
+                    <div class="cal-top-bar">
+                        <h4 style="margin:0;">本季新番</h4>
+                        <div class="cal-toggle">
+                            <button class="cal-toggle-btn active" onclick="loadSeasonAnime('rank')">排名</button>
+                            <button class="cal-toggle-btn" onclick="loadSeasonAnime('date')">时间</button>
+                        </div>
+                    </div>
+                    <div class="browse-grid" id="seasonGrid"></div>
+                    <div class="browse-load-more" id="seasonLoadMore" style="display:none;"><button class="btn-sm" onclick="loadSeasonAnime(null,true)">加载更多</button></div>
+                </div>
+            </div>
+            <div id="calModeRank" style="display:none;">
+                <div class="chart-card">
+                    <div class="cal-top-bar">
+                        <h4 style="margin:0;">Bangumi 排行榜</h4>
+                        <div class="cal-toggle">
+                            <button class="cal-toggle-btn active" onclick="loadRankings('rank')">排名</button>
+                            <button class="cal-toggle-btn" onclick="loadRankings('date')">时间</button>
+                        </div>
+                    </div>
+                    <div class="browse-grid" id="rankGrid"></div>
+                    <div class="browse-load-more" id="rankLoadMore" style="display:none;"><button class="btn-sm" onclick="loadRankings(null,true)">加载更多</button></div>
+                </div>
             </div>
         </div>
 

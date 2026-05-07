@@ -21,7 +21,7 @@ public class BangumiService {
     public BangumiService() {
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
         factory.setConnectTimeout(10_000);
-        factory.setReadTimeout(10_000);
+        factory.setReadTimeout(30_000);
         this.client = RestClient.builder()
                 .baseUrl("https://api.bgm.tv")
                 .defaultHeader("User-Agent", "OtakuLog/1.0")
@@ -97,6 +97,9 @@ public class BangumiService {
             detail.setRatingDetails(rating);
         }
 
+        Object rankObj = response.get("rank");
+        if (rankObj instanceof Number n) detail.setRank(n.intValue());
+
         return detail;
     }
 
@@ -162,7 +165,8 @@ public class BangumiService {
                         entry.put("score", rating.get("score"));
                     }
                     entry.put("eps", item.get("eps"));
-                    entry.put("airDate", item.get("date"));
+                    entry.put("airDate", item.get("air_date"));
+                    entry.put("rank", item.get("rank"));
                     result.add(entry);
                 }
             }
@@ -170,17 +174,95 @@ public class BangumiService {
         return result;
     }
 
+    @SuppressWarnings("unchecked")
+    public List<BangumiResult> getSubjectRankings(String sort, int limit, int offset) {
+        Map<String, Object> response = client.get()
+                .uri(uriBuilder -> uriBuilder.path("/v0/subjects")
+                        .queryParam("type", 2).queryParam("sort", sort)
+                        .queryParam("limit", limit).queryParam("offset", offset).build())
+                .retrieve()
+                .body(new ParameterizedTypeReference<>() {});
+
+        if (response == null || !response.containsKey("data")) return List.of();
+        List<Map<String, Object>> data = (List<Map<String, Object>>) response.get("data");
+        return data.stream().map(this::mapResult).collect(Collectors.toList());
+    }
+
+    @SuppressWarnings("unchecked")
+    public List<BangumiResult> getSeasonAnime(String sort, int limit, int offset) {
+        // 使用 /calendar 端点获取当前季度新番（air_date 过滤在 /v0/subjects 上不可用）
+        List<Map<String, Object>> calendar = getCalendar();
+        if (calendar.isEmpty()) return List.of();
+
+        // 转换为 BangumiResult
+        List<BangumiResult> results = calendar.stream().map(item -> {
+            BangumiResult r = new BangumiResult();
+            r.setId(((Number) item.get("id")).intValue());
+            r.setName((String) item.get("name"));
+            r.setNameCn((String) item.getOrDefault("nameCn", ""));
+            r.setImage((String) item.get("image"));
+            r.setDate((String) item.get("airDate"));
+            Object eps = item.get("eps");
+            if (eps instanceof Number n) r.setEps(n.intValue());
+            Object score = item.get("score");
+            if (score instanceof Number n) r.setScore(n.doubleValue());
+            Object rank = item.get("rank");
+            if (rank instanceof Number n) r.setRank(n.intValue());
+            return r;
+        }).collect(Collectors.toCollection(ArrayList::new));
+
+        // 排序
+        if ("rank".equals(sort)) {
+            results.sort(Comparator.comparingInt(BangumiResult::getId));
+        } else {
+            results.sort(Comparator.comparing(BangumiResult::getDate, Comparator.nullsLast(Comparator.reverseOrder())));
+        }
+
+        // 分页
+        int from = Math.min(offset, results.size());
+        int to = Math.min(from + limit, results.size());
+        return results.subList(from, to);
+    }
+
     private BangumiResult mapResult(Map<String, Object> item) {
         BangumiResult r = new BangumiResult();
         r.setId(((Number) item.get("id")).intValue());
         r.setName((String) item.get("name"));
         r.setNameCn((String) item.getOrDefault("name_cn", ""));
-        r.setImage((String) item.get("image"));
+        // images 可能是对象（/v0/subjects）或 image 字符串（/v0/search/subjects）
+        Object imageObj = item.get("images");
+        if (imageObj == null) imageObj = item.get("image");
+        if (imageObj instanceof Map imgMap) {
+            String url = (String) (imgMap.get("large") != null ? imgMap.get("large") :
+                    imgMap.get("common") != null ? imgMap.get("common") : imgMap.get("medium"));
+            if (url != null && url.startsWith("//")) url = "https:" + url;
+            r.setImage(url);
+        } else if (imageObj instanceof String s) {
+            r.setImage(s);
+        }
         r.setDate((String) item.get("date"));
         Object eps = item.get("eps");
         if (eps instanceof Number n) r.setEps(n.intValue());
+        // score 可能直接在顶层（搜索结果）或在 rating 对象中（列表结果）
         Object score = item.get("score");
         if (score instanceof Number n) r.setScore(n.doubleValue());
+        else {
+            Object ratingObj = item.get("rating");
+            if (ratingObj instanceof Map rating) {
+                Object s = rating.get("score");
+                if (s instanceof Number n) r.setScore(n.doubleValue());
+            }
+        }
+        // rank 可能直接在顶层或在 rating 对象中
+        Object rankObj = item.get("rank");
+        if (rankObj instanceof Number n) r.setRank(n.intValue());
+        else {
+            Object ratingObj = item.get("rating");
+            if (ratingObj instanceof Map rating) {
+                Object rnk = rating.get("rank");
+                if (rnk instanceof Number n) r.setRank(n.intValue());
+            }
+        }
         return r;
     }
 

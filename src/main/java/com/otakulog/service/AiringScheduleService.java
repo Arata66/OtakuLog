@@ -73,6 +73,15 @@ public class AiringScheduleService {
                             || (nameCn != null && !nameCn.isEmpty() && trackedNames.contains(nameCn.toLowerCase().trim()));
                     if (nameMatch) entry.put("isTracked", true);
                 }
+                // 倒计时
+                String airDate = (String) entry.get("airDate");
+                if (airDate != null) {
+                    try {
+                        LocalDate air = LocalDate.parse(airDate);
+                        long days = java.time.temporal.ChronoUnit.DAYS.between(LocalDate.now(), air);
+                        entry.put("daysUntilAir", days);
+                    } catch (Exception ignored) {}
+                }
                 bangumiByDay.computeIfAbsent(weekday, k -> new ArrayList<>()).add(entry);
             }
             result.put("bangumiSchedule", bangumiByDay);
@@ -155,6 +164,12 @@ public class AiringScheduleService {
         item.put("bangumiId", a.getBangumiId());
         if (a.getTotalEpisodes() != null && a.getTotalEpisodes() > 0) {
             item.put("progress", Math.round((double) a.getCurrentEpisode() / a.getTotalEpisodes() * 1000.0) / 10.0);
+        }
+        // 首播日期和倒计时
+        if (a.getStartDate() != null) {
+            item.put("airDate", a.getStartDate().toString());
+            long days = java.time.temporal.ChronoUnit.DAYS.between(LocalDate.now(), a.getStartDate());
+            item.put("daysUntilAir", days);
         }
         return item;
     }

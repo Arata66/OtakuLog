@@ -8,6 +8,7 @@ public class BangumiResult {
     private String date;
     private Integer eps;
     private Double score;
+    private Integer rank;
 
     public int getId() { return id; }
     public void setId(int id) { this.id = id; }
@@ -23,4 +24,6 @@ public class BangumiResult {
     public void setEps(Integer eps) { this.eps = eps; }
     public Double getScore() { return score; }
     public void setScore(Double score) { this.score = score; }
+    public Integer getRank() { return rank; }
+    public void setRank(Integer rank) { this.rank = rank; }
 }

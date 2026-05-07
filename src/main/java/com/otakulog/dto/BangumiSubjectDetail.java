@@ -16,6 +16,7 @@ public class BangumiSubjectDetail {
     private String coverUrl;
     private String platform;
     private Map<String, Object> ratingDetails;
+    private Integer rank;
 
     public int getId() { return id; }
     public void setId(int id) { this.id = id; }
@@ -41,4 +42,6 @@ public class BangumiSubjectDetail {
     public void setPlatform(String platform) { this.platform = platform; }
     public Map<String, Object> getRatingDetails() { return ratingDetails; }
     public void setRatingDetails(Map<String, Object> ratingDetails) { this.ratingDetails = ratingDetails; }
+    public Integer getRank() { return rank; }
+    public void setRank(Integer rank) { this.rank = rank; }
 }
