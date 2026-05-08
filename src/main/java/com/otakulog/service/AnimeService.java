@@ -50,4 +50,8 @@ public interface AnimeService {
     Map<String, Object> importJson(String json);
 
     Map<Integer, List<AnimeVO>> getCalendarData();
+
+    AnimeVO matchBangumi(Long id);
+
+    Map<String, Object> batchMatchBangumi();
 }

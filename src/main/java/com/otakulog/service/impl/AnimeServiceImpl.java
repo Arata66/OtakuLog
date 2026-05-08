@@ -6,7 +6,9 @@ import com.otakulog.dto.AnimeVO;
 import com.otakulog.entity.Anime;
 import com.otakulog.enums.AnimeStatus;
 import com.otakulog.repository.AnimeRepository;
+import com.otakulog.dto.BangumiResult;
 import com.otakulog.service.AnimeService;
+import com.otakulog.service.BangumiService;
 import com.otakulog.util.SortUtil;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -25,9 +27,11 @@ import java.util.stream.Collectors;
 public class AnimeServiceImpl implements AnimeService {
 
     private final AnimeRepository animeRepository;
+    private final BangumiService bangumiService;
 
-    public AnimeServiceImpl(AnimeRepository animeRepository) {
+    public AnimeServiceImpl(AnimeRepository animeRepository, BangumiService bangumiService) {
         this.animeRepository = animeRepository;
+        this.bangumiService = bangumiService;
     }
 
     @Override
@@ -472,6 +476,52 @@ public class AnimeServiceImpl implements AnimeService {
             calendar.put(day, list);
         }
         return calendar;
+    }
+
+    @Override
+    @Transactional
+    public AnimeVO matchBangumi(Long id) {
+        Anime anime = animeRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("未找到该番剧"));
+
+        if (anime.getBangumiId() != null) {
+            return toVO(anime);
+        }
+
+        List<BangumiResult> results = bangumiService.search(anime.getName(), 5);
+        for (BangumiResult r : results) {
+            if (anime.getName().equalsIgnoreCase(r.getName())
+                    || anime.getName().equalsIgnoreCase(r.getNameCn())) {
+                anime.setBangumiId(r.getId());
+                if (anime.getCoverUrl() == null && r.getImage() != null) {
+                    anime.setCoverUrl(r.getImage());
+                }
+                return toVO(animeRepository.save(anime));
+            }
+        }
+        throw new IllegalArgumentException("未在 Bangumi 找到匹配结果");
+    }
+
+    @Override
+    @Transactional
+    public Map<String, Object> batchMatchBangumi() {
+        List<Anime> noBangumi = animeRepository.findByBangumiIdIsNull();
+        int matched = 0;
+        int failed = 0;
+        for (Anime anime : noBangumi) {
+            try {
+                matchBangumi(anime.getId());
+                matched++;
+                Thread.sleep(500);
+            } catch (Exception e) {
+                failed++;
+            }
+        }
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("matched", matched);
+        result.put("failed", failed);
+        result.put("total", noBangumi.size());
+        return result;
     }
 
     @Override
