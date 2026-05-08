@@ -230,6 +230,30 @@ public class AnimeController {
         return ResponseEntity.ok(ApiResponse.success(airingScheduleService.getAiringSchedule()));
     }
 
+    @Operation(summary = "匹配Bangumi链接")
+    @PostMapping("/api/anime/{id}/match-bangumi")
+    @ResponseBody
+    public ResponseEntity<ApiResponse<AnimeVO>> matchBangumi(@PathVariable Long id) {
+        try {
+            AnimeVO vo = animeService.matchBangumi(id);
+            return ResponseEntity.ok(ApiResponse.success("匹配成功", vo));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(ApiResponse.error(400, e.getMessage()));
+        }
+    }
+
+    @Operation(summary = "批量匹配Bangumi链接")
+    @PostMapping("/api/anime/batch-match-bangumi")
+    @ResponseBody
+    public ResponseEntity<ApiResponse<Map<String, Object>>> batchMatchBangumi() {
+        try {
+            Map<String, Object> result = animeService.batchMatchBangumi();
+            return ResponseEntity.ok(ApiResponse.success("批量匹配完成", result));
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(ApiResponse.error(500, "批量匹配失败: " + e.getMessage()));
+        }
+    }
+
     @Operation(summary = "导出JSON")
     @GetMapping("/api/anime/export")
     @ResponseBody
