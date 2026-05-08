@@ -51,6 +51,29 @@
         function toast(m, t = 'info') { const c = document.getElementById('tw'), el = document.createElement('div'); el.className = 'toast ' + t; el.textContent = m; c.appendChild(el); setTimeout(() => el.remove(), 3000); }
         function scoreClass(s) { return s >= 8 ? 'sc-high' : s >= 6 ? 'sc-mid' : 'sc-low'; }
         function renderTags(tags) { if (!tags) return ''; return tags.split(',').map(t => t.trim()).filter(Boolean).map(t => `<span class="tag-pill">${esc(t)}</span>`).join(''); }
+
+        /* 封面图懒加载 */
+        let _lazyObserver = null;
+        function getLazyObserver() {
+            if (!_lazyObserver) {
+                _lazyObserver = new IntersectionObserver((entries) => {
+                    entries.forEach(entry => {
+                        if (entry.isIntersecting) {
+                            const img = entry.target;
+                            if (img.dataset.src) {
+                                img.src = img.dataset.src;
+                                img.removeAttribute('data-src');
+                                _lazyObserver.unobserve(img);
+                            }
+                        }
+                    });
+                }, { rootMargin: '200px' });
+            }
+            return _lazyObserver;
+        }
+        function initLazyLoad() {
+            document.querySelectorAll('img.lazy-cover[data-src]').forEach(img => getLazyObserver().observe(img));
+        }
         function highlightText(text, keyword) {
             if (!text || !keyword) return esc(text);
             const escaped = esc(text);
@@ -533,7 +556,7 @@
                 tb.innerHTML = '';
                 list.forEach((a, i) => {
                     const r = document.createElement('tr'); r.id = 'r-' + a.id;
-                    const cv = a.coverUrl ? `<img src="${esc(a.coverUrl)}" class="cover-img" onerror="this.outerHTML='<div class=cover-empty>N/A</div>'">` : '<div class="cover-empty">N/A</div>';
+                    const cv = a.coverUrl ? `<img data-src="${esc(a.coverUrl)}" loading="lazy" class="cover-img lazy-cover" onerror="this.outerHTML='<div class=cover-empty>N/A</div>'">` : '<div class="cover-empty">N/A</div>';
                     r.innerHTML = `<td class="drag-handle" style="cursor:grab;color:var(--text-faint);padding:8px 4px;">⠿</td><td style="width:36px;padding:12px 8px;text-align:center;"><input type="checkbox" class="batch-cb" data-id="${a.id}" onchange="toggleRowSelect(${a.id}, this.checked)"></td><td>${cv}</td><td style="color:var(--text-dim);font-size:0.82em;">${i+1}</td>
                         <td><span class="clickable-name" onclick="openDetailModal(${a.id})">${highlightText(a.name, kw)}</span>${a.tags ? '<div style="margin-top:4px;">' + renderTags(a.tags) + '</div>' : ''}</td>
                         <td><span class="season-tag">${esc(a.season)}</span></td>
@@ -547,6 +570,7 @@
             }
             if (viewMode === 'detail') renderDetail(list, kw);
             if (viewMode === 'gallery') renderGallery(list, kw);
+            initLazyLoad();
         }
 
         function renderDetail(list, kw) {
@@ -554,7 +578,7 @@
             list.forEach(a => {
                 const card = document.createElement('div'); card.className = 'dt-card';
                 const pct = a.totalEpisodes > 0 ? Math.round(a.currentEpisode / a.totalEpisodes * 100) : 0;
-                const cover = a.coverUrl ? `<img src="${esc(a.coverUrl)}" class="dt-cover" onerror="this.outerHTML='<div class=dt-cover-empty>${esc(a.name.charAt(0))}</div>'">` : `<div class="dt-cover-empty">${esc(a.name.charAt(0))}</div>`;
+                const cover = a.coverUrl ? `<img data-src="${esc(a.coverUrl)}" loading="lazy" class="dt-cover lazy-cover" onerror="this.outerHTML='<div class=dt-cover-empty>${esc(a.name.charAt(0))}</div>'">` : `<div class="dt-cover-empty">${esc(a.name.charAt(0))}</div>`;
                 card.innerHTML = `<div class="dt-cover-wrap">${cover}<span class="dt-status-badge ${a.status}">${SM[a.status] || a.status}</span></div>
                     <div class="dt-body">
                         <div class="dt-name clickable-name" onclick="openDetailModal(${a.id})">${highlightText(a.name, kw)}</div>
@@ -572,7 +596,7 @@
             list.forEach(a => {
                 const card = document.createElement('div'); card.className = 'g-card'; card.id = 'gc-' + a.id;
                 const pct = a.totalEpisodes > 0 ? Math.round(a.currentEpisode / a.totalEpisodes * 100) : 0;
-                const cover = a.coverUrl ? `<img src="${esc(a.coverUrl)}" class="g-cover" onerror="this.outerHTML='<div class=g-cover-empty>${esc(a.name.charAt(0))}</div>'">` : `<div class="g-cover-empty">${esc(a.name.charAt(0))}</div>`;
+                const cover = a.coverUrl ? `<img data-src="${esc(a.coverUrl)}" loading="lazy" class="g-cover lazy-cover" onerror="this.outerHTML='<div class=g-cover-empty>${esc(a.name.charAt(0))}</div>'">` : `<div class="g-cover-empty">${esc(a.name.charAt(0))}</div>`;
                 card.innerHTML = `${cover}
                     <div class="g-body">
                         <div class="g-name clickable-name" onclick="openDetailModal(${a.id})">${highlightText(a.name, kw)}</div>
@@ -594,7 +618,7 @@
             const existing = tb ? tb.querySelectorAll('tr').length : 0;
             list.forEach((a, i) => {
                 const r = document.createElement('tr'); r.id = 'r-' + a.id;
-                const cv = a.coverUrl ? `<img src="${esc(a.coverUrl)}" class="cover-img" onerror="this.outerHTML='<div class=cover-empty>N/A</div>'">` : '<div class="cover-empty">N/A</div>';
+                const cv = a.coverUrl ? `<img data-src="${esc(a.coverUrl)}" loading="lazy" class="cover-img lazy-cover" onerror="this.outerHTML='<div class=cover-empty>N/A</div>'">` : '<div class="cover-empty">N/A</div>';
                 r.innerHTML = `<td class="drag-handle" style="cursor:grab;color:var(--text-faint);padding:8px 4px;">⠿</td><td style="width:36px;padding:12px 8px;text-align:center;"><input type="checkbox" class="batch-cb" data-id="${a.id}" onchange="toggleRowSelect(${a.id}, this.checked)"></td><td>${cv}</td><td style="color:var(--text-dim);font-size:0.82em;">${existing + i + 1}</td>
                     <td><span class="clickable-name" onclick="openDetailModal(${a.id})">${highlightText(a.name, kw)}</span>${a.tags ? '<div style="margin-top:4px;">' + renderTags(a.tags) + '</div>' : ''}</td>
                     <td><span class="season-tag">${esc(a.season)}</span></td>
@@ -608,17 +632,18 @@
             if (dg) list.forEach(a => {
                 const card = document.createElement('div'); card.className = 'dt-card';
                 const pct = a.totalEpisodes > 0 ? Math.round(a.currentEpisode / a.totalEpisodes * 100) : 0;
-                const cover = a.coverUrl ? `<img src="${esc(a.coverUrl)}" class="dt-cover" onerror="this.outerHTML='<div class=dt-cover-empty>${esc(a.name.charAt(0))}</div>'">` : `<div class="dt-cover-empty">${esc(a.name.charAt(0))}</div>`;
+                const cover = a.coverUrl ? `<img data-src="${esc(a.coverUrl)}" loading="lazy" class="dt-cover lazy-cover" onerror="this.outerHTML='<div class=dt-cover-empty>${esc(a.name.charAt(0))}</div>'">` : `<div class="dt-cover-empty">${esc(a.name.charAt(0))}</div>`;
                 card.innerHTML = `<div class="dt-cover-wrap">${cover}<span class="dt-status-badge ${a.status}">${SM[a.status] || a.status}</span></div><div class="dt-body"><div class="dt-name clickable-name" onclick="openDetailModal(${a.id})">${highlightText(a.name, kw)}</div><div class="dt-meta"><span class="dt-tag dt-season">${esc(a.season)}</span><span class="dt-tag dt-score ${scoreClass(a.score)}">${a.score}</span>${a.tags ? renderTags(a.tags) : ''}</div><div class="dt-progress-wrap"><div class="dt-progress-label"><span>${a.currentEpisode} / ${a.totalEpisodes} ep</span><span>${pct}%</span></div><div class="dt-progress"><div class="dt-progress-bar ${a.status}" style="width:${pct}%"></div></div></div>${a.remark ? `<div class="dt-remark">${renderRemark(a.remark)}</div>` : '<div class="dt-remark" style="visibility:hidden;">-</div>'}<div class="dt-actions"><button class="dt-btn" onclick="openEditModal(${a.id})">编辑</button><button class="dt-btn ep" onclick="prevEpisode(${a.id})">-</button><button class="dt-btn ep" onclick="nextEpisode(${a.id})">+</button><button class="dt-btn del" onclick="deleteAnime(${a.id})">删除</button></div></div>`;
                 dg.appendChild(card);
             });
             if (gg) list.forEach(a => {
                 const card = document.createElement('div'); card.className = 'g-card'; card.id = 'gc-' + a.id;
                 const pct = a.totalEpisodes > 0 ? Math.round(a.currentEpisode / a.totalEpisodes * 100) : 0;
-                const cover = a.coverUrl ? `<img src="${esc(a.coverUrl)}" class="g-cover" onerror="this.outerHTML='<div class=g-cover-empty>${esc(a.name.charAt(0))}</div>'">` : `<div class="g-cover-empty">${esc(a.name.charAt(0))}</div>`;
+                const cover = a.coverUrl ? `<img data-src="${esc(a.coverUrl)}" loading="lazy" class="g-cover lazy-cover" onerror="this.outerHTML='<div class=g-cover-empty>${esc(a.name.charAt(0))}</div>'">` : `<div class="g-cover-empty">${esc(a.name.charAt(0))}</div>`;
                 card.innerHTML = `${cover}<div class="g-body"><div class="g-name clickable-name" onclick="openDetailModal(${a.id})">${highlightText(a.name, kw)}</div><div class="g-meta"><span class="g-tag g-season">${esc(a.season)}</span><span class="g-tag g-score ${scoreClass(a.score)}">${a.score}</span>${a.tags ? renderTags(a.tags) : ''}</div><div class="g-progress"><div class="g-progress-bar ${a.status}" style="width:${pct}%"></div></div><div class="g-ep">${a.currentEpisode} / ${a.totalEpisodes} ep &middot; ${SM[a.status] || a.status}</div><div class="g-actions"><button class="g-btn" onclick="openEditModal(${a.id})">编辑</button><button class="g-btn ep" onclick="prevEpisode(${a.id})">-</button><button class="g-btn ep" onclick="nextEpisode(${a.id})">+</button><button class="g-btn del" onclick="deleteAnime(${a.id})">删</button></div></div>`;
                 gg.appendChild(card);
             });
+            initLazyLoad();
         }
 
         function resetSearch() { document.getElementById('searchName').value = ''; document.getElementById('filterStatus').value = ''; document.getElementById('sortBy').value = 'id-desc'; document.getElementById('filterTag').value = ''; toast('已重置', 'info'); performSearch(); }
