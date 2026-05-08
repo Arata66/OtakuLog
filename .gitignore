@@ -21,6 +21,7 @@ Thumbs.db
 
 # Database
 *.sql
+!src/main/resources/db/migration/*.sql
 
 # Dependencies
 .classpath

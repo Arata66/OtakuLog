@@ -66,6 +66,7 @@
                         <button class="sync-menu-btn" onclick="importFromBangumi()" id="btnImportBangumi">📥 从 Bangumi 导入</button>
                     </div>
                 </div>
+                <button class="btn-h" onclick="toggleGroupPanel()">📁 分组</button>
                 <button class="btn-h" onclick="exportData()">导出</button>
                 <label class="btn-h" style="cursor:pointer;">导入 <input type="file" accept=".json" onchange="importData(event)" style="display:none;"></label>
                 <form th:action="@{/logout}" method="post" style="display:inline;"><button type="submit" class="btn-h ghost">退出</button></form>
@@ -272,6 +273,21 @@
                 </div>
                 <div class="timeline" id="tl"></div>
             </div>
+        </div>
+    </div>
+
+    <!-- 分组面板 -->
+    <div id="groupPanel" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:900;align-items:center;justify-content:center;">
+        <div style="background:var(--card);border-radius:var(--radius);padding:24px;width:400px;max-width:90vw;max-height:80vh;overflow-y:auto;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+                <h3 style="margin:0;font-family:var(--serif);">分组管理</h3>
+                <button class="btn-sm" onclick="closeGroupPanel()">关闭</button>
+            </div>
+            <div style="display:flex;gap:8px;margin-bottom:16px;">
+                <input type="text" id="newGroupName" placeholder="新分组名称" style="flex:1;padding:8px;border:1px solid var(--border-light);border-radius:var(--radius-sm);background:var(--bg);color:var(--text);">
+                <button class="a-btn" onclick="createGroup()">创建</button>
+            </div>
+            <div id="groupList"></div>
         </div>
     </div>
 

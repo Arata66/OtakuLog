@@ -365,7 +365,7 @@
                     <div class="detail-progress-wrap"><div class="detail-progress-label"><span>进度</span><span>${pct}%</span></div><div class="detail-progress"><div class="detail-progress-bar ${a.status}" style="width:${pct}%"></div></div></div>
                     ${a.remark ? `<div class="detail-remark">${renderRemark(a.remark)}</div>` : ''}
                     <div id="bangumiDetailSection"></div>
-                    <div class="detail-actions"><button class="a-btn" onclick="closeDetailModal();openEditModal(${a.id})">编辑</button><button class="a-btn ep-btn" onclick="prevEpisode(${a.id})">上一集</button><button class="a-btn ep-btn" onclick="nextEpisode(${a.id})">下一集</button><button class="a-btn del" onclick="deleteAnime(${a.id});closeDetailModal()">删除</button></div>
+                    <div class="detail-actions"><button class="a-btn" onclick="closeDetailModal();openEditModal(${a.id})">编辑</button><button class="a-btn ep-btn" onclick="prevEpisode(${a.id})">上一集</button><button class="a-btn ep-btn" onclick="nextEpisode(${a.id})">下一集</button><button class="a-btn" onclick="showAddToGroup(${a.id})">分组</button><button class="a-btn del" onclick="deleteAnime(${a.id});closeDetailModal()">删除</button></div>
                 </div>`;
             overlay.appendChild(card); document.body.appendChild(overlay);
             trapFocus(overlay);
@@ -1367,3 +1367,82 @@
             }
         }
         if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
+
+        // === 分组管理 ===
+        function toggleGroupPanel() {
+            const panel = document.getElementById('groupPanel');
+            if (panel.style.display === 'none' || !panel.style.display) {
+                panel.style.display = 'flex';
+                loadGroups();
+            } else {
+                panel.style.display = 'none';
+            }
+        }
+
+        function closeGroupPanel() {
+            document.getElementById('groupPanel').style.display = 'none';
+        }
+
+        async function loadGroups() {
+            const r = await fetchApi('/api/groups');
+            const list = document.getElementById('groupList');
+            if (!r || r.code !== 200 || !r.data) { list.innerHTML = '<div style="color:var(--text-faint);text-align:center;padding:20px;">暂无分组</div>'; return; }
+            list.innerHTML = '';
+            r.data.forEach(g => {
+                const div = document.createElement('div');
+                div.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:10px;border:1px solid var(--border-light);border-radius:var(--radius-sm);margin-bottom:8px;';
+                div.innerHTML = '<div><span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:' + esc(g.color || '#4a6ad0') + ';margin-right:8px;"></span><strong>' + esc(g.name) + '</strong> <span style="color:var(--text-faint);font-size:0.8em;">(' + g.animeCount + ')</span></div><div><button class="btn-sm" onclick="viewGroup(' + g.id + ',\'' + esc(g.name) + '\')">查看</button> <button class="btn-sm" style="color:var(--rose);" onclick="deleteGroup(' + g.id + ')">删除</button></div>';
+                list.appendChild(div);
+            });
+        }
+
+        async function createGroup() {
+            const name = document.getElementById('newGroupName').value.trim();
+            if (!name) { toast('请输入分组名称', 'error'); return; }
+            const r = await fetchApi('/api/groups', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name }) });
+            if (r && r.code === 200) { document.getElementById('newGroupName').value = ''; toast('创建成功', 'success'); loadGroups(); }
+            else toast(r?.message || '创建失败', 'error');
+        }
+
+        async function deleteGroup(id) {
+            if (!confirm('确定删除此分组？')) return;
+            const r = await fetchApi('/api/groups/' + id, { method: 'DELETE' });
+            if (r && r.code === 200) { toast('已删除', 'success'); loadGroups(); }
+        }
+
+        function viewGroup(id, name) {
+            closeGroupPanel();
+            switchTab('list');
+            fetchApi('/api/groups/' + id + '/anime').then(r => {
+                if (r && r.code === 200 && r.data) {
+                    _cache = {};
+                    r.data.forEach(a => _cache[a.id] = a);
+                    renderView(r.data);
+                    toast('分组「' + name + '」：' + r.data.length + ' 部番剧', 'info');
+                }
+            });
+        }
+
+        async function showAddToGroup(animeId) {
+            const r = await fetchApi('/api/groups');
+            if (!r || r.code !== 200 || !r.data || r.data.length === 0) { toast('请先创建分组', 'error'); return; }
+            const groups = r.data;
+            const currentGroups = await fetchApi('/api/anime/' + animeId + '/groups');
+            const currentIds = (currentGroups && currentGroups.code === 200) ? currentGroups.data : [];
+
+            let html = '<div style="position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:1100;display:flex;align-items:center;justify-content:center;" onclick="if(event.target===this)this.remove()">';
+            html += '<div style="background:var(--card);border-radius:var(--radius);padding:20px;width:300px;max-height:60vh;overflow-y:auto;">';
+            html += '<h4 style="margin:0 0 12px;font-family:var(--serif);">选择分组</h4>';
+            groups.forEach(g => {
+                const checked = currentIds.includes(g.id);
+                html += '<label style="display:flex;align-items:center;gap:8px;padding:8px;cursor:pointer;"><input type="checkbox" ' + (checked ? 'checked' : '') + ' onchange="toggleAnimeGroup(' + animeId + ',' + g.id + ',this.checked)"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:' + esc(g.color || '#4a6ad0') + '"></span>' + esc(g.name) + '</label>';
+            });
+            html += '<div style="text-align:right;margin-top:12px;"><button class="btn-sm" onclick="this.closest(\'div[style*=fixed]\').remove()">完成</button></div></div></div>';
+            document.body.insertAdjacentHTML('beforeend', html);
+        }
+
+        async function toggleAnimeGroup(animeId, groupId, add) {
+            const method = add ? 'POST' : 'DELETE';
+            const r = await fetchApi('/api/groups/' + groupId + '/anime/' + animeId, { method });
+            if (r && r.code === 200) toast(add ? '已添加' : '已移除', 'success');
+        }
