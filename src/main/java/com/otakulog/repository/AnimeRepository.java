@@ -172,4 +172,6 @@ public interface AnimeRepository extends JpaRepository<Anime, Long> {
     boolean existsByName(String name);
 
     boolean existsByBangumiId(Integer bangumiId);
+
+    List<Anime> findByBangumiIdIsNull();
 }
