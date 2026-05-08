@@ -398,6 +398,23 @@
             }
         }
 
+        async function batchMatchBangumi() {
+            const btn = document.getElementById('btnBatchMatch');
+            if (!btn) return;
+            btn.disabled = true;
+            btn.textContent = '匹配中，请稍候...';
+            const r = await fetchApi('/api/anime/batch-match-bangumi', { method: 'POST' });
+            if (r && r.code === 200) {
+                const d = r.data;
+                toast('匹配完成：成功 ' + d.matched + '，失败 ' + d.failed + '，共 ' + d.total, 'success');
+                performSearch();
+            } else {
+                toast(r?.message || '批量匹配失败', 'error');
+            }
+            btn.disabled = false;
+            btn.textContent = '🔗 补全 Bangumi 链接';
+        }
+
         function closeDetailModal() { const m = document.getElementById('detailModal'); if (m) m.remove(); }
 
         function trapFocus(overlay) {
