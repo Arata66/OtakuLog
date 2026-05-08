@@ -1199,6 +1199,41 @@
                 }
             });
 
+            // 移动端手势：左右滑动切换 tab
+            (function() {
+                let touchStartX = 0;
+                let touchStartY = 0;
+                const tabs = ['list', 'charts', 'calendar', 'timeline'];
+                const SWIPE_THRESHOLD = 80;
+                const SWIPE_RESTRAINT = 100;
+
+                document.addEventListener('touchstart', function(e) {
+                    touchStartX = e.changedTouches[0].clientX;
+                    touchStartY = e.changedTouches[0].clientY;
+                }, { passive: true });
+
+                document.addEventListener('touchend', function(e) {
+                    if (document.getElementById('detailModal') || document.getElementById('editModal')) return;
+
+                    const dx = e.changedTouches[0].clientX - touchStartX;
+                    const dy = e.changedTouches[0].clientY - touchStartY;
+
+                    if (Math.abs(dx) < SWIPE_THRESHOLD || Math.abs(dy) > SWIPE_RESTRAINT) return;
+
+                    const tabEls = document.querySelectorAll('.tab');
+                    const activeTab = document.querySelector('.tab.active');
+                    if (!activeTab) return;
+                    const currentIndex = Array.from(tabEls).indexOf(activeTab);
+                    if (currentIndex < 0) return;
+
+                    if (dx < 0 && currentIndex < tabs.length - 1) {
+                        switchTab(tabs[currentIndex + 1]);
+                    } else if (dx > 0 && currentIndex > 0) {
+                        switchTab(tabs[currentIndex - 1]);
+                    }
+                }, { passive: true });
+            })();
+
             // Gallery 移动端触摸切换 actions 显示
             document.addEventListener('click', function(e) {
                 const card = e.target.closest('.g-card');
