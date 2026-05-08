@@ -386,8 +386,10 @@
             ]);
 
             let html = '';
+            let bangumiTags = [];
             if (detailRes && detailRes.code === 200 && detailRes.data) {
                 const d = detailRes.data;
+                bangumiTags = d.tags || [];
                 // Community rating
                 if (d.rating) {
                     const rDist = d.ratingDetails?.count || {};
@@ -431,6 +433,45 @@
             }
 
             section.innerHTML = html || '';
+
+            // 加载相似番剧推荐
+            if (bangumiTags.length > 0) loadSimilarAnime(bangumiId, bangumiTags);
+        }
+
+        async function loadSimilarAnime(bangumiId, tags) {
+            const section = document.getElementById('bangumiDetailSection');
+            if (!section || !tags || tags.length === 0) return;
+
+            const tagNames = tags.slice(0, 2).map(t => t.name || t).filter(Boolean);
+            if (tagNames.length === 0) return;
+
+            const recs = [];
+            const seenIds = new Set([bangumiId]);
+
+            for (const tag of tagNames) {
+                if (recs.length >= 6) break;
+                const r = await fetchApi('/api/bangumi/search?keyword=' + encodeURIComponent(tag) + '&limit=6');
+                if (r && r.code === 200 && r.data) {
+                    for (const item of r.data) {
+                        if (seenIds.has(item.id)) continue;
+                        seenIds.add(item.id);
+                        recs.push(item);
+                        if (recs.length >= 6) break;
+                    }
+                }
+            }
+
+            if (recs.length === 0) return;
+
+            let recHtml = '<div class="bg-section"><div class="bg-section-title">相似番剧</div><div class="browse-grid" style="grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:8px;">';
+            recs.forEach(item => {
+                const img = item.image ? '<img src="' + esc(item.image) + '" class="browse-img" style="height:140px;" onerror="this.outerHTML=\'<div class=browse-img-empty style=height:140px>' + esc((item.nameCn || item.name || '').charAt(0)) + '</div>\'">' : '<div class="browse-img-empty" style="height:140px">' + esc((item.nameCn || item.name || '').charAt(0)) + '</div>';
+                const score = item.score ? '⭐ ' + item.score : '';
+                recHtml += '<div class="browse-card" onclick="window.open(\'https://bgm.tv/subject/' + item.id + '\',\'_blank\')">' + img + '<div class="browse-info"><div class="browse-name" style="font-size:0.75em">' + esc(item.nameCn || item.name) + '</div><div class="browse-meta" style="font-size:0.7em">' + score + '</div></div></div>';
+            });
+            recHtml += '</div></div>';
+
+            section.insertAdjacentHTML('beforeend', recHtml);
         }
 
         async function matchBangumiFor(id, btn) {
