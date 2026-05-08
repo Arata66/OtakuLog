@@ -694,6 +694,45 @@ public class AnimeServiceImpl implements AnimeService {
         return recommendations;
     }
 
+    @Override
+    public Map<String, Integer> getHeatmap() {
+        List<Anime> all = animeRepository.findAll();
+        Map<String, Integer> heatmap = new LinkedHashMap<>();
+        LocalDate today = LocalDate.now();
+        LocalDate oneYearAgo = today.minusYears(1);
+
+        // 初始化过去一年每天为 0
+        for (LocalDate d = oneYearAgo; !d.isAfter(today); d = d.plusDays(1)) {
+            heatmap.put(d.toString(), 0);
+        }
+
+        for (Anime a : all) {
+            if (a.isLegacy()) continue;
+            LocalDate start = a.getWatchStartDate();
+            if (start == null) continue;
+            LocalDate end = a.getEndDate() != null ? a.getEndDate() :
+                    (a.getStatus() == AnimeStatus.FINISHED && a.getCreatedAt() != null ? a.getCreatedAt().toLocalDate() : today);
+
+            // 只统计过去一年内的
+            if (end.isBefore(oneYearAgo)) continue;
+            LocalDate effectiveStart = start.isBefore(oneYearAgo) ? oneYearAgo : start;
+            if (end.isAfter(today)) end = today;
+
+            long days = java.time.temporal.ChronoUnit.DAYS.between(effectiveStart, end);
+            if (days <= 0) days = 1;
+
+            int eps = a.getCurrentEpisode() != null ? a.getCurrentEpisode() : 0;
+            if (eps <= 0) continue;
+
+            // 均匀分布观看集数到每一天
+            double epsPerDay = (double) eps / days;
+            for (LocalDate d = effectiveStart; !d.isAfter(end); d = d.plusDays(1)) {
+                heatmap.merge(d.toString(), (int) Math.ceil(epsPerDay), Integer::sum);
+            }
+        }
+        return heatmap;
+    }
+
     // 根据放送日期猜测季度
     private String guessSeason(String dateStr) {
         if (dateStr == null || dateStr.length() < 4) return "";

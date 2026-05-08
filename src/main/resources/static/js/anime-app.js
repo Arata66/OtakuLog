@@ -807,6 +807,7 @@
                 document.getElementById('stat-ep-day').textContent = d.episodesPerDay || '0';
                 document.getElementById('stat-ep-month').textContent = d.episodesPerMonth || '0';
                 loadRecommendations();
+                loadHeatmap();
                 // 旧番数量提示
                 const lc = d.legacyCount || 0;
                 const epDaySub = document.getElementById('stat-ep-day')?.closest('.d-card')?.querySelector('.d-sub');
@@ -836,6 +837,36 @@
             } else {
                 grid.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-faint);font-size:0.85em;">暂无推荐，多追几部番就有了</div>';
             }
+        }
+
+        /* Heatmap */
+        async function loadHeatmap() {
+            const container = document.getElementById('heatmapContainer');
+            if (!container) return;
+            const r = await fetchApi('/api/anime/heatmap');
+            if (!r || r.code !== 200 || !r.data) return;
+
+            const data = r.data;
+            const dates = Object.keys(data).sort();
+            if (dates.length === 0) return;
+
+            container.innerHTML = '';
+            const maxVal = Math.max(...Object.values(data), 1);
+
+            dates.forEach(date => {
+                const val = data[date] || 0;
+                const cell = document.createElement('div');
+                cell.className = 'heatmap-cell';
+                cell.setAttribute('data-tip', date + ': ' + val + ' 集');
+                if (val > 0) {
+                    const intensity = Math.min(val / maxVal, 1);
+                    if (intensity < 0.25) cell.style.background = 'rgba(74,106,208,0.2)';
+                    else if (intensity < 0.5) cell.style.background = 'rgba(74,106,208,0.4)';
+                    else if (intensity < 0.75) cell.style.background = 'rgba(74,106,208,0.6)';
+                    else cell.style.background = 'rgba(74,106,208,0.85)';
+                }
+                container.appendChild(cell);
+            });
         }
 
         /* Calendar */

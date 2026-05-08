@@ -266,6 +266,13 @@ public class AnimeController {
         }
     }
 
+    @Operation(summary = "获取观看热力图数据")
+    @GetMapping("/api/anime/heatmap")
+    @ResponseBody
+    public ResponseEntity<ApiResponse<Map<String, Integer>>> getHeatmap() {
+        return ResponseEntity.ok(ApiResponse.success(animeService.getHeatmap()));
+    }
+
     @Operation(summary = "导出JSON")
     @GetMapping("/api/anime/export")
     @ResponseBody

@@ -58,4 +58,6 @@ public interface AnimeService {
     Map<String, Object> importFromBangumi(String username);
 
     List<Map<String, Object>> getRecommendations();
+
+    Map<String, Integer> getHeatmap();
 }
