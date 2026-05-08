@@ -224,6 +224,61 @@ public class BangumiService {
         return results.subList(from, to);
     }
 
+    @SuppressWarnings("unchecked")
+    public List<Map<String, Object>> getUserCollections(String username, int limit) {
+        List<Map<String, Object>> allResults = new ArrayList<>();
+        int offset = 0;
+        int pageSize = Math.min(limit, 50);
+
+        while (allResults.size() < limit) {
+            Map<String, Object> response = client.get()
+                    .uri(uriBuilder -> uriBuilder.path("/v0/users/{username}/collections")
+                            .queryParam("subject_type", 2)
+                            .queryParam("limit", pageSize)
+                            .queryParam("offset", offset)
+                            .build(), username)
+                    .retrieve()
+                    .body(new ParameterizedTypeReference<>() {});
+
+            if (response == null || !response.containsKey("data")) break;
+
+            List<Map<String, Object>> data = (List<Map<String, Object>>) response.get("data");
+            if (data == null || data.isEmpty()) break;
+
+            for (Map<String, Object> item : data) {
+                Map<String, Object> entry = new LinkedHashMap<>();
+                Object subject = item.get("subject");
+                if (subject instanceof Map s) {
+                    entry.put("subjectId", s.get("id"));
+                    entry.put("name", s.get("name"));
+                    entry.put("nameCn", s.getOrDefault("name_cn", ""));
+                    Object images = s.get("images");
+                    if (images instanceof Map imgMap) {
+                        String imageUrl = (String) (imgMap.get("large") != null ? imgMap.get("large") :
+                                imgMap.get("common") != null ? imgMap.get("common") : imgMap.get("medium"));
+                        if (imageUrl != null && imageUrl.startsWith("//")) imageUrl = "https:" + imageUrl;
+                        entry.put("image", imageUrl);
+                    }
+                    entry.put("eps", s.get("eps"));
+                    entry.put("date", s.get("date"));
+                } else {
+                    entry.put("subjectId", item.get("subject_id"));
+                }
+                // collection type: 1=wish, 2=watched, 3=watching, 4=on_hold, 5=dropped
+                entry.put("type", item.get("type"));
+                entry.put("epStatus", item.get("ep_status"));
+                allResults.add(entry);
+
+                if (allResults.size() >= limit) break;
+            }
+
+            offset += data.size();
+            if (data.size() < pageSize) break;
+        }
+
+        return allResults;
+    }
+
     private BangumiResult mapResult(Map<String, Object> item) {
         BangumiResult r = new BangumiResult();
         r.setId(((Number) item.get("id")).intValue());
