@@ -1,0 +1,11 @@
+{
+	"folders": [
+		{
+			"path": "../../../../../.."
+		}
+	],
+	"settings": {
+		"liveServer.settings.multiRootWorkspaceName": "OtakuLog",
+		"java.compile.nullAnalysis.mode": "automatic"
+	}
+}

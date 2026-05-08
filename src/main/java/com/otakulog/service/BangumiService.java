@@ -251,11 +251,8 @@ public class BangumiService {
 
         while (allResults.size() < limit) {
             Map<String, Object> response = client.get()
-                    .uri(uriBuilder -> uriBuilder.path("/v0/users/{username}/collections")
-                            .queryParam("subject_type", 2)
-                            .queryParam("limit", pageSize)
-                            .queryParam("offset", offset)
-                            .build(), username)
+                    .uri("/v0/users/{username}/collections?subject_type=2&limit={limit}&offset={offset}",
+                            username, pageSize, offset)
                     .retrieve()
                     .body(new ParameterizedTypeReference<>() {});
 
