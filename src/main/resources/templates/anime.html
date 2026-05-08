@@ -43,6 +43,17 @@
                 <div class="logo-sub" data-i18n="app.subtitle">追番日记</div>
             </div>
             <div class="header-right">
+                <div style="position:relative;display:inline-block;">
+                    <button class="btn-h" onclick="toggleAccentPicker()" title="主题色">🎨</button>
+                    <div class="accent-picker" id="accentPicker">
+                        <div class="accent-swatch active" data-accent="indigo" style="background:#122e8a;" onclick="setAccent('indigo')"></div>
+                        <div class="accent-swatch" data-accent="jade" style="background:#1a7a4a;" onclick="setAccent('jade')"></div>
+                        <div class="accent-swatch" data-accent="violet" style="background:#6a3a8a;" onclick="setAccent('violet')"></div>
+                        <div class="accent-swatch" data-accent="coral" style="background:#c44a3a;" onclick="setAccent('coral')"></div>
+                        <div class="accent-swatch" data-accent="amber" style="background:#8a6a1a;" onclick="setAccent('amber')"></div>
+                        <div class="accent-swatch" data-accent="rose" style="background:#8a3a5a;" onclick="setAccent('rose')"></div>
+                    </div>
+                </div>
                 <button class="btn-h" id="langToggle" onclick="i18n.setLang(i18n.lang === 'zh' ? 'en' : 'zh')">EN</button>
                 <button class="btn-h" id="themeToggle" onclick="toggleTheme()" title="切换主题">☽</button>
                 <div style="position:relative;display:inline-block;">

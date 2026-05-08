@@ -802,3 +802,27 @@
         .cc-countdown { font-size: 0.72em; font-weight: 500; margin-top: 2px; }
         .cc-countdown.future { color: var(--primary-light); }
         .cc-countdown.past { color: var(--text-faint); }
+
+        /* 主题色方案 */
+        [data-accent="indigo"] { --primary: #122e8a; --primary-soft: rgba(18,46,138,0.08); --primary-mid: #2a4aaa; --primary-light: #4a6ad0; }
+        [data-accent="jade"] { --primary: #1a7a4a; --primary-soft: rgba(26,122,74,0.08); --primary-mid: #2a8a5a; --primary-light: #4aaa7a; }
+        [data-accent="violet"] { --primary: #6a3a8a; --primary-soft: rgba(106,58,138,0.08); --primary-mid: #7a4a9a; --primary-light: #9a6aba; }
+        [data-accent="coral"] { --primary: #c44a3a; --primary-soft: rgba(196,74,58,0.08); --primary-mid: #d45a4a; --primary-light: #e47a6a; }
+        [data-accent="amber"] { --primary: #8a6a1a; --primary-soft: rgba(138,106,26,0.08); --primary-mid: #9a7a2a; --primary-light: #ba9a4a; }
+        [data-accent="rose"] { --primary: #8a3a5a; --primary-soft: rgba(138,58,90,0.08); --primary-mid: #9a4a6a; --primary-light: #ba6a8a; }
+
+        /* 暗色主题下的主题色覆盖 */
+        [data-theme="dark"][data-accent="indigo"] { --primary: #4a6ad0; --primary-soft: rgba(74,106,208,0.12); --primary-mid: #5a7ae0; --primary-light: #7a9af0; }
+        [data-theme="dark"][data-accent="jade"] { --primary: #4aaa7a; --primary-soft: rgba(74,170,122,0.12); --primary-mid: #5aba8a; --primary-light: #7adaaa; }
+        [data-theme="dark"][data-accent="violet"] { --primary: #9a6aba; --primary-soft: rgba(154,106,186,0.12); --primary-mid: #aa7aca; --primary-light: #ca9aea; }
+        [data-theme="dark"][data-accent="coral"] { --primary: #e47a6a; --primary-soft: rgba(228,122,106,0.12); --primary-mid: #e88a7a; --primary-light: #f0aa9a; }
+        [data-theme="dark"][data-accent="amber"] { --primary: #ba9a4a; --primary-soft: rgba(186,154,74,0.12); --primary-mid: #caaa5a; --primary-light: #daba7a; }
+        [data-theme="dark"][data-accent="rose"] { --primary: #ba6a8a; --primary-soft: rgba(186,106,138,0.12); --primary-mid: #ca7a9a; --primary-light: #da9aba; }
+
+        /* 色板选择器 */
+        .accent-picker { display: none; position: absolute; right: 0; top: 100%; margin-top: 4px; background: var(--card); border: 1px solid var(--border-light); border-radius: 10px; box-shadow: var(--shadow-lg); padding: 12px; z-index: 50; }
+        .accent-picker.active { display: flex; gap: 8px; flex-wrap: wrap; width: 180px; }
+        .accent-swatch { width: 28px; height: 28px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; transition: all 0.2s; position: relative; }
+        .accent-swatch:hover { transform: scale(1.15); }
+        .accent-swatch.active { border-color: var(--text); }
+        .accent-swatch.active::after { content: '✓'; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 14px; color: white; font-weight: bold; }

@@ -144,6 +144,35 @@
             Chart.defaults.borderColor = dark ? '#302c24' : '#ede8e0';
         }
 
+        /* 主题色切换 */
+        function toggleAccentPicker() {
+            const picker = document.getElementById('accentPicker');
+            if (picker) picker.classList.toggle('active');
+        }
+
+        function setAccent(accent) {
+            document.documentElement.setAttribute('data-accent', accent);
+            localStorage.setItem('otakulog-accent', accent);
+            // 更新色板选中状态
+            document.querySelectorAll('.accent-swatch').forEach(s => {
+                s.classList.toggle('active', s.dataset.accent === accent);
+            });
+            const picker = document.getElementById('accentPicker');
+            if (picker) picker.classList.remove('active');
+        }
+
+        // 初始化主题色
+        (function() {
+            const saved = localStorage.getItem('otakulog-accent') || 'indigo';
+            document.documentElement.setAttribute('data-accent', saved);
+            // 延迟更新色板选中状态（等 DOM 加载完成）
+            document.addEventListener('DOMContentLoaded', function() {
+                document.querySelectorAll('.accent-swatch').forEach(s => {
+                    s.classList.toggle('active', s.dataset.accent === saved);
+                });
+            });
+        })();
+
         /* Tabs */
         function switchTab(n) {
             document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
@@ -1118,6 +1147,13 @@
         /* Sync */
         function toggleSyncMenu() { const m = document.getElementById('syncMenu'); m.style.display = m.style.display === 'none' ? 'block' : 'none'; }
         document.addEventListener('click', function(e) { const m = document.getElementById('syncMenu'); const b = document.getElementById('syncBtn'); if (m && b && !m.contains(e.target) && e.target !== b) m.style.display = 'none'; });
+        // 点击外部关闭色板
+        document.addEventListener('click', function(e) {
+            const picker = document.getElementById('accentPicker');
+            if (picker && !e.target.closest('.accent-picker') && !e.target.closest('[onclick*="toggleAccentPicker"]')) {
+                picker.classList.remove('active');
+            }
+        });
         async function syncPush() {
             document.getElementById('syncMenu').style.display = 'none';
             toast('正在推送到 WebDAV...', 'info');
