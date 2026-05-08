@@ -4,6 +4,7 @@ import com.otakulog.common.ApiResponse;
 import com.otakulog.dto.BangumiEpisode;
 import com.otakulog.dto.BangumiResult;
 import com.otakulog.dto.BangumiSubjectDetail;
+import com.otakulog.service.AnimeService;
 import com.otakulog.service.BangumiService;
 import com.otakulog.service.TraceMoeService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -22,9 +23,12 @@ public class BangumiApiController {
     private final BangumiService bangumiService;
     private final TraceMoeService traceMoeService;
 
-    public BangumiApiController(BangumiService bangumiService, TraceMoeService traceMoeService) {
+    private final AnimeService animeService;
+
+    public BangumiApiController(BangumiService bangumiService, TraceMoeService traceMoeService, AnimeService animeService) {
         this.bangumiService = bangumiService;
         this.traceMoeService = traceMoeService;
+        this.animeService = animeService;
     }
 
     @Operation(summary = "搜索Bangumi")
@@ -112,6 +116,19 @@ public class BangumiApiController {
             return ResponseEntity.ok(ApiResponse.success(result));
         } catch (Exception e) {
             return ResponseEntity.status(502).body(ApiResponse.error(502, "搜索失败: " + e.getMessage()));
+        }
+    }
+
+    @Operation(summary = "从Bangumi导入追番记录")
+    @PostMapping("/api/bangumi/import/{username}")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> importFromBangumi(@PathVariable String username) {
+        try {
+            Map<String, Object> result = animeService.importFromBangumi(username);
+            int created = (int) result.get("created");
+            int skipped = (int) result.get("skipped");
+            return ResponseEntity.ok(ApiResponse.success("已导入 " + created + " 条，跳过 " + skipped + " 条", result));
+        } catch (Exception e) {
+            return ResponseEntity.status(502).body(ApiResponse.error(502, "导入失败: " + e.getMessage()));
         }
     }
 }
