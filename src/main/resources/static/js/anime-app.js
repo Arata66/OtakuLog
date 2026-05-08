@@ -696,6 +696,60 @@
                         datasets: [{ data: d.tags.map(t => t.count), backgroundColor: tagColors.slice(0, d.tags.length), borderWidth: 0 }]
                     }, options: { responsive: true, cutout: '50%', plugins: { legend: { position: 'right', labels: { usePointStyle: true, pointStyleWidth: 8, font: { size: 11 }, padding: 12 } } } } });
                 }
+                // 观看时长 TOP 10
+                if (d.watchDuration && d.watchDuration.length > 0) {
+                    const top10 = d.watchDuration.slice(0, 10);
+                    const ctxDur = document.getElementById('c-duration');
+                    if (ctxDur) {
+                        new Chart(ctxDur, {
+                            type: 'bar',
+                            data: {
+                                labels: top10.map(d => d.name.length > 8 ? d.name.substring(0, 8) + '...' : d.name),
+                                datasets: [{
+                                    label: '观看天数',
+                                    data: top10.map(d => d.days),
+                                    backgroundColor: 'rgba(74,106,208,0.6)',
+                                    borderRadius: 4
+                                }]
+                            },
+                            options: { indexAxis: 'y', responsive: true, plugins: { legend: { display: false } }, scales: { x: { title: { display: true, text: '天' } } } }
+                        });
+                    }
+                }
+                // 月度完成趋势
+                if (d.monthlyReport && Object.keys(d.monthlyReport).length > 0) {
+                    const months = Object.keys(d.monthlyReport).sort();
+                    const ctxMon = document.getElementById('c-monthly');
+                    if (ctxMon) {
+                        new Chart(ctxMon, {
+                            type: 'line',
+                            data: {
+                                labels: months,
+                                datasets: [{
+                                    label: '完成番剧数',
+                                    data: months.map(m => d.monthlyReport[m].count),
+                                    borderColor: 'rgba(74,106,208,0.8)',
+                                    backgroundColor: 'rgba(74,106,208,0.1)',
+                                    fill: true, tension: 0.3, pointRadius: 4
+                                }, {
+                                    label: '平均评分',
+                                    data: months.map(m => d.monthlyReport[m].avgScore),
+                                    borderColor: 'rgba(90,138,96,0.8)',
+                                    backgroundColor: 'rgba(90,138,96,0.1)',
+                                    fill: false, tension: 0.3, pointRadius: 4, yAxisID: 'y1'
+                                }]
+                            },
+                            options: {
+                                responsive: true,
+                                plugins: { legend: { position: 'bottom' } },
+                                scales: {
+                                    y: { beginAtZero: true, title: { display: true, text: '番剧数' } },
+                                    y1: { position: 'right', min: 0, max: 10, title: { display: true, text: '评分' }, grid: { drawOnChartArea: false } }
+                                }
+                            }
+                        });
+                    }
+                }
                 document.getElementById('stat-ep-day').textContent = d.episodesPerDay || '0';
                 document.getElementById('stat-ep-month').textContent = d.episodesPerMonth || '0';
                 // 旧番数量提示

@@ -463,6 +463,52 @@ public class AnimeServiceImpl implements AnimeService {
         stats.put("animeCountedForHabits", counted);
         stats.put("legacyCount", legacyCount);
 
+        // Watch duration stats — 每部番的观看天数
+        List<Map<String, Object>> durationList = new ArrayList<>();
+        for (Anime a : all) {
+            if (a.isLegacy()) continue;
+            LocalDate watchStart = a.getWatchStartDate() != null ? a.getWatchStartDate() : (a.getCreatedAt() != null ? a.getCreatedAt().toLocalDate() : null);
+            if (watchStart == null) continue;
+            LocalDate end = a.getEndDate() != null ? a.getEndDate() : (a.getStatus() == AnimeStatus.FINISHED ? (a.getCreatedAt() != null ? a.getCreatedAt().toLocalDate() : LocalDate.now()) : LocalDate.now());
+            long days = java.time.temporal.ChronoUnit.DAYS.between(watchStart, end);
+            if (days < 0) days = 0;
+            Map<String, Object> d = new HashMap<>();
+            d.put("name", a.getName());
+            d.put("days", days);
+            d.put("episodes", a.getCurrentEpisode());
+            d.put("status", a.getStatus().name().toLowerCase());
+            d.put("score", a.getScore());
+            durationList.add(d);
+        }
+        durationList.sort((a, b) -> Long.compare((long) b.get("days"), (long) a.get("days")));
+        stats.put("watchDuration", durationList);
+
+        // Monthly completion stats — 按月统计完成的番剧
+        Map<String, Integer> monthlyCompleted = new HashMap<>();
+        Map<String, Double> monthlyScores = new HashMap<>();
+        for (Anime a : all) {
+            if (a.getStatus() == AnimeStatus.FINISHED && a.getEndDate() != null) {
+                String month = a.getEndDate().toString().substring(0, 7); // YYYY-MM
+                monthlyCompleted.merge(month, 1, Integer::sum);
+                monthlyScores.computeIfAbsent(month, k -> 0.0);
+                // 累加评分用于计算平均值
+                if (a.getScore() != null && a.getScore() > 0) {
+                    monthlyScores.merge(month, a.getScore(), Double::sum);
+                }
+            }
+        }
+        // 计算平均评分
+        Map<String, Map<String, Object>> monthlyReport = new LinkedHashMap<>();
+        for (Map.Entry<String, Integer> e : monthlyCompleted.entrySet()) {
+            String month = e.getKey();
+            Map<String, Object> report = new LinkedHashMap<>();
+            report.put("count", e.getValue());
+            double totalScore = monthlyScores.getOrDefault(month, 0.0);
+            report.put("avgScore", e.getValue() > 0 ? Math.round(totalScore / e.getValue() * 10.0) / 10.0 : 0);
+            monthlyReport.put(month, report);
+        }
+        stats.put("monthlyReport", monthlyReport);
+
         return stats;
     }
 
