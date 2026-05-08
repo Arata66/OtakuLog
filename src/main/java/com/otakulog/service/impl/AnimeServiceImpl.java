@@ -634,6 +634,66 @@ public class AnimeServiceImpl implements AnimeService {
         return result;
     }
 
+    @Override
+    public List<Map<String, Object>> getRecommendations() {
+        List<Anime> all = animeRepository.findAll();
+
+        // 统计用户标签频率
+        Map<String, Integer> tagCounts = new HashMap<>();
+        Set<String> trackedNames = new HashSet<>();
+        Set<Integer> trackedBangumiIds = new HashSet<>();
+        for (Anime a : all) {
+            trackedNames.add(a.getName().toLowerCase());
+            if (a.getBangumiId() != null) trackedBangumiIds.add(a.getBangumiId());
+            if (a.getTags() != null && !a.getTags().trim().isEmpty()) {
+                for (String tag : a.getTags().split(",")) {
+                    String t = tag.trim();
+                    if (!t.isEmpty()) tagCounts.merge(t, 1, Integer::sum);
+                }
+            }
+        }
+
+        // 取 TOP 3 标签
+        List<String> topTags = tagCounts.entrySet().stream()
+                .sorted(Map.Entry.<String, Integer>comparingByValue().reversed())
+                .limit(3)
+                .map(Map.Entry::getKey)
+                .collect(Collectors.toList());
+
+        if (topTags.isEmpty()) return List.of();
+
+        // 用标签搜索 Bangumi
+        List<Map<String, Object>> recommendations = new ArrayList<>();
+        Set<Integer> seenIds = new HashSet<>();
+        for (String tag : topTags) {
+            try {
+                List<BangumiResult> results = bangumiService.searchByTag(tag, 10);
+                for (BangumiResult r : results) {
+                    if (trackedBangumiIds.contains(r.getId())) continue;
+                    if (seenIds.contains(r.getId())) continue;
+                    if (trackedNames.contains(r.getName().toLowerCase())) continue;
+                    if (r.getNameCn() != null && trackedNames.contains(r.getNameCn().toLowerCase())) continue;
+
+                    Map<String, Object> rec = new LinkedHashMap<>();
+                    rec.put("id", r.getId());
+                    rec.put("name", r.getName());
+                    rec.put("nameCn", r.getNameCn());
+                    rec.put("image", r.getImage());
+                    rec.put("score", r.getScore());
+                    rec.put("date", r.getDate());
+                    rec.put("reason", "标签: " + tag);
+                    recommendations.add(rec);
+                    seenIds.add(r.getId());
+
+                    if (recommendations.size() >= 10) return recommendations;
+                }
+            } catch (Exception e) {
+                // 单个标签搜索失败不影响其他标签
+            }
+        }
+        return recommendations;
+    }
+
     // 根据放送日期猜测季度
     private String guessSeason(String dateStr) {
         if (dateStr == null || dateStr.length() < 4) return "";

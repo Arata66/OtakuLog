@@ -254,6 +254,18 @@ public class AnimeController {
         }
     }
 
+    @Operation(summary = "获取番剧推荐")
+    @GetMapping("/api/anime/recommendations")
+    @ResponseBody
+    public ResponseEntity<ApiResponse<List<Map<String, Object>>>> getRecommendations() {
+        try {
+            List<Map<String, Object>> result = animeService.getRecommendations();
+            return ResponseEntity.ok(ApiResponse.success(result));
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(ApiResponse.error(500, "获取推荐失败: " + e.getMessage()));
+        }
+    }
+
     @Operation(summary = "导出JSON")
     @GetMapping("/api/anime/export")
     @ResponseBody

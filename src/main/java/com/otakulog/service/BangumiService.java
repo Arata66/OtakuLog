@@ -224,6 +224,25 @@ public class BangumiService {
         return results.subList(from, to);
     }
 
+    public List<BangumiResult> searchByTag(String tag, int limit) {
+        Map<String, Object> body = new HashMap<>();
+        body.put("keyword", tag);
+        body.put("sort", "heat");
+        body.put("filter", Map.of("type", List.of(2)));
+
+        Map<String, Object> response = client.post()
+                .uri(uriBuilder -> uriBuilder.path("/v0/search/subjects").queryParam("limit", limit).build())
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(body)
+                .retrieve()
+                .body(new ParameterizedTypeReference<>() {});
+
+        if (response == null || !response.containsKey("data")) return List.of();
+
+        List<Map<String, Object>> data = (List<Map<String, Object>>) response.get("data");
+        return data.stream().map(this::mapResult).collect(Collectors.toList());
+    }
+
     @SuppressWarnings("unchecked")
     public List<Map<String, Object>> getUserCollections(String username, int limit) {
         List<Map<String, Object>> allResults = new ArrayList<>();

@@ -752,10 +752,35 @@
                 }
                 document.getElementById('stat-ep-day').textContent = d.episodesPerDay || '0';
                 document.getElementById('stat-ep-month').textContent = d.episodesPerMonth || '0';
+                loadRecommendations();
                 // 旧番数量提示
                 const lc = d.legacyCount || 0;
                 const epDaySub = document.getElementById('stat-ep-day')?.closest('.d-card')?.querySelector('.d-sub');
                 if (epDaySub) epDaySub.textContent = lc > 0 ? `排除 ${lc} 部旧番` : '观看习惯';
+            }
+        }
+
+        /* Recommendations */
+        async function loadRecommendations() {
+            const grid = document.getElementById('recGrid');
+            if (!grid) return;
+            grid.innerHTML = '<div class="bangumi-loading"><div class="skeleton skeleton-text long"></div></div>';
+            const r = await fetchApi('/api/anime/recommendations');
+            if (r && r.code === 200 && r.data && r.data.length > 0) {
+                grid.innerHTML = '';
+                r.data.forEach(item => {
+                    const card = document.createElement('div');
+                    card.className = 'browse-card';
+                    const img = item.image ? `<img src="${esc(item.image)}" class="browse-cover" onerror="this.outerHTML='<div class=browse-cover-empty>${esc((item.nameCn||item.name||'').charAt(0))}</div>'">` : `<div class="browse-cover-empty">${esc((item.nameCn||item.name||'').charAt(0))}</div>`;
+                    card.innerHTML = `${img}<div class="browse-info"><div class="browse-name">${esc(item.nameCn || item.name)}</div><div class="browse-meta">${item.score ? '⭐ ' + item.score : ''} ${item.date || ''}</div><div class="browse-reason" style="font-size:0.7em;color:var(--text-faint);margin-top:4px;">${esc(item.reason)}</div></div>`;
+                    card.onclick = () => {
+                        document.getElementById('animeName').value = item.nameCn || item.name;
+                        searchBangumi();
+                    };
+                    grid.appendChild(card);
+                });
+            } else {
+                grid.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-faint);font-size:0.85em;">暂无推荐，多追几部番就有了</div>';
             }
         }
 

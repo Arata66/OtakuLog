@@ -56,4 +56,6 @@ public interface AnimeService {
     Map<String, Object> batchMatchBangumi();
 
     Map<String, Object> importFromBangumi(String username);
+
+    List<Map<String, Object>> getRecommendations();
 }

@@ -175,6 +175,13 @@
                 <div class="chart-card"><h4>观看时长 TOP 10</h4><canvas id="c-duration"></canvas></div>
                 <div class="chart-card"><h4>月度完成趋势</h4><canvas id="c-monthly"></canvas></div>
             </div>
+            <div class="chart-card">
+                <div class="cal-top-bar">
+                    <h4 style="margin:0;">猜你想看</h4>
+                    <button class="btn-sm" onclick="loadRecommendations()">换一批</button>
+                </div>
+                <div class="browse-grid" id="recGrid"></div>
+            </div>
             <div class="detail-row">
                 <div class="d-card"><div class="d-label">日均集数</div><div class="d-val" id="stat-ep-day">-</div><div class="d-sub">观看习惯</div></div>
                 <div class="d-card"><div class="d-label">月均集数</div><div class="d-val" id="stat-ep-month">-</div><div class="d-sub">观看习惯</div></div>
