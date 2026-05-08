@@ -415,6 +415,24 @@
             btn.textContent = '🔗 补全 Bangumi 链接';
         }
 
+        async function importFromBangumi() {
+            const username = prompt('请输入 Bangumi 用户名：');
+            if (!username || !username.trim()) return;
+            const btn = document.getElementById('btnImportBangumi');
+            if (btn) { btn.disabled = true; btn.textContent = '导入中，请稍候...'; }
+            toggleSyncMenu();
+            const r = await fetchApi('/api/bangumi/import/' + encodeURIComponent(username.trim()), { method: 'POST' });
+            if (r && r.code === 200) {
+                const d = r.data;
+                toast('导入完成：新增 ' + d.created + '，跳过 ' + d.skipped + '，共 ' + d.total, 'success');
+                performSearch();
+                updateStats();
+            } else {
+                toast(r?.message || '导入失败', 'error');
+            }
+            if (btn) { btn.disabled = false; btn.textContent = '📥 从 Bangumi 导入'; }
+        }
+
         function closeDetailModal() { const m = document.getElementById('detailModal'); if (m) m.remove(); }
 
         function trapFocus(overlay) {
