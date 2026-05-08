@@ -1167,6 +1167,26 @@
             document.getElementById('filterTag').addEventListener('input', debounce(() => performSearch(), 300));
             document.getElementById('animeName').addEventListener('keydown', function(e) { if (e.key === 'Enter') { e.preventDefault(); searchBangumi(); } });
 
+            // 快捷键支持
+            document.addEventListener('keydown', function(e) {
+                // 如果焦点在输入框中，不触发快捷键
+                if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
+                // 如果弹窗打开，不触发快捷键
+                if (document.getElementById('detailModal') || document.getElementById('editModal')) return;
+
+                switch(e.key) {
+                    case '1': switchTab('list'); break;
+                    case '2': switchTab('charts'); break;
+                    case '3': switchTab('calendar'); break;
+                    case '4': switchTab('timeline'); break;
+                    case '/':
+                        e.preventDefault();
+                        const searchInput = document.getElementById('searchName');
+                        if (searchInput) searchInput.focus();
+                        break;
+                }
+            });
+
             // Escape 关闭弹窗
             document.addEventListener('keydown', function(e) {
                 if (e.key === 'Escape') {
