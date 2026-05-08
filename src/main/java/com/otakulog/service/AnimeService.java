@@ -54,4 +54,6 @@ public interface AnimeService {
     AnimeVO matchBangumi(Long id);
 
     Map<String, Object> batchMatchBangumi();
+
+    Map<String, Object> importFromBangumi(String username);
 }

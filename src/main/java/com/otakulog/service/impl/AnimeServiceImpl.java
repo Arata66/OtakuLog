@@ -526,6 +526,84 @@ public class AnimeServiceImpl implements AnimeService {
 
     @Override
     @Transactional
+    public Map<String, Object> importFromBangumi(String username) {
+        List<Map<String, Object>> collections = bangumiService.getUserCollections(username, 200);
+        int created = 0;
+        int skipped = 0;
+
+        for (Map<String, Object> item : collections) {
+            Integer subjectId = item.get("subjectId") instanceof Number
+                    ? ((Number) item.get("subjectId")).intValue() : null;
+            String name = (String) item.get("name");
+            String nameCn = (String) item.get("nameCn");
+
+            // 使用中文名优先，没有则用原名
+            String displayName = (nameCn != null && !nameCn.isEmpty()) ? nameCn : name;
+            if (displayName == null || displayName.trim().isEmpty()) continue;
+
+            // 按 bangumiId 去重
+            if (subjectId != null && animeRepository.existsByBangumiId(subjectId)) {
+                skipped++;
+                continue;
+            }
+            // 按名称去重
+            if (animeRepository.existsByName(displayName)) {
+                skipped++;
+                continue;
+            }
+
+            // 状态映射: 1=wish→PLANNING, 2=watched→FINISHED, 3=watching→WATCHING, 5=dropped→DROPPED
+            int type = item.get("type") instanceof Number ? ((Number) item.get("type")).intValue() : 3;
+            AnimeStatus status = switch (type) {
+                case 1 -> AnimeStatus.PLANNING;
+                case 2 -> AnimeStatus.FINISHED;
+                case 5 -> AnimeStatus.DROPPED;
+                default -> AnimeStatus.WATCHING;
+            };
+
+            // 集数
+            int totalEps = item.get("eps") instanceof Number ? ((Number) item.get("eps")).intValue() : 12;
+            int epStatus = item.get("epStatus") instanceof Number ? ((Number) item.get("epStatus")).intValue() : 0;
+
+            Anime anime = new Anime();
+            anime.setName(displayName);
+            anime.setBangumiId(subjectId);
+            anime.setTotalEpisodes(totalEps > 0 ? totalEps : 12);
+            anime.setCurrentEpisode(epStatus);
+            anime.setStatus(status);
+            anime.setCoverUrl((String) item.get("image"));
+            anime.setSeason(guessSeason((String) item.get("date")));
+            anime.setScore(0.0);
+            anime.setRemark("");
+            anime.setWatchStartDate(LocalDate.now());
+
+            animeRepository.save(anime);
+            created++;
+        }
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("created", created);
+        result.put("skipped", skipped);
+        result.put("total", collections.size());
+        return result;
+    }
+
+    // 根据放送日期猜测季度
+    private String guessSeason(String dateStr) {
+        if (dateStr == null || dateStr.length() < 4) return "";
+        try {
+            int year = Integer.parseInt(dateStr.substring(0, 4));
+            String month = dateStr.length() >= 7 ? dateStr.substring(5, 7) : "01";
+            int m = Integer.parseInt(month);
+            String season = m <= 3 ? "冬" : m <= 6 ? "春" : m <= 9 ? "夏" : "秋";
+            return year + season;
+        } catch (Exception e) {
+            return "";
+        }
+    }
+
+    @Override
+    @Transactional
     public void reorderAnime(List<Map<String, Object>> orders) {
         if (orders == null || orders.isEmpty()) return;
         // 分批处理，每批最多 20 条
