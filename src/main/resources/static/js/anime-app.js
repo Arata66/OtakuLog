@@ -292,18 +292,24 @@
             if (!a) { toast('未找到该番剧', 'error'); return; }
             const pct = a.totalEpisodes > 0 ? Math.round(a.currentEpisode / a.totalEpisodes * 100) : 0;
             const cover = a.coverUrl ? `<img src="${esc(a.coverUrl)}" class="detail-cover" onerror="this.outerHTML='<div class=detail-cover-empty>${esc(a.name.charAt(0))}</div>'">` : `<div class="detail-cover-empty">${esc(a.name.charAt(0))}</div>`;
+            const bangumiLink = a.bangumiId ? `<a href="https://bgm.tv/subject/${a.bangumiId}" target="_blank" rel="noopener" class="detail-bangumi-link">在 Bangumi 查看 ↗</a>` : '';
             const overlay = document.createElement('div'); overlay.className = 'detail-overlay'; overlay.id = 'detailModal'; overlay.onclick = function(e) { if (e.target === overlay) closeDetailModal(); };
             const card = document.createElement('div'); card.className = 'detail-card';
-            card.innerHTML = `<div class="detail-cover-wrap">${cover}<span class="detail-badge ${a.status}">${SM[a.status] || a.status}</span></div>
-                <div class="detail-body">
-                    <div class="detail-title">${esc(a.name)}</div>
-                    <div class="detail-meta"><span class="detail-tag" style="background:var(--bg);border:1px solid var(--border-light);color:var(--text-mid)">${esc(a.season)}</span><span class="detail-tag" style="font-family:var(--serif);background:${a.score>=8?'var(--sage-soft)':a.score>=6?'var(--amber-soft)':'var(--rose-soft)'};color:${a.score>=8?'#5a8a60':a.score>=6?'#a08050':'#a06070'}">${a.score}</span></div>
-                    <div class="detail-info">
-                        <div class="detail-info-item"><div class="detail-info-label">状态</div><div class="detail-info-val">${SM[a.status] || a.status}</div></div>
-                        <div class="detail-info-item"><div class="detail-info-label">集数</div><div class="detail-info-val">${a.currentEpisode} / ${a.totalEpisodes}</div></div>
-                        <div class="detail-info-item"><div class="detail-info-label">开播</div><div class="detail-info-val">${a.startDate || '-'}</div></div>
-                        <div class="detail-info-item"><div class="detail-info-label">完结</div><div class="detail-info-val">${a.endDate || '-'}</div></div>
+            card.innerHTML = `<div class="detail-header">
+                    <div class="detail-cover-wrap">${cover}<span class="detail-badge ${a.status}">${SM[a.status] || a.status}</span></div>
+                    <div class="detail-info-col">
+                        <div class="detail-title">${esc(a.name)}</div>
+                        <div class="detail-meta"><span class="detail-tag" style="background:var(--bg);border:1px solid var(--border-light);color:var(--text-mid)">${esc(a.season)}</span><span class="detail-tag" style="font-family:var(--serif);background:${a.score>=8?'var(--sage-soft)':a.score>=6?'var(--amber-soft)':'var(--rose-soft)'};color:${a.score>=8?'#5a8a60':a.score>=6?'#a08050':'#a06070'}">${a.score}</span></div>
+                        <div class="detail-info">
+                            <div class="detail-info-item"><div class="detail-info-label">状态</div><div class="detail-info-val">${SM[a.status] || a.status}</div></div>
+                            <div class="detail-info-item"><div class="detail-info-label">集数</div><div class="detail-info-val">${a.currentEpisode} / ${a.totalEpisodes}</div></div>
+                            <div class="detail-info-item"><div class="detail-info-label">开播</div><div class="detail-info-val">${a.startDate || '-'}</div></div>
+                            <div class="detail-info-item"><div class="detail-info-label">完结</div><div class="detail-info-val">${a.endDate || '-'}</div></div>
+                        </div>
+                        ${bangumiLink}
                     </div>
+                </div>
+                <div class="detail-body">
                     <div class="detail-progress-wrap"><div class="detail-progress-label"><span>进度</span><span>${pct}%</span></div><div class="detail-progress"><div class="detail-progress-bar ${a.status}" style="width:${pct}%"></div></div></div>
                     ${a.remark ? `<div class="detail-remark">${renderRemark(a.remark)}</div>` : ''}
                     <div id="bangumiDetailSection"></div>
@@ -312,6 +318,9 @@
             overlay.appendChild(card); document.body.appendChild(overlay);
             trapFocus(overlay);
             if (a.bangumiId) loadBangumiDetail(a.bangumiId);
+            else {
+                document.getElementById('bangumiDetailSection').innerHTML = '<div style="text-align:center;padding:12px"><button class="detail-match-btn" onclick="matchBangumiFor(' + a.id + ', this)">🔗 匹配 Bangumi 链接</button></div>';
+            }
         }
 
         async function loadBangumiDetail(bangumiId) {
@@ -370,6 +379,23 @@
             }
 
             section.innerHTML = html || '';
+        }
+
+        async function matchBangumiFor(id, btn) {
+            btn.disabled = true;
+            btn.textContent = '匹配中...';
+            const r = await fetchApi('/api/anime/' + id + '/match-bangumi', { method: 'POST' });
+            if (r && r.code === 200) {
+                toast('匹配成功', 'success');
+                _cache[id] = r.data;
+                closeDetailModal();
+                openDetailModal(id);
+                renderList();
+            } else {
+                toast(r?.message || '匹配失败', 'error');
+                btn.disabled = false;
+                btn.textContent = '🔗 匹配 Bangumi 链接';
+            }
         }
 
         function closeDetailModal() { const m = document.getElementById('detailModal'); if (m) m.remove(); }
