@@ -365,7 +365,7 @@
                     <div class="detail-progress-wrap"><div class="detail-progress-label"><span>进度</span><span>${pct}%</span></div><div class="detail-progress"><div class="detail-progress-bar ${a.status}" style="width:${pct}%"></div></div></div>
                     ${a.remark ? `<div class="detail-remark">${renderRemark(a.remark)}</div>` : ''}
                     <div id="bangumiDetailSection"></div>
-                    <div class="detail-actions"><button class="a-btn" onclick="closeDetailModal();openEditModal(${a.id})">编辑</button><button class="a-btn ep-btn" onclick="prevEpisode(${a.id})">上一集</button><button class="a-btn ep-btn" onclick="nextEpisode(${a.id})">下一集</button><button class="a-btn" onclick="showAddToGroup(${a.id})">分组</button><button class="a-btn del" onclick="deleteAnime(${a.id});closeDetailModal()">删除</button></div>
+                    <div class="detail-actions"><button class="a-btn" onclick="shareAnimeCard(${a.id})">分享</button><button class="a-btn" onclick="closeDetailModal();openEditModal(${a.id})">编辑</button><button class="a-btn ep-btn" onclick="prevEpisode(${a.id})">上一集</button><button class="a-btn ep-btn" onclick="nextEpisode(${a.id})">下一集</button><button class="a-btn" onclick="showAddToGroup(${a.id})">分组</button><button class="a-btn del" onclick="deleteAnime(${a.id});closeDetailModal()">删除</button></div>
                 </div>`;
             overlay.appendChild(card); document.body.appendChild(overlay);
             trapFocus(overlay);
@@ -1247,6 +1247,37 @@
                 let msg = d.configured ? `WebDAV: ${d.url}\n连接: ${d.connected ? '正常' : '失败'}` : 'WebDAV 未配置';
                 if (d.lastSyncTime) msg += `\n最后同步: ${d.lastSyncTime} (${d.lastSyncType === 'push' ? '推送' : '拉取'})`;
                 alert(msg);
+            }
+        }
+
+        /* 分享卡片 */
+        async function shareAnimeCard(id) {
+            const a = _cache[id];
+            if (!a) return;
+            toast('正在生成卡片...', 'info');
+            try {
+                const dataUrl = await ShareCard.animeCard(a);
+                ShareCard.download(dataUrl, 'otakulog-' + a.name + '.png');
+            } catch(e) {
+                toast('生成失败: ' + e.message, 'error');
+            }
+        }
+
+        async function generateSummaryCard() {
+            toast('正在生成总结卡...', 'info');
+            try {
+                const statsRes = await fetchApi('/api/anime/stats');
+                if (!statsRes || statsRes.code !== 200) { toast('获取统计失败', 'error'); return; }
+                const stats = statsRes.data;
+
+                // 获取高分番剧
+                const searchRes = await fetchApi('/api/anime/search?sortBy=score-desc');
+                const topAnime = (searchRes && searchRes.code === 200) ? searchRes.data.filter(a => a.score > 0).slice(0, 5) : [];
+
+                const dataUrl = await ShareCard.summaryCard(stats, topAnime);
+                ShareCard.download(dataUrl, 'otakulog-summary.png');
+            } catch(e) {
+                toast('生成失败: ' + e.message, 'error');
             }
         }
 

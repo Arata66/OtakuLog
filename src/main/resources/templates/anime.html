@@ -211,6 +211,9 @@
                 <div class="d-card"><div class="d-label">日均集数</div><div class="d-val" id="stat-ep-day">-</div><div class="d-sub">观看习惯</div></div>
                 <div class="d-card"><div class="d-label">月均集数</div><div class="d-val" id="stat-ep-month">-</div><div class="d-sub">观看习惯</div></div>
             </div>
+            <div style="text-align:center;padding:16px;">
+                <button class="a-btn" onclick="generateSummaryCard()">生成追番总结卡</button>
+            </div>
         </div>
 
         <!-- ===== Calendar ===== -->
@@ -291,6 +294,7 @@
         </div>
     </div>
 
+    <script th:src="@{/js/share-card.js}"></script>
     <script th:src="@{/js/anime-app.js}"></script>
 </body>
 </html>
