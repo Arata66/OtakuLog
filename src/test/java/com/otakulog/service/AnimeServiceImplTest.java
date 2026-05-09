@@ -193,7 +193,7 @@ class AnimeServiceImplTest {
         animeService.addAnime(createDTO("番1", 12, "2024冬", 8.0));
         animeService.addAnime(createDTO("番2", 24, "2024春", 9.0));
 
-        List<AnimeVO> timeline = animeService.getTimeline();
+        List<AnimeVO> timeline = animeService.getTimeline("watch");
         assertEquals(2, timeline.size());
     }
 
