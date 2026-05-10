@@ -3,6 +3,7 @@ import { ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from '@/composables/useI18n'
 import { useTheme } from '@/composables/useTheme'
+import SyncMenu from '@/components/SyncMenu.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -59,6 +60,7 @@ function pickAccent(a: string) {
             />
           </div>
         </div>
+        <SyncMenu />
         <button class="btn-h ghost" @click="toggleDark">{{ isDark ? '☀' : '☽' }}</button>
         <button class="btn-h" @click="toggleLang">{{ currentLang === 'zh' ? 'EN' : '中' }}</button>
       </div>

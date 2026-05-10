@@ -1,3 +1,5 @@
 export * from './types'
 export * as animeApi from './anime'
+export * as bangumiApi from './bangumi'
+export * as groupApi from './group'
 export { default as request } from './request'

@@ -12,6 +12,8 @@ import AnimeGallery from '@/components/AnimeGallery.vue'
 import EditAnimeModal from '@/components/EditAnimeModal.vue'
 import AnimeDetailModal from '@/components/AnimeDetailModal.vue'
 import BatchToolbar from '@/components/BatchToolbar.vue'
+import TraceMoeSearch from '@/components/TraceMoeSearch.vue'
+import GroupPanel from '@/components/GroupPanel.vue'
 import Toast from '@/components/Toast.vue'
 
 const store = useAnimeStore()
@@ -46,8 +48,12 @@ onMounted(() => {
 <template>
   <DefaultLayout>
     <AddAnimeForm />
+    <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 16px">
+      <TraceMoeSearch @add-to-tracking="(name) => { store.searchName = name; store.search() }" />
+    </div>
     <SearchStrip />
     <StatsRow />
+    <GroupPanel />
 
     <!-- 空状态 -->
     <div v-if="store.isEmpty" class="empty">
