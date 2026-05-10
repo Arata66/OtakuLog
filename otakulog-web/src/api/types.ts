@@ -63,6 +63,8 @@ export interface AnimeUpdateDTO {
   broadcastDay?: number
   bangumiId?: number
   status?: AnimeStatus
+  watchStartDate?: string
+  legacy?: boolean
 }
 
 // 批量请求
