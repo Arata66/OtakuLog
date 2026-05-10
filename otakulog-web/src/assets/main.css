@@ -1,0 +1,193 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Inter:wght@300;400;500;600;700&display=swap');
+
+/* 浅色主题变量 */
+:root {
+  --bg: #f5efea;
+  --bg-warm: #ebe5de;
+  --card: #ffffff;
+  --text: #0f1a3a;
+  --text-mid: #3d4a6a;
+  --text-dim: #7a86a0;
+  --text-faint: #aab4c8;
+  --border: #d5cfc8;
+  --border-light: #e5dfd8;
+  --primary: #122e8a;
+  --primary-soft: rgba(18, 46, 138, 0.08);
+  --primary-mid: #2a4aaa;
+  --primary-light: #4a6ad0;
+  --coral: #e8917a;
+  --coral-soft: rgba(232, 145, 122, 0.1);
+  --sage: #4a8a6a;
+  --sage-soft: rgba(74, 138, 106, 0.1);
+  --purple: #7a6aaa;
+  --purple-soft: rgba(122, 106, 170, 0.1);
+  --amber: #c4955a;
+  --amber-soft: rgba(196, 149, 90, 0.1);
+  --blue: #122e8a;
+  --blue-soft: rgba(18, 46, 138, 0.08);
+  --rose: #c47a8a;
+  --rose-soft: rgba(196, 122, 138, 0.1);
+  --shadow: 0 2px 20px rgba(18, 46, 138, 0.04), 0 1px 3px rgba(0, 0, 0, 0.02);
+  --shadow-hover: 0 8px 32px rgba(18, 46, 138, 0.06), 0 2px 6px rgba(0, 0, 0, 0.03);
+  --radius: 16px;
+  --radius-sm: 10px;
+  --serif: 'DM Serif Display', serif;
+  --sans: 'Inter', -apple-system, sans-serif;
+}
+
+/* 暗色主题变量 */
+:root[data-theme='dark'] {
+  --bg: #0a0f1e;
+  --bg-warm: #101728;
+  --card: #162040;
+  --text: #e0e4f0;
+  --text-mid: #8896b8;
+  --text-dim: #5a6888;
+  --text-faint: #3a4868;
+  --border: #2a3858;
+  --border-light: #1e2c4a;
+  --primary: #4a6ad0;
+  --primary-soft: rgba(74, 106, 208, 0.12);
+  --primary-mid: #5a7ae0;
+  --primary-light: #7a9af0;
+  --shadow: 0 2px 20px rgba(0, 0, 0, 0.3), 0 1px 3px rgba(0, 0, 0, 0.2);
+  --shadow-hover: 0 8px 32px rgba(0, 0, 0, 0.4), 0 2px 6px rgba(0, 0, 0, 0.25);
+}
+
+/* 主题色方案 */
+[data-accent='indigo'] {
+  --primary: #122e8a;
+  --primary-soft: rgba(18, 46, 138, 0.08);
+  --primary-mid: #2a4aaa;
+  --primary-light: #4a6ad0;
+}
+[data-accent='jade'] {
+  --primary: #1a7a4a;
+  --primary-soft: rgba(26, 122, 74, 0.08);
+  --primary-mid: #2a8a5a;
+  --primary-light: #4aaa7a;
+}
+[data-accent='violet'] {
+  --primary: #6a3a8a;
+  --primary-soft: rgba(106, 58, 138, 0.08);
+  --primary-mid: #7a4a9a;
+  --primary-light: #9a6aba;
+}
+[data-accent='coral'] {
+  --primary: #c44a3a;
+  --primary-soft: rgba(196, 74, 58, 0.08);
+  --primary-mid: #d45a4a;
+  --primary-light: #e47a6a;
+}
+[data-accent='amber'] {
+  --primary: #8a6a1a;
+  --primary-soft: rgba(138, 106, 26, 0.08);
+  --primary-mid: #9a7a2a;
+  --primary-light: #ba9a4a;
+}
+[data-accent='rose'] {
+  --primary: #8a3a5a;
+  --primary-soft: rgba(138, 58, 90, 0.08);
+  --primary-mid: #9a4a6a;
+  --primary-light: #ba6a8a;
+}
+
+/* 暗色 + 主题色 */
+[data-theme='dark'][data-accent='indigo'] {
+  --primary: #4a6ad0;
+  --primary-soft: rgba(74, 106, 208, 0.12);
+  --primary-mid: #5a7ae0;
+  --primary-light: #7a9af0;
+}
+[data-theme='dark'][data-accent='jade'] {
+  --primary: #4aaa7a;
+  --primary-soft: rgba(74, 170, 122, 0.12);
+  --primary-mid: #5aba8a;
+  --primary-light: #7adaaa;
+}
+[data-theme='dark'][data-accent='violet'] {
+  --primary: #9a6aba;
+  --primary-soft: rgba(154, 106, 186, 0.12);
+  --primary-mid: #aa7aca;
+  --primary-light: #ca9aea;
+}
+[data-theme='dark'][data-accent='coral'] {
+  --primary: #e47a6a;
+  --primary-soft: rgba(228, 122, 106, 0.12);
+  --primary-mid: #e88a7a;
+  --primary-light: #f0aa9a;
+}
+[data-theme='dark'][data-accent='amber'] {
+  --primary: #ba9a4a;
+  --primary-soft: rgba(186, 154, 74, 0.12);
+  --primary-mid: #caaa5a;
+  --primary-light: #daba7a;
+}
+[data-theme='dark'][data-accent='rose'] {
+  --primary: #ba6a8a;
+  --primary-soft: rgba(186, 106, 138, 0.12);
+  --primary-mid: #ca7a9a;
+  --primary-light: #da9aba;
+}
+
+/* 基础重置 */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: var(--sans);
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+}
+
+/* 装饰性背景光斑 */
+body::before,
+body::after {
+  content: '';
+  position: fixed;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 0;
+}
+body::before {
+  width: 500px;
+  height: 500px;
+  top: -150px;
+  right: -80px;
+  background: radial-gradient(circle, rgba(18, 46, 138, 0.06), transparent 70%);
+}
+body::after {
+  width: 400px;
+  height: 400px;
+  bottom: -100px;
+  left: -60px;
+  background: radial-gradient(circle, rgba(74, 106, 208, 0.05), transparent 70%);
+}
+
+/* 滚动条 */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
+}
+
+/* 通用动画 */
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
