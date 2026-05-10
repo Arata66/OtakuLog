@@ -5,6 +5,7 @@ import { createPinia } from 'pinia'
 
 import App from './App.vue'
 import router from './router'
+import { initStatusBar, hideSplash } from '@/composables/useNative'
 
 const app = createApp(App)
 
@@ -12,3 +13,7 @@ app.use(createPinia())
 app.use(router)
 
 app.mount('#app')
+
+// 初始化原生功能
+initStatusBar()
+hideSplash()

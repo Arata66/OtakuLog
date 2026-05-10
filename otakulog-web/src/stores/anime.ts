@@ -3,6 +3,8 @@ import { ref, computed } from 'vue'
 import type { AnimeVO, AnimeStatus } from '@/api/types'
 import * as api from '@/api/anime'
 import { useToast } from '@/composables/useToast'
+import { isOfflineEnabled, offlineGetAnimeList } from '@/utils/offlineApi'
+import { cacheAnimeList, getCachedAnimeList } from '@/utils/cache'
 
 const PAGE_SIZE = 12
 
@@ -51,6 +53,16 @@ export const useAnimeStore = defineStore('anime', () => {
     if (loading.value || !hasMore.value) return
     loading.value = true
     try {
+      // 离线模式：从缓存加载
+      if (isOfflineEnabled()) {
+        const cached = await offlineGetAnimeList()
+        list.value = cached
+        updateCache(cached)
+        hasMore.value = false
+        totalElements.value = cached.length
+        return
+      }
+
       const res = await api.searchAnimePaged({
         name: searchName.value || undefined,
         status: filterStatus.value || undefined,
@@ -64,12 +76,26 @@ export const useAnimeStore = defineStore('anime', () => {
       currentPage.value++
       const content = (res as any).content || []
       updateCache(content)
+      // 缓存到本地
+      if (reset && isOfflineEnabled()) {
+        await cacheAnimeList(content)
+      }
       if (reset) {
         list.value = content
       } else {
         list.value.push(...content)
       }
     } catch (e: any) {
+      // 网络失败时尝试缓存
+      if (isOfflineEnabled() && reset) {
+        const cached = await getCachedAnimeList()
+        if (cached.length > 0) {
+          list.value = cached
+          updateCache(cached)
+          toast.info('已从缓存加载')
+          return
+        }
+      }
       toast.error(e.message || '搜索失败')
     } finally {
       loading.value = false

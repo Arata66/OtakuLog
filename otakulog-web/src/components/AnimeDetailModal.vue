@@ -3,7 +3,8 @@ import { ref, watch, computed } from 'vue'
 import { useAnimeStore } from '@/stores/anime'
 import { useI18n } from '@/composables/useI18n'
 import { useToast } from '@/composables/useToast'
-import { request } from '@/api'
+import request from '@/api/request'
+import { shareAnime } from '@/composables/useNative'
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
 
@@ -187,6 +188,7 @@ watch(
           <button class="a-btn" @click="emit('edit', anime.id)">{{ t('detail.edit') }}</button>
           <button class="a-btn ep-btn" @click="store.prevEp(anime.id)">{{ t('detail.prevEp') }}</button>
           <button class="a-btn ep-btn" @click="store.nextEp(anime.id)">{{ t('detail.nextEp') }}</button>
+          <button class="a-btn" @click="shareAnime(anime.name, `正在追：${anime.name} (${anime.currentEpisode}/${anime.totalEpisodes})`, anime.bangumiId ? `https://bgm.tv/subject/${anime.bangumiId}` : undefined)">分享</button>
           <button class="a-btn del" @click="store.deleteAnime(anime.id); emit('close')">{{ t('detail.delete') }}</button>
         </div>
       </div>
