@@ -93,12 +93,8 @@ public class AnimeController {
     public ResponseEntity<ApiResponse<AnimeVO>> updateAnime(
             @PathVariable Long id,
             @Valid @RequestBody AnimeUpdateDTO dto) {
-        try {
-            AnimeVO vo = animeService.updateAnime(id, dto);
-            return ResponseEntity.ok(ApiResponse.success("更新成功", vo));
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.status(404).body(ApiResponse.error(404, e.getMessage()));
-        }
+        AnimeVO vo = animeService.updateAnime(id, dto);
+        return ResponseEntity.ok(ApiResponse.success("更新成功", vo));
     }
 
     @Operation(summary = "更新番剧状态")
@@ -120,12 +116,8 @@ public class AnimeController {
     @DeleteMapping("/api/anime/{id}")
     @ResponseBody
     public ResponseEntity<ApiResponse<Void>> deleteAnime(@PathVariable Long id) {
-        try {
-            animeService.deleteAnime(id);
-            return ResponseEntity.ok(ApiResponse.success("删除成功", null));
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.status(404).body(ApiResponse.error(404, e.getMessage()));
-        }
+        animeService.deleteAnime(id);
+        return ResponseEntity.ok(ApiResponse.success("删除成功", null));
     }
 
     @Operation(summary = "批量删除")
@@ -175,7 +167,7 @@ public class AnimeController {
             @RequestParam(required = false) String tag) {
 
         AnimeStatus animeStatus = parseStatus(status);
-        Pageable pageable = PageRequest.of(page, size, SortUtil.buildSort(sortBy));
+        Pageable pageable = buildPageable(page, size, sortBy);
         Page<AnimeVO> results = animeService.searchAnimePaged(name, animeStatus, pageable, tag);
         return ResponseEntity.ok(ApiResponse.success(results));
     }
@@ -246,24 +238,16 @@ public class AnimeController {
     @PostMapping("/api/anime/batch-match-bangumi")
     @ResponseBody
     public ResponseEntity<ApiResponse<Map<String, Object>>> batchMatchBangumi() {
-        try {
-            Map<String, Object> result = animeService.batchMatchBangumi();
-            return ResponseEntity.ok(ApiResponse.success("批量匹配完成", result));
-        } catch (Exception e) {
-            return ResponseEntity.status(500).body(ApiResponse.error(500, "批量匹配失败: " + e.getMessage()));
-        }
+        Map<String, Object> result = animeService.batchMatchBangumi();
+        return ResponseEntity.ok(ApiResponse.success("批量匹配完成", result));
     }
 
     @Operation(summary = "获取番剧推荐")
     @GetMapping("/api/anime/recommendations")
     @ResponseBody
     public ResponseEntity<ApiResponse<List<Map<String, Object>>>> getRecommendations() {
-        try {
-            List<Map<String, Object>> result = animeService.getRecommendations();
-            return ResponseEntity.ok(ApiResponse.success(result));
-        } catch (Exception e) {
-            return ResponseEntity.status(500).body(ApiResponse.error(500, "获取推荐失败: " + e.getMessage()));
-        }
+        List<Map<String, Object>> result = animeService.getRecommendations();
+        return ResponseEntity.ok(ApiResponse.success(result));
     }
 
     @Operation(summary = "获取观看热力图数据")
@@ -312,6 +296,12 @@ public class AnimeController {
         } catch (IllegalArgumentException ignored) {
             return null;
         }
+    }
+
+    private Pageable buildPageable(int page, int size, String sortBy) {
+        int safePage = Math.max(0, page);
+        int safeSize = Math.min(Math.max(1, size), 200);
+        return PageRequest.of(safePage, safeSize, SortUtil.buildSort(sortBy));
     }
 
 }

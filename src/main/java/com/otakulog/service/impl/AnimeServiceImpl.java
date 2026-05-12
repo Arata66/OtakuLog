@@ -187,39 +187,26 @@ public class AnimeServiceImpl implements AnimeService {
 
     @Override
     public List<AnimeVO> searchAnime(String name, AnimeStatus status, String sortBy, String tag) {
-        Sort sort = SortUtil.buildSort(sortBy);
-        boolean hasTag = tag != null && !tag.trim().isEmpty();
-        if (hasTag) {
-            return animeRepository.findByTagContaining(tag.trim(), sort).stream().map(this::toVO).collect(Collectors.toList());
-        }
-        boolean hasName = name != null && !name.trim().isEmpty();
-        boolean hasStatus = status != null;
-        List<Anime> results;
-
-        if (hasName && hasStatus) {
-            results = animeRepository.findByNameContainingAndStatus(name, status, sort);
-        } else if (hasName) {
-            results = animeRepository.findByNameContaining(name, sort);
-        } else if (hasStatus) {
-            results = animeRepository.findByStatus(status, sort);
-        } else {
-            results = animeRepository.findAll(sort);
-        }
-
-        return results.stream().map(this::toVO).collect(Collectors.toList());
+        Pageable pageable = Pageable.unpaged(SortUtil.buildSort(sortBy));
+        Page<AnimeVO> page = doSearch(name, status, pageable, tag);
+        return page.getContent();
     }
 
     @Override
     public Page<AnimeVO> searchAnimePaged(String name, AnimeStatus status, Pageable pageable, String tag) {
+        return doSearch(name, status, pageable, tag);
+    }
+
+    private Page<AnimeVO> doSearch(String name, AnimeStatus status, Pageable pageable, String tag) {
         boolean hasTag = tag != null && !tag.trim().isEmpty();
         if (hasTag) {
             Page<Anime> page = animeRepository.findByTagContaining(tag.trim(), pageable);
-            List<AnimeVO> voList = page.getContent().stream().map(this::toVO).collect(Collectors.toList());
-            return new PageImpl<>(voList, pageable, page.getTotalElements());
+            return page.map(this::toVO);
         }
-        Page<Anime> page;
+
         boolean hasName = name != null && !name.trim().isEmpty();
         boolean hasStatus = status != null;
+        Page<Anime> page;
 
         if (hasName && hasStatus) {
             page = animeRepository.findByNameContainingAndStatus(name, status, pageable);
@@ -231,8 +218,7 @@ public class AnimeServiceImpl implements AnimeService {
             page = animeRepository.findAll(pageable);
         }
 
-        List<AnimeVO> voList = page.getContent().stream().map(this::toVO).collect(Collectors.toList());
-        return new PageImpl<>(voList, pageable, page.getTotalElements());
+        return page.map(this::toVO);
     }
 
     @Override
@@ -317,31 +303,18 @@ public class AnimeServiceImpl implements AnimeService {
         try {
             List<Anime> all = animeRepository.findAll();
             ObjectMapper mapper = new ObjectMapper();
-            List<Map<String, Object>> exportList = new ArrayList<>();
-            for (Anime a : all) {
-                Map<String, Object> map = new LinkedHashMap<>();
-                map.put("name", a.getName());
-                map.put("totalEpisodes", a.getTotalEpisodes());
-                map.put("currentEpisode", a.getCurrentEpisode());
-                map.put("status", a.getStatus().name().toLowerCase());
-                map.put("score", a.getScore());
-                map.put("season", a.getSeason());
-                map.put("remark", a.getRemark());
-                map.put("coverUrl", a.getCoverUrl());
-                map.put("startDate", a.getStartDate() != null ? a.getStartDate().toString() : null);
-                map.put("endDate", a.getEndDate() != null ? a.getEndDate().toString() : null);
-                map.put("tags", a.getTags());
-                map.put("broadcastDay", a.getBroadcastDay());
-                map.put("bangumiId", a.getBangumiId());
-                map.put("sortOrder", a.getSortOrder());
-                map.put("watchStartDate", a.getWatchStartDate() != null ? a.getWatchStartDate().toString() : null);
-                map.put("legacy", a.isLegacy());
-                exportList.add(map);
-            }
-            return mapper.writerWithDefaultPrettyPrinter().writeValueAsString(exportList);
+            mapper.addMixIn(Anime.class, ExportMixIn.class);
+            return mapper.writerWithDefaultPrettyPrinter().writeValueAsString(all);
         } catch (Exception e) {
             throw new RuntimeException("导出失败", e);
         }
+    }
+
+    // 导出时忽略的字段
+    abstract static class ExportMixIn {
+        @com.fasterxml.jackson.annotation.JsonIgnore abstract Long getId();
+        @com.fasterxml.jackson.annotation.JsonIgnore abstract java.time.LocalDateTime getCreatedAt();
+        @com.fasterxml.jackson.annotation.JsonIgnore abstract java.time.LocalDateTime getUpdatedAt();
     }
 
     @Override
