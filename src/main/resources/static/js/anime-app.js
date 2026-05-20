@@ -894,11 +894,19 @@
             container.innerHTML = '';
             const maxVal = Math.max(...Object.values(data), 1);
 
+            // 创建浮动 tooltip（相对于视口定位，不受容器裁剪）
+            let tooltip = document.querySelector('.heatmap-tooltip');
+            if (!tooltip) {
+                tooltip = document.createElement('div');
+                tooltip.className = 'heatmap-tooltip';
+                document.body.appendChild(tooltip);
+            }
+
             dates.forEach(date => {
                 const val = data[date] || 0;
                 const cell = document.createElement('div');
                 cell.className = 'heatmap-cell';
-                cell.setAttribute('data-tip', date + ': ' + val + ' 集');
+                cell.dataset.tip = date + ': ' + val + ' 集';
                 if (val > 0) {
                     const intensity = Math.min(val / maxVal, 1);
                     if (intensity < 0.25) cell.style.background = 'rgba(74,106,208,0.2)';
@@ -906,8 +914,19 @@
                     else if (intensity < 0.75) cell.style.background = 'rgba(74,106,208,0.6)';
                     else cell.style.background = 'rgba(74,106,208,0.85)';
                 }
+                cell.addEventListener('mouseenter', e => {
+                    tooltip.textContent = e.target.dataset.tip;
+                    tooltip.style.display = 'block';
+                    const rect = e.target.getBoundingClientRect();
+                    tooltip.style.left = (rect.left + rect.width / 2 - tooltip.offsetWidth / 2) + 'px';
+                    tooltip.style.top = (rect.top - tooltip.offsetHeight - 4) + 'px';
+                });
+                cell.addEventListener('mouseleave', () => { tooltip.style.display = 'none'; });
                 container.appendChild(cell);
             });
+
+            // 默认滚动到最右侧，显示最新日期
+            container.scrollLeft = container.scrollWidth;
         }
 
         /* Calendar */
