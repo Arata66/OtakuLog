@@ -29,7 +29,7 @@
             g.innerHTML = '';
             for (let i = 0; i < (count || 6); i++) {
                 const card = document.createElement('div'); card.className = 'skeleton-card';
-                card.innerHTML = '<div class="skeleton" style="width:100%;aspect-ratio:16/9;"></div><div class="skeleton-card-body"><div class="skeleton skeleton-text long"></div><div class="skeleton skeleton-text medium"></div><div class="skeleton skeleton-text short"></div><div class="skeleton skeleton-text medium"></div></div>';
+                card.innerHTML = '<div class="skeleton skeleton-wide"></div><div class="skeleton-card-body"><div class="skeleton skeleton-text long"></div><div class="skeleton skeleton-text medium"></div><div class="skeleton skeleton-text short"></div><div class="skeleton skeleton-text medium"></div></div>';
                 g.appendChild(card);
             }
         }
@@ -49,6 +49,16 @@
             } catch (e) { console.error('Network error:', url, e); toast('网络连接失败', 'error'); return null; }
         }
         function toast(m, t = 'info') { const c = document.getElementById('tw'), el = document.createElement('div'); el.className = 'toast ' + t; el.textContent = m; c.appendChild(el); setTimeout(() => el.remove(), 3000); }
+        function stateHtml(type, title, desc) {
+            const icons = { loading: 'ph-spinner-gap', error: 'ph-warning-circle', empty: 'ph-tray' };
+            const safeDesc = desc ? '<div class="state-desc">' + esc(desc) + '</div>' : '';
+            return '<div class="state-block ' + type + '"><i class="ph ' + (icons[type] || icons.empty) + '" aria-hidden="true"></i><div class="state-title">' + esc(title) + '</div>' + safeDesc + '</div>';
+        }
+        function inlineStateHtml(type, title, desc) {
+            const icons = { loading: 'ph-spinner-gap', error: 'ph-warning-circle', empty: 'ph-tray' };
+            const safeDesc = desc ? '<div class="state-desc">' + esc(desc) + '</div>' : '';
+            return '<div class="state-inline ' + type + '"><i class="ph ' + (icons[type] || icons.empty) + '" aria-hidden="true"></i><div class="state-title">' + esc(title) + '</div>' + safeDesc + '</div>';
+        }
         function scoreClass(s) { return s >= 8 ? 'sc-high' : s >= 6 ? 'sc-mid' : 'sc-low'; }
         function renderTags(tags) { if (!tags) return ''; return tags.split(',').map(t => t.trim()).filter(Boolean).map(t => `<span class="tag-pill">${esc(t)}</span>`).join(''); }
 
@@ -135,7 +145,7 @@
             const root = document.documentElement, dark = root.getAttribute('data-theme') === 'dark';
             root.setAttribute('data-theme', dark ? '' : 'dark');
             localStorage.setItem('otakulog-theme', dark ? 'light' : 'dark');
-            document.getElementById('themeToggle').textContent = dark ? '☽' : '☀';
+            document.getElementById('themeToggle').innerHTML = dark ? '<i class="ph ph-moon" aria-hidden="true"></i>' : '<i class="ph ph-sun" aria-hidden="true"></i>'; 
             updateChartColors();
         }
         function updateChartColors() {
@@ -312,23 +322,20 @@
             overlay.id = 'traceMoeModal';
             overlay.onclick = function(e) { if (e.target === overlay) overlay.remove(); };
             const card = document.createElement('div');
-            card.className = 'detail-card';
-            card.style.maxWidth = '480px';
+            card.className = 'detail-card detail-card-narrow';
             const results = data.allResults || [data];
             let html = '<div class="detail-body"><div class="detail-title">以图搜番结果</div>';
-            results.forEach((r, i) => {
+            results.forEach(r => {
                 const name = r.animeName || '未知';
                 const ep = r.episode != null ? `EP${r.episode}` : '';
                 const conf = r.confidence != null ? `${r.confidence}%` : '-';
-                const preview = r.image ? `<img src="${esc(r.image)}" style="width:100%;border-radius:8px;margin-bottom:8px;" onerror="this.style.display='none'">` : '';
-                html += `<div style="padding:12px;margin-bottom:8px;background:var(--bg);border-radius:8px;border:1px solid var(--border-light);">
+                const confClass = r.confidence >= 90 ? 'trace-confidence-high' : r.confidence >= 70 ? 'trace-confidence-mid' : 'trace-confidence-low';
+                const preview = r.image ? `<img src="${esc(r.image)}" class="trace-preview" onerror="this.classList.add('is-hidden')">` : '';
+                html += `<div class="trace-card">
                     ${preview}
-                    <div style="font-weight:600;font-size:0.95em;margin-bottom:4px;">${esc(name)}</div>
-                    <div style="font-size:0.82em;color:var(--text-mid);display:flex;gap:12px;">
-                        <span>${ep}</span>
-                        <span style="color:${r.confidence >= 90 ? 'var(--sage)' : r.confidence >= 70 ? 'var(--amber)' : 'var(--rose)'}">置信度 ${conf}</span>
-                    </div>
-                    <button class="a-btn" style="margin-top:8px;" onclick="document.getElementById('traceMoeModal').remove();goToAddTracking('${esc(name).replace(/'/g, "\\'")}')">添加追踪</button>
+                    <div class="trace-name">${esc(name)}</div>
+                    <div class="trace-meta"><span>${ep}</span><span class="${confClass}">置信度 ${conf}</span></div>
+                    <button class="a-btn mt-8" onclick="document.getElementById('traceMoeModal').remove();goToAddTracking('${esc(name).replace(/'/g, "\\'")}')">添加追踪</button>
                 </div>`;
             });
             html += '</div>';
@@ -351,7 +358,7 @@
                     <div class="detail-cover-wrap">${cover}<span class="detail-badge ${a.status}">${SM[a.status] || a.status}</span></div>
                     <div class="detail-info-col">
                         <div class="detail-title">${esc(a.name)}</div>
-                        <div class="detail-meta"><span class="detail-tag" style="background:var(--bg);border:1px solid var(--border-light);color:var(--text-mid)">${esc(a.season)}</span><span class="detail-tag" style="font-family:var(--serif);background:${a.score>=8?'var(--sage-soft)':a.score>=6?'var(--amber-soft)':'var(--rose-soft)'};color:${a.score>=8?'#5a8a60':a.score>=6?'#a08050':'#a06070'}">${a.score}</span></div>
+                        <div class="detail-meta"><span class="detail-tag detail-tag-muted">${esc(a.season)}</span><span class="detail-tag detail-tag-score ${scoreClass(a.score)}">${a.score}</span></div>
                         <div class="detail-info">
                             <div class="detail-info-item"><div class="detail-info-label">状态</div><div class="detail-info-val">${SM[a.status] || a.status}</div></div>
                             <div class="detail-info-item"><div class="detail-info-label">集数</div><div class="detail-info-val">${a.currentEpisode} / ${a.totalEpisodes}</div></div>
@@ -371,7 +378,7 @@
             trapFocus(overlay);
             if (a.bangumiId) loadBangumiDetail(a.bangumiId);
             else {
-                document.getElementById('bangumiDetailSection').innerHTML = '<div style="text-align:center;padding:12px"><button class="detail-match-btn" onclick="matchBangumiFor(' + a.id + ', this)">🔗 匹配 Bangumi 链接</button></div>';
+                document.getElementById('bangumiDetailSection').innerHTML = '<div class="detail-match-wrap"><button class="detail-match-btn" onclick="matchBangumiFor(' + a.id + ', this)">匹配 Bangumi 链接</button></div>';
             }
         }
 
@@ -390,7 +397,6 @@
             if (detailRes && detailRes.code === 200 && detailRes.data) {
                 const d = detailRes.data;
                 bangumiTags = d.tags || [];
-                // Community rating
                 if (d.rating) {
                     const rDist = d.ratingDetails?.count || {};
                     const total = d.ratingCount || 1;
@@ -398,21 +404,16 @@
                     const amberW = ((rDist[6]||0)+(rDist[7]||0))/total*100;
                     const roseW = ((rDist[1]||0)+(rDist[2]||0)+(rDist[3]||0)+(rDist[4]||0)+(rDist[5]||0))/total*100;
                     html += `<div class="bg-section"><div class="bg-section-title">Bangumi 评分</div>
-                        <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;">
-                            <span style="font-size:28px;font-family:var(--serif);font-weight:700;color:var(--text-strong)">${d.rating.toFixed(1)}</span>
-                            <span style="color:var(--text-faint);font-size:13px">${d.ratingCount || 0} 人评分</span>
-                        </div>
+                        <div class="rating-summary"><span class="rating-score">${d.rating.toFixed(1)}</span><span class="rating-count">${d.ratingCount || 0} 人评分</span></div>
                         <div class="bg-rating-bar"><div class="bg-rating-sage" style="width:${sageW}%"></div><div class="bg-rating-amber" style="width:${amberW}%"></div><div class="bg-rating-rose" style="width:${roseW}%"></div></div>
-                        <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-faint);margin-top:4px;"><span>8-10</span><span>6-7</span><span>1-5</span></div>
+                        <div class="rating-legend"><span>8-10</span><span>6-7</span><span>1-5</span></div>
                     </div>`;
                 }
-                // Tags
                 if (d.tags && d.tags.length > 0) {
                     html += `<div class="bg-section"><div class="bg-section-title">社区标签</div><div class="bg-tags">`;
                     d.tags.forEach(t => { html += `<span class="bg-tag">${esc(t.name || t)}</span>`; });
                     html += '</div></div>';
                 }
-                // Summary
                 if (d.summary) {
                     const truncated = d.summary.length > 200 ? d.summary.substring(0, 200) + '...' : d.summary;
                     html += `<div class="bg-section"><div class="bg-section-title">简介</div><div class="bg-summary">${esc(truncated)}</div></div>`;
@@ -421,20 +422,18 @@
 
             if (episodesRes && episodesRes.code === 200 && episodesRes.data && episodesRes.data.length > 0) {
                 const eps = episodesRes.data;
-                html += `<div class="bg-section"><div class="bg-section-title" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none'" style="cursor:pointer">剧集列表 (${eps.length}) ▾</div><div class="bg-episodes">`;
+                html += `<div class="bg-section"><div class="bg-section-title bg-section-toggle" onclick="this.nextElementSibling.classList.toggle('is-hidden')">剧集列表 (${eps.length}) ▾</div><div class="bg-episodes">`;
                 eps.slice(0, 24).forEach(ep => {
                     const name = ep.nameCn || ep.name || `EP${ep.sort}`;
                     const date = ep.airdate || '';
                     const aired = date && new Date(date) <= new Date();
                     html += `<div class="bg-ep ${aired ? 'aired' : 'upcoming'}"><span class="bg-ep-num">${ep.sort}</span><span class="bg-ep-name">${esc(name)}</span><span class="bg-ep-date">${esc(date)}</span></div>`;
                 });
-                if (eps.length > 24) html += `<div style="text-align:center;padding:8px;color:var(--text-faint);font-size:12px;">还有 ${eps.length - 24} 集...</div>`;
+                if (eps.length > 24) html += `<div class="more-note">还有 ${eps.length - 24} 集...</div>`;
                 html += '</div></div>';
             }
 
             section.innerHTML = html || '';
-
-            // 加载相似番剧推荐
             if (bangumiTags.length > 0) loadSimilarAnime(bangumiId, bangumiTags);
         }
 
@@ -463,11 +462,14 @@
 
             if (recs.length === 0) return;
 
-            let recHtml = '<div class="bg-section"><div class="bg-section-title">相似番剧</div><div class="browse-grid" style="grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:8px;">';
+            let recHtml = '<div class="bg-section"><div class="bg-section-title">相似番剧</div><div class="browse-grid similar-grid">';
             recs.forEach(item => {
-                const img = item.image ? '<img src="' + esc(item.image) + '" class="browse-img" style="height:140px;" onerror="this.outerHTML=\'<div class=browse-img-empty style=height:140px>' + esc((item.nameCn || item.name || '').charAt(0)) + '</div>\'">' : '<div class="browse-img-empty" style="height:140px">' + esc((item.nameCn || item.name || '').charAt(0)) + '</div>';
-                const score = item.score ? '⭐ ' + item.score : '';
-                recHtml += '<div class="browse-card" onclick="window.open(\'https://bgm.tv/subject/' + item.id + '\',\'_blank\')">' + img + '<div class="browse-info"><div class="browse-name" style="font-size:0.75em">' + esc(item.nameCn || item.name) + '</div><div class="browse-meta" style="font-size:0.7em">' + score + '</div></div></div>';
+                const initial = esc((item.nameCn || item.name || '').charAt(0));
+                const img = item.image
+                    ? `<img src="${esc(item.image)}" class="browse-img browse-img-small" onerror="this.outerHTML='<div class=&quot;browse-img-empty browse-img-small&quot;>${initial}</div>'">`
+                    : `<div class="browse-img-empty browse-img-small">${initial}</div>`;
+                const score = item.score ? '评分 ' + item.score : '';
+                recHtml += `<div class="browse-card" onclick="window.open('https://bgm.tv/subject/${item.id}','_blank')">${img}<div class="browse-info"><div class="browse-name browse-name-small">${esc(item.nameCn || item.name)}</div><div class="browse-meta browse-meta-small">${score}</div></div></div>`;
             });
             recHtml += '</div></div>';
 
@@ -487,7 +489,7 @@
             } else {
                 toast(r?.message || '匹配失败', 'error');
                 btn.disabled = false;
-                btn.textContent = '🔗 匹配 Bangumi 链接';
+                btn.innerHTML = '<i class="ph ph-link" aria-hidden="true"></i>匹配 Bangumi 链接';
             }
         }
 
@@ -505,7 +507,7 @@
                 toast(r?.message || '批量匹配失败', 'error');
             }
             btn.disabled = false;
-            btn.textContent = '🔗 补全 Bangumi 链接';
+            btn.innerHTML = '<i class="ph ph-link" aria-hidden="true"></i>补全 Bangumi 链接';
         }
 
         async function importFromBangumi() {
@@ -523,7 +525,7 @@
             } else {
                 toast(r?.message || '导入失败', 'error');
             }
-            if (btn) { btn.disabled = false; btn.textContent = '📥 从 Bangumi 导入'; }
+            if (btn) { btn.disabled = false; btn.innerHTML = '<i class="ph ph-arrow-square-in" aria-hidden="true"></i>从 Bangumi 导入'; }
         }
 
         function closeDetailModal() { const m = document.getElementById('detailModal'); if (m) m.remove(); }
@@ -547,7 +549,7 @@
                 const overlay = document.createElement('div'); overlay.className = 'modal-overlay'; overlay.id = 'editModal'; overlay.onclick = function(e) { if (e.target === overlay) closeEditModal(); };
                 const card = document.createElement('div'); card.className = 'modal-card';
                 const statusOpts = ['watching','finished','planning','dropped'].map(s => `<option value="${s}" ${a.status===s?'selected':''}>${SM[s]}</option>`).join('');
-                card.innerHTML = `<h3>编辑 · ${esc(a.name)}</h3>
+                card.innerHTML = `<h3>编辑：${esc(a.name)}</h3>
                     <div class="modal-field"><label>番剧名</label><input type="text" id="m-name" value="${esc(a.name)}"></div>
                     <div class="modal-field"><label>总集数</label><input type="number" id="m-total" value="${a.totalEpisodes}" min="1"></div>
                     <div class="modal-field"><label>季度</label><input type="text" id="m-season" value="${esc(a.season)}"></div>
@@ -560,9 +562,9 @@
                     <div class="modal-field"><label>标签</label><input type="text" id="m-tags" value="${esc(a.tags || '')}" placeholder="热血,奇幻"></div>
                     <div class="modal-field"><label>状态</label><select id="m-status">${statusOpts}</select></div>
                     <div class="modal-field"><label>追番开始日</label><input type="date" id="m-watchStart" value="${a.watchStartDate || ''}"></div>
-                    <div class="modal-field" style="flex-direction:row;align-items:center;gap:8px;">
-                        <input type="checkbox" id="m-legacy" ${a.legacy ? 'checked' : ''} style="width:auto;">
-                        <label for="m-legacy" style="text-transform:none;letter-spacing:0;font-size:0.82em;cursor:pointer;">旧番（不计入追番统计）</label>
+                    <div class="modal-field check-row">
+                        <input type="checkbox" id="m-legacy" class="compact-check" ${a.legacy ? 'checked' : ''}>
+                        <label for="m-legacy" class="check-label">旧番（不计入追番统计）</label>
                     </div>
                     <div class="modal-actions"><button class="btn-h" onclick="closeEditModal()">取消</button><button class="btn-add" onclick="saveEditModal(${id})">保存</button></div>`;
                 overlay.appendChild(card); document.body.appendChild(overlay);
@@ -615,9 +617,9 @@
             if (!tb) return;
             if (!list || list.length === 0) {
                 tb.innerHTML = '';
-                if (tc) tc.style.display = 'none'; if (dc) dc.style.display = 'none'; if (gc) gc.style.display = 'none'; if (em) em.style.display = ''; return;
+                if (tc) tc.style.display = 'none'; if (dc) dc.style.display = 'none'; if (gc) gc.style.display = 'none'; if (em) em.classList.remove('is-hidden'); return;
             }
-            if (em) em.style.display = 'none';
+            if (em) em.classList.add('is-hidden');
             if (tc) tc.style.display = viewMode === 'table' ? '' : 'none';
             if (dc) dc.classList.toggle('active', viewMode === 'detail');
             if (gc) gc.classList.toggle('active', viewMode === 'gallery');
@@ -627,8 +629,8 @@
                 list.forEach((a, i) => {
                     const r = document.createElement('tr'); r.id = 'r-' + a.id;
                     const cv = a.coverUrl ? `<img data-src="${esc(a.coverUrl)}" loading="lazy" class="cover-img lazy-cover" onerror="this.outerHTML='<div class=cover-empty>N/A</div>'">` : '<div class="cover-empty">N/A</div>';
-                    r.innerHTML = `<td class="drag-handle" style="cursor:grab;color:var(--text-faint);padding:8px 4px;">⠿</td><td style="width:36px;padding:12px 8px;text-align:center;"><input type="checkbox" class="batch-cb" data-id="${a.id}" onchange="toggleRowSelect(${a.id}, this.checked)"></td><td>${cv}</td><td style="color:var(--text-dim);font-size:0.82em;">${i+1}</td>
-                        <td><span class="clickable-name" onclick="openDetailModal(${a.id})">${highlightText(a.name, kw)}</span>${a.tags ? '<div style="margin-top:4px;">' + renderTags(a.tags) + '</div>' : ''}</td>
+                    r.innerHTML = `<td class="drag-handle">⠿</td><td class="table-col-select"><input type="checkbox" class="batch-cb" data-id="${a.id}" onchange="toggleRowSelect(${a.id}, this.checked)"></td><td>${cv}</td><td class="row-index">${i+1}</td>
+                        <td><span class="clickable-name" onclick="openDetailModal(${a.id})">${highlightText(a.name, kw)}</span>${a.tags ? '<div class="tag-row">' + renderTags(a.tags) + '</div>' : ''}</td>
                         <td><span class="season-tag">${esc(a.season)}</span></td>
                         <td><select class="e-select" id="ss-${a.id}" onchange="changeStatus(${a.id})"><option value="watching" ${a.status==='watching'?'selected':''}>追中</option><option value="finished" ${a.status==='finished'?'selected':''}>已完成</option><option value="planning" ${a.status==='planning'?'selected':''}>计划</option><option value="dropped" ${a.status==='dropped'?'selected':''}>放弃</option></select></td>
                         <td><span class="score-pill ${scoreClass(a.score)}">${esc(String(a.score))}</span></td>
@@ -654,7 +656,7 @@
                         <div class="dt-name clickable-name" onclick="openDetailModal(${a.id})">${highlightText(a.name, kw)}</div>
                         <div class="dt-meta"><span class="dt-tag dt-season">${esc(a.season)}</span><span class="dt-tag dt-score ${scoreClass(a.score)}">${a.score}</span>${a.tags ? renderTags(a.tags) : ''}</div>
                         <div class="dt-progress-wrap"><div class="dt-progress-label"><span>${a.currentEpisode} / ${a.totalEpisodes} ep</span><span>${pct}%</span></div><div class="dt-progress"><div class="dt-progress-bar ${a.status}" style="width:${pct}%"></div></div></div>
-                        ${a.remark ? `<div class="dt-remark">${renderRemark(a.remark)}</div>` : '<div class="dt-remark" style="visibility:hidden;">-</div>'}
+                        ${a.remark ? `<div class="dt-remark">${renderRemark(a.remark)}</div>` : '<div class="dt-remark placeholder-hidden">-</div>'}
                         <div class="dt-actions"><button class="dt-btn" onclick="openEditModal(${a.id})">编辑</button><button class="dt-btn ep" onclick="prevEpisode(${a.id})">-</button><button class="dt-btn ep" onclick="nextEpisode(${a.id})">+</button><button class="dt-btn del" onclick="deleteAnime(${a.id})">删除</button></div>
                     </div>`;
                 g.appendChild(card);
@@ -672,7 +674,7 @@
                         <div class="g-name clickable-name" onclick="openDetailModal(${a.id})">${highlightText(a.name, kw)}</div>
                         <div class="g-meta"><span class="g-tag g-season">${esc(a.season)}</span><span class="g-tag g-score ${scoreClass(a.score)}">${a.score}</span>${a.tags ? renderTags(a.tags) : ''}</div>
                         <div class="g-progress"><div class="g-progress-bar ${a.status}" style="width:${pct}%"></div></div>
-                        <div class="g-ep">${a.currentEpisode} / ${a.totalEpisodes} ep &middot; ${SM[a.status] || a.status}</div>
+                        <div class="g-ep">${a.currentEpisode} / ${a.totalEpisodes} ep / ${SM[a.status] || a.status}</div>
                         <div class="g-actions"><button class="g-btn" onclick="openEditModal(${a.id})">编辑</button><button class="g-btn ep" onclick="prevEpisode(${a.id})">-</button><button class="g-btn ep" onclick="nextEpisode(${a.id})">+</button><button class="g-btn del" onclick="deleteAnime(${a.id})">删</button></div>
                     </div>`;
                 g.appendChild(card);
@@ -689,8 +691,8 @@
             list.forEach((a, i) => {
                 const r = document.createElement('tr'); r.id = 'r-' + a.id;
                 const cv = a.coverUrl ? `<img data-src="${esc(a.coverUrl)}" loading="lazy" class="cover-img lazy-cover" onerror="this.outerHTML='<div class=cover-empty>N/A</div>'">` : '<div class="cover-empty">N/A</div>';
-                r.innerHTML = `<td class="drag-handle" style="cursor:grab;color:var(--text-faint);padding:8px 4px;">⠿</td><td style="width:36px;padding:12px 8px;text-align:center;"><input type="checkbox" class="batch-cb" data-id="${a.id}" onchange="toggleRowSelect(${a.id}, this.checked)"></td><td>${cv}</td><td style="color:var(--text-dim);font-size:0.82em;">${existing + i + 1}</td>
-                    <td><span class="clickable-name" onclick="openDetailModal(${a.id})">${highlightText(a.name, kw)}</span>${a.tags ? '<div style="margin-top:4px;">' + renderTags(a.tags) + '</div>' : ''}</td>
+                r.innerHTML = `<td class="drag-handle">⠿</td><td class="table-col-select"><input type="checkbox" class="batch-cb" data-id="${a.id}" onchange="toggleRowSelect(${a.id}, this.checked)"></td><td>${cv}</td><td class="row-index">${existing + i + 1}</td>
+                    <td><span class="clickable-name" onclick="openDetailModal(${a.id})">${highlightText(a.name, kw)}</span>${a.tags ? '<div class="tag-row">' + renderTags(a.tags) + '</div>' : ''}</td>
                     <td><span class="season-tag">${esc(a.season)}</span></td>
                     <td><select class="e-select" id="ss-${a.id}" onchange="changeStatus(${a.id})"><option value="watching" ${a.status==='watching'?'selected':''}>追中</option><option value="finished" ${a.status==='finished'?'selected':''}>已完成</option><option value="planning" ${a.status==='planning'?'selected':''}>计划</option><option value="dropped" ${a.status==='dropped'?'selected':''}>放弃</option></select></td>
                     <td><span class="score-pill ${scoreClass(a.score)}">${esc(String(a.score))}</span></td>
@@ -703,14 +705,14 @@
                 const card = document.createElement('div'); card.className = 'dt-card';
                 const pct = a.totalEpisodes > 0 ? Math.round(a.currentEpisode / a.totalEpisodes * 100) : 0;
                 const cover = a.coverUrl ? `<img data-src="${esc(a.coverUrl)}" loading="lazy" class="dt-cover lazy-cover" onerror="this.outerHTML='<div class=dt-cover-empty>${esc(a.name.charAt(0))}</div>'">` : `<div class="dt-cover-empty">${esc(a.name.charAt(0))}</div>`;
-                card.innerHTML = `<div class="dt-cover-wrap">${cover}<span class="dt-status-badge ${a.status}">${SM[a.status] || a.status}</span></div><div class="dt-body"><div class="dt-name clickable-name" onclick="openDetailModal(${a.id})">${highlightText(a.name, kw)}</div><div class="dt-meta"><span class="dt-tag dt-season">${esc(a.season)}</span><span class="dt-tag dt-score ${scoreClass(a.score)}">${a.score}</span>${a.tags ? renderTags(a.tags) : ''}</div><div class="dt-progress-wrap"><div class="dt-progress-label"><span>${a.currentEpisode} / ${a.totalEpisodes} ep</span><span>${pct}%</span></div><div class="dt-progress"><div class="dt-progress-bar ${a.status}" style="width:${pct}%"></div></div></div>${a.remark ? `<div class="dt-remark">${renderRemark(a.remark)}</div>` : '<div class="dt-remark" style="visibility:hidden;">-</div>'}<div class="dt-actions"><button class="dt-btn" onclick="openEditModal(${a.id})">编辑</button><button class="dt-btn ep" onclick="prevEpisode(${a.id})">-</button><button class="dt-btn ep" onclick="nextEpisode(${a.id})">+</button><button class="dt-btn del" onclick="deleteAnime(${a.id})">删除</button></div></div>`;
+                card.innerHTML = `<div class="dt-cover-wrap">${cover}<span class="dt-status-badge ${a.status}">${SM[a.status] || a.status}</span></div><div class="dt-body"><div class="dt-name clickable-name" onclick="openDetailModal(${a.id})">${highlightText(a.name, kw)}</div><div class="dt-meta"><span class="dt-tag dt-season">${esc(a.season)}</span><span class="dt-tag dt-score ${scoreClass(a.score)}">${a.score}</span>${a.tags ? renderTags(a.tags) : ''}</div><div class="dt-progress-wrap"><div class="dt-progress-label"><span>${a.currentEpisode} / ${a.totalEpisodes} ep</span><span>${pct}%</span></div><div class="dt-progress"><div class="dt-progress-bar ${a.status}" style="width:${pct}%"></div></div></div>${a.remark ? `<div class="dt-remark">${renderRemark(a.remark)}</div>` : '<div class="dt-remark placeholder-hidden">-</div>'}<div class="dt-actions"><button class="dt-btn" onclick="openEditModal(${a.id})">编辑</button><button class="dt-btn ep" onclick="prevEpisode(${a.id})">-</button><button class="dt-btn ep" onclick="nextEpisode(${a.id})">+</button><button class="dt-btn del" onclick="deleteAnime(${a.id})">删除</button></div></div>`;
                 dg.appendChild(card);
             });
             if (gg) list.forEach(a => {
                 const card = document.createElement('div'); card.className = 'g-card'; card.id = 'gc-' + a.id;
                 const pct = a.totalEpisodes > 0 ? Math.round(a.currentEpisode / a.totalEpisodes * 100) : 0;
                 const cover = a.coverUrl ? `<img data-src="${esc(a.coverUrl)}" loading="lazy" class="g-cover lazy-cover" onerror="this.outerHTML='<div class=g-cover-empty>${esc(a.name.charAt(0))}</div>'">` : `<div class="g-cover-empty">${esc(a.name.charAt(0))}</div>`;
-                card.innerHTML = `${cover}<div class="g-body"><div class="g-name clickable-name" onclick="openDetailModal(${a.id})">${highlightText(a.name, kw)}</div><div class="g-meta"><span class="g-tag g-season">${esc(a.season)}</span><span class="g-tag g-score ${scoreClass(a.score)}">${a.score}</span>${a.tags ? renderTags(a.tags) : ''}</div><div class="g-progress"><div class="g-progress-bar ${a.status}" style="width:${pct}%"></div></div><div class="g-ep">${a.currentEpisode} / ${a.totalEpisodes} ep &middot; ${SM[a.status] || a.status}</div><div class="g-actions"><button class="g-btn" onclick="openEditModal(${a.id})">编辑</button><button class="g-btn ep" onclick="prevEpisode(${a.id})">-</button><button class="g-btn ep" onclick="nextEpisode(${a.id})">+</button><button class="g-btn del" onclick="deleteAnime(${a.id})">删</button></div></div>`;
+                card.innerHTML = `${cover}<div class="g-body"><div class="g-name clickable-name" onclick="openDetailModal(${a.id})">${highlightText(a.name, kw)}</div><div class="g-meta"><span class="g-tag g-season">${esc(a.season)}</span><span class="g-tag g-score ${scoreClass(a.score)}">${a.score}</span>${a.tags ? renderTags(a.tags) : ''}</div><div class="g-progress"><div class="g-progress-bar ${a.status}" style="width:${pct}%"></div></div><div class="g-ep">${a.currentEpisode} / ${a.totalEpisodes} ep / ${SM[a.status] || a.status}</div><div class="g-actions"><button class="g-btn" onclick="openEditModal(${a.id})">编辑</button><button class="g-btn ep" onclick="prevEpisode(${a.id})">-</button><button class="g-btn ep" onclick="nextEpisode(${a.id})">+</button><button class="g-btn del" onclick="deleteAnime(${a.id})">删</button></div></div>`;
                 gg.appendChild(card);
             });
             initLazyLoad();
@@ -721,12 +723,12 @@
         function updatePaginationIndicator() {
             const el = document.getElementById('paginationIndicator');
             if (!el) return;
-            if (totalElements <= 0) { el.style.display = 'none'; return; }
-            el.style.display = '';
+            if (totalElements <= 0) { el.classList.add('is-hidden'); return; }
+            el.classList.remove('is-hidden');
             el.textContent = hasMore ? `已加载 ${loadedCount} / ${totalElements} 条，向下滚动加载更多` : `共 ${totalElements} 条，已全部加载`;
         }
 
-        /* Stats — 只请求 detailed 端点（已包含概览数据） */
+        /* 统计只请求 detailed 端点，已包含概览数据 */
         async function updateStats() {
             const r = await fetchApi('/api/anime/stats/detailed');
             if (r && r.code === 200) {
@@ -747,7 +749,7 @@
 
         /* Charts */
         let ch1 = null, ch2 = null, ch3 = null, ch4 = null, ch5 = null;
-        Chart.defaults.font.family = 'Inter';
+        Chart.defaults.font.family = 'Outfit';
         Chart.defaults.color = '#a89f94';
         Chart.defaults.borderColor = '#ede8e0';
         async function loadCharts() {
@@ -868,7 +870,7 @@
                     const card = document.createElement('div');
                     card.className = 'browse-card';
                     const img = item.image ? `<img src="${esc(item.image)}" class="browse-cover" onerror="this.outerHTML='<div class=browse-cover-empty>${esc((item.nameCn||item.name||'').charAt(0))}</div>'">` : `<div class="browse-cover-empty">${esc((item.nameCn||item.name||'').charAt(0))}</div>`;
-                    card.innerHTML = `${img}<div class="browse-info"><div class="browse-name">${esc(item.nameCn || item.name)}</div><div class="browse-meta">${item.score ? '⭐ ' + item.score : ''} ${item.date || ''}</div><div class="browse-reason" style="font-size:0.7em;color:var(--text-faint);margin-top:4px;">${esc(item.reason)}</div></div>`;
+                    card.innerHTML = `${img}<div class="browse-info"><div class="browse-name">${esc(item.nameCn || item.name)}</div><div class="browse-meta">${item.score ? '评分 ' + item.score : ''} ${item.date || ''}</div><div class="browse-reason">${esc(item.reason)}</div></div>`;
                     card.onclick = () => {
                         document.getElementById('animeName').value = item.nameCn || item.name;
                         searchBangumi();
@@ -876,7 +878,7 @@
                     grid.appendChild(card);
                 });
             } else {
-                grid.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-faint);font-size:0.85em;">暂无推荐，多追几部番就有了</div>';
+                grid.innerHTML = inlineStateHtml('empty', '暂无推荐', '多追几部番后会出现推荐。');
             }
         }
 
@@ -967,7 +969,7 @@
                 const btn = document.createElement('div');
                 btn.className = 'cal-day-btn' + (day === todayIdx ? ' today' : '') + (day === calSelectedDay ? ' active' : '');
                 btn.dataset.day = day;
-                btn.innerHTML = `<div class="cal-day-name">${DAY_NAMES[day]}</div><div class="cal-day-num">${count > 0 ? count : '·'}</div>`;
+                btn.innerHTML = `<div class="cal-day-name">${DAY_NAMES[day]}</div><div class="cal-day-num">${count > 0 ? count : '-'}</div>`;
                 btn.onclick = () => selectCalDay(day);
                 container.appendChild(btn);
             }
@@ -981,7 +983,7 @@
             const list = (dataSource && dataSource[calSelectedDay]) || [];
 
             if (list.length === 0) {
-                content.innerHTML = `<div class="cal-empty"><div class="cal-empty-icon">📭</div><div>${DAY_NAMES[calSelectedDay]}暂无${calViewMode === 'mine' ? '追番' : '放送'}</div></div>`;
+                content.innerHTML = `<div class="cal-empty"><div class="cal-empty-icon"><i class="ph ph-tray" aria-hidden="true"></i></div><div>${DAY_NAMES[calSelectedDay]}暂无${calViewMode === 'mine' ? '追番' : '放送'}</div></div>`;
                 return;
             }
 
@@ -1040,9 +1042,9 @@
             document.getElementById('modeCal').classList.toggle('active', mode === 'calendar');
             document.getElementById('modeSeason').classList.toggle('active', mode === 'season');
             document.getElementById('modeRank').classList.toggle('active', mode === 'rank');
-            document.getElementById('calModeCalendar').style.display = mode === 'calendar' ? '' : 'none';
-            document.getElementById('calModeSeason').style.display = mode === 'season' ? '' : 'none';
-            document.getElementById('calModeRank').style.display = mode === 'rank' ? '' : 'none';
+            document.getElementById('calModeCalendar').classList.toggle('is-hidden', mode !== 'calendar');
+            document.getElementById('calModeSeason').classList.toggle('is-hidden', mode !== 'season');
+            document.getElementById('calModeRank').classList.toggle('is-hidden', mode !== 'rank');
             if (mode === 'season' && !document.getElementById('seasonGrid').children.length) loadSeasonAnime('rank');
             if (mode === 'rank' && !document.getElementById('rankGrid').children.length) loadRankings('rank');
         }
@@ -1050,14 +1052,14 @@
         async function loadSeasonAnime(sort, append) {
             if (sort) { _seasonSort = sort; _seasonOffset = 0; }
             const grid = document.getElementById('seasonGrid');
-            if (!append) grid.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-faint);">加载中...</div>';
+            if (!append) grid.innerHTML = stateHtml('loading', '加载中...');
             const r = await fetchApi(`/api/bangumi/season?sort=${_seasonSort}&limit=20&offset=${_seasonOffset}`);
-            if (!r || r.code !== 200) { grid.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-faint);">加载失败</div>'; return; }
+            if (!r || r.code !== 200) { grid.innerHTML = stateHtml('error', '加载失败', '请稍后重试'); return; }
             const list = r.data || [];
             if (!append) grid.innerHTML = '';
             list.forEach(item => grid.appendChild(renderBrowseCard(item)));
             _seasonOffset += list.length;
-            document.getElementById('seasonLoadMore').style.display = list.length >= 20 ? '' : 'none';
+            document.getElementById('seasonLoadMore').classList.toggle('is-hidden', list.length < 20);
             // 更新按钮 active 状态
             document.querySelectorAll('#calModeSeason .cal-toggle-btn').forEach(b => b.classList.remove('active'));
             const labels = { rank: '排名', date: '时间' };
@@ -1067,14 +1069,14 @@
         async function loadRankings(sort, append) {
             if (sort) { _rankSort = sort; _rankOffset = 0; }
             const grid = document.getElementById('rankGrid');
-            if (!append) grid.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-faint);">加载中...</div>';
+            if (!append) grid.innerHTML = stateHtml('loading', '加载中...');
             const r = await fetchApi(`/api/bangumi/rankings?sort=${_rankSort}&limit=20&offset=${_rankOffset}`);
-            if (!r || r.code !== 200) { grid.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-faint);">加载失败</div>'; return; }
+            if (!r || r.code !== 200) { grid.innerHTML = stateHtml('error', '加载失败', '请稍后重试'); return; }
             const list = r.data || [];
             if (!append) grid.innerHTML = '';
             list.forEach(item => grid.appendChild(renderBrowseCard(item)));
             _rankOffset += list.length;
-            document.getElementById('rankLoadMore').style.display = list.length >= 20 ? '' : 'none';
+            document.getElementById('rankLoadMore').classList.toggle('is-hidden', list.length < 20);
             document.querySelectorAll('#calModeRank .cal-toggle-btn').forEach(b => b.classList.remove('active'));
             const labels = { rank: '排名', date: '时间' };
             document.querySelectorAll('#calModeRank .cal-toggle-btn').forEach(b => { if (b.textContent === labels[_rankSort]) b.classList.add('active'); });
@@ -1129,7 +1131,7 @@
             const overlay = document.createElement('div'); overlay.className = 'detail-overlay'; overlay.id = 'detailModal';
             overlay.onclick = function(e) { if (e.target === overlay) closeDetailModal(); };
             const card = document.createElement('div'); card.className = 'detail-card';
-            card.innerHTML = '<div class="detail-body" style="text-align:center;padding:40px;"><div class="skeleton skeleton-text long" style="margin:0 auto 12px;"></div><div class="skeleton skeleton-text medium" style="margin:0 auto;"></div></div>';
+            card.innerHTML = '<div class="detail-body detail-body-centered"><div class="skeleton skeleton-text long skeleton-center"></div><div class="skeleton skeleton-text medium skeleton-center"></div></div>';
             overlay.appendChild(card); document.body.appendChild(overlay);
             trapFocus(overlay);
 
@@ -1139,7 +1141,7 @@
             ]);
 
             if (!detailRes || detailRes.code !== 200 || !detailRes.data) {
-                card.innerHTML = '<div class="detail-body"><div class="detail-title">加载失败</div><div class="detail-actions"><button class="a-btn" onclick="closeDetailModal()">关闭</button></div></div>';
+                card.innerHTML = '<div class="detail-body">' + stateHtml('error', '加载失败', '无法获取 Bangumi 详情，请稍后重试。') + '<div class="detail-actions"><button class="a-btn" onclick="closeDetailModal()">关闭</button></div></div>';
                 return;
             }
             const d = detailRes.data;
@@ -1161,12 +1163,12 @@
                 const amberW = ((rDist[6]||0)+(rDist[7]||0))/total*100;
                 const roseW = 100 - sageW - amberW;
                 ratingHtml = `<div class="bg-section"><div class="bg-section-title">Bangumi 评分</div>
-                    <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;">
-                        <span style="font-size:28px;font-family:var(--serif);font-weight:700;color:var(--text-strong)">${d.rating.toFixed(1)}</span>
-                        <span style="color:var(--text-faint);font-size:13px">${d.ratingCount || 0} 人评分</span>
+                    <div class="rating-summary">
+                        <span class="rating-score">${d.rating.toFixed(1)}</span>
+                        <span class="rating-count">${d.ratingCount || 0} 人评分</span>
                     </div>
                     <div class="bg-rating-bar"><div class="bg-rating-sage" style="width:${sageW}%"></div><div class="bg-rating-amber" style="width:${amberW}%"></div><div class="bg-rating-rose" style="width:${roseW}%"></div></div>
-                    <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-faint);margin-top:4px;"><span>8-10</span><span>6-7</span><span>1-5</span></div>
+                    <div class="rating-legend"><span>8-10</span><span>6-7</span><span>1-5</span></div>
                 </div>`;
             }
 
@@ -1186,7 +1188,7 @@
                     const aired = date && new Date(date) <= new Date();
                     epsHtml += `<div class="bg-ep ${aired ? 'aired' : 'upcoming'}"><span class="bg-ep-num">${ep.sort}</span><span class="bg-ep-name">${esc(name)}</span><span class="bg-ep-date">${esc(date)}</span></div>`;
                 });
-                if (eps.length > 12) epsHtml += `<div style="text-align:center;padding:8px;color:var(--text-faint);font-size:12px;">还有 ${eps.length - 12} 集...</div>`;
+                if (eps.length > 12) epsHtml += `<div class="more-note">还有 ${eps.length - 12} 集...</div>`;
                 epsHtml += '</div></div>';
             }
 
@@ -1198,7 +1200,7 @@
             card.innerHTML = `<div class="detail-cover-wrap">${cover}<span class="detail-badge planning">Bangumi</span></div>
                 <div class="detail-body">
                     <div class="detail-title">${esc(displayName)}</div>
-                    <div class="detail-meta"><span class="detail-tag" style="background:var(--bg);border:1px solid var(--border-light);color:var(--text-mid)">${esc(airDate)}</span><span class="detail-tag" style="font-family:var(--serif);background:${scoreNum>=8?'var(--sage-soft)':scoreNum>=6?'var(--amber-soft)':'var(--rose-soft)'};color:${scoreNum>=8?'#5a8a60':scoreNum>=6?'#a08050':'#a06070'}">${scoreNum > 0 ? scoreNum.toFixed(1) : '-'}</span></div>
+                    <div class="detail-meta"><span class="detail-tag detail-tag-muted">${esc(airDate)}</span><span class="detail-tag detail-tag-score ${scClass}">${scoreNum > 0 ? scoreNum.toFixed(1) : '-'}</span></div>
                     <div class="detail-info">
                         <div class="detail-info-item"><div class="detail-info-label">集数</div><div class="detail-info-val">${totalEps}</div></div>
                         <div class="detail-info-item"><div class="detail-info-label">开播</div><div class="detail-info-val">${esc(airDate)}</div></div>
@@ -1221,12 +1223,12 @@
             const r = await fetchApi('/api/anime/timeline?mode=' + timelineMode);
             if (!r || r.code !== 200) return;
             const c = document.getElementById('tl'); c.innerHTML = '';
-            if (!r.data || r.data.length === 0) { c.innerHTML = '<p style="text-align:center;color:var(--text-faint);padding:40px 0;">暂无数据</p>'; return; }
+            if (!r.data || r.data.length === 0) { c.innerHTML = inlineStateHtml('empty', '暂无数据'); return; }
             r.data.forEach(a => {
                 const dateField = timelineMode === 'air' ? a.startDate : (a.watchStartDate || a.startDate);
                 const dateLabel = timelineMode === 'air' ? '开播' : '追番';
                 const el = document.createElement('div'); el.className = 'tl';
-                el.innerHTML = `<div class="t-date">${esc(dateField || 'Unknown')} · ${dateLabel}</div><div class="t-name">${esc(a.name)}${a.legacy ? ' <span style="font-size:0.7em;color:var(--text-faint);">旧番</span>' : ''}</div><div class="t-meta">${SM[a.status] || a.status} · ${a.currentEpisode}/${a.totalEpisodes} ep · ${esc(String(a.score))}</div>`;
+                el.innerHTML = `<div class="t-date">${esc(dateField || 'Unknown')} / ${dateLabel}</div><div class="t-name">${esc(a.name)}${a.legacy ? ' <span class="legacy-inline">旧番</span>' : ''}</div><div class="t-meta">${SM[a.status] || a.status} / ${a.currentEpisode}/${a.totalEpisodes} ep / ${esc(String(a.score))}</div>`;
                 c.appendChild(el);
             });
         }
@@ -1236,8 +1238,8 @@
         async function importData(e) { const f = e.target.files[0]; if (!f) return; const rd = new FileReader(); rd.onload = async function(ev) { const r = await fetchApi('/api/anime/import', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: ev.target.result }); if (r && r.code === 200) { toast(r.message || '导入成功', 'success'); performSearch(); updateStats(); } else if (r) toast(r.message || '导入失败', 'error'); }; rd.readAsText(f); e.target.value = ''; }
 
         /* Sync */
-        function toggleSyncMenu() { const m = document.getElementById('syncMenu'); m.style.display = m.style.display === 'none' ? 'block' : 'none'; }
-        document.addEventListener('click', function(e) { const m = document.getElementById('syncMenu'); const b = document.getElementById('syncBtn'); if (m && b && !m.contains(e.target) && e.target !== b) m.style.display = 'none'; });
+        function toggleSyncMenu() { const m = document.getElementById('syncMenu'); if (m) m.classList.toggle('is-hidden'); }
+        document.addEventListener('click', function(e) { const m = document.getElementById('syncMenu'); const b = document.getElementById('syncBtn'); if (m && b && !m.contains(e.target) && !b.contains(e.target)) m.classList.add('is-hidden'); });
         // 点击外部关闭色板
         document.addEventListener('click', function(e) {
             const picker = document.getElementById('accentPicker');
@@ -1246,20 +1248,20 @@
             }
         });
         async function syncPush() {
-            document.getElementById('syncMenu').style.display = 'none';
+            document.getElementById('syncMenu').classList.add('is-hidden');
             toast('正在推送到 WebDAV...', 'info');
             const r = await fetchApi('/api/sync/push', { method: 'POST' });
             if (r && r.code === 200) { toast(r.data?.message || '推送成功', 'success'); } else if (r) { toast(r.message || '推送失败', 'error'); }
         }
         async function syncPull() {
-            document.getElementById('syncMenu').style.display = 'none';
+            document.getElementById('syncMenu').classList.add('is-hidden');
             if (!confirm('从 WebDAV 拉取会合并数据，确定继续？')) return;
             toast('正在从 WebDAV 拉取...', 'info');
             const r = await fetchApi('/api/sync/pull', { method: 'POST' });
             if (r && r.code === 200) { toast(r.data?.message || '拉取成功', 'success'); performSearch(); updateStats(); } else if (r) { toast(r.message || '拉取失败', 'error'); }
         }
         async function syncStatus() {
-            document.getElementById('syncMenu').style.display = 'none';
+            document.getElementById('syncMenu').classList.add('is-hidden');
             const r = await fetchApi('/api/sync/status');
             if (r && r.code === 200 && r.data) {
                 const d = r.data;
@@ -1306,7 +1308,7 @@
             const savedTheme = localStorage.getItem('otakulog-theme');
             if (savedTheme === 'dark' || (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
                 document.documentElement.setAttribute('data-theme', 'dark');
-                document.getElementById('themeToggle').textContent = '☀';
+                document.getElementById('themeToggle').innerHTML = '<i class="ph ph-sun" aria-hidden="true"></i>'; 
             }
             if (typeof i18n !== 'undefined') i18n.translatePage();
             if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
@@ -1421,27 +1423,27 @@
         // === 分组管理 ===
         function toggleGroupPanel() {
             const panel = document.getElementById('groupPanel');
-            if (panel.style.display === 'none' || !panel.style.display) {
-                panel.style.display = 'flex';
-                loadGroups();
-            } else {
-                panel.style.display = 'none';
-            }
+            if (!panel) return;
+            panel.classList.toggle('active');
+            if (panel.classList.contains('active')) loadGroups();
         }
 
         function closeGroupPanel() {
-            document.getElementById('groupPanel').style.display = 'none';
+            document.getElementById('groupPanel')?.classList.remove('active');
         }
 
         async function loadGroups() {
             const r = await fetchApi('/api/groups');
             const list = document.getElementById('groupList');
-            if (!r || r.code !== 200 || !r.data) { list.innerHTML = '<div style="color:var(--text-faint);text-align:center;padding:20px;">暂无分组</div>'; return; }
+            if (!r || r.code !== 200 || !r.data) {
+                list.innerHTML = inlineStateHtml('empty', '暂无分组', '创建一个分组后，可以把番剧按主题收纳。');
+                return;
+            }
             list.innerHTML = '';
             r.data.forEach(g => {
                 const div = document.createElement('div');
-                div.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:10px;border:1px solid var(--border-light);border-radius:var(--radius-sm);margin-bottom:8px;';
-                div.innerHTML = '<div><span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:' + esc(g.color || '#4a6ad0') + ';margin-right:8px;"></span><strong>' + esc(g.name) + '</strong> <span style="color:var(--text-faint);font-size:0.8em;">(' + g.animeCount + ')</span></div><div><button class="btn-sm" onclick="viewGroup(' + g.id + ',\'' + esc(g.name) + '\')">查看</button> <button class="btn-sm" style="color:var(--rose);" onclick="deleteGroup(' + g.id + ')">删除</button></div>';
+                div.className = 'group-item';
+                div.innerHTML = `<div class="group-main"><span class="group-dot" style="background:${esc(g.color || '#4a6ad0')};"></span><strong>${esc(g.name)}</strong><span class="group-count">(${g.animeCount})</span></div><div class="group-actions"><button class="btn-sm" onclick="viewGroup(${g.id},'${esc(g.name).replace(/'/g, "\\'")}')">查看</button><button class="btn-sm danger-text" onclick="deleteGroup(${g.id})">删除</button></div>`;
                 list.appendChild(div);
             });
         }
@@ -1465,7 +1467,7 @@
             switchTab('list');
             fetchApi('/api/groups/' + id + '/anime').then(r => {
                 if (r && r.code === 200 && r.data) {
-                    _cache = {};
+                    Object.keys(_cache).forEach(k => delete _cache[k]);
                     r.data.forEach(a => _cache[a.id] = a);
                     renderView(r.data);
                     toast('分组「' + name + '」：' + r.data.length + ' 部番剧', 'info');
@@ -1480,14 +1482,14 @@
             const currentGroups = await fetchApi('/api/anime/' + animeId + '/groups');
             const currentIds = (currentGroups && currentGroups.code === 200) ? currentGroups.data : [];
 
-            let html = '<div style="position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:1100;display:flex;align-items:center;justify-content:center;" onclick="if(event.target===this)this.remove()">';
-            html += '<div style="background:var(--card);border-radius:var(--radius);padding:20px;width:300px;max-height:60vh;overflow-y:auto;">';
-            html += '<h4 style="margin:0 0 12px;font-family:var(--serif);">选择分组</h4>';
+            let html = '<div class="detail-overlay" onclick="if(event.target===this)this.remove()">';
+            html += '<div class="group-card detail-card-narrow">';
+            html += '<div class="group-header"><h3>选择分组</h3></div><div class="group-picker-list">';
             groups.forEach(g => {
                 const checked = currentIds.includes(g.id);
-                html += '<label style="display:flex;align-items:center;gap:8px;padding:8px;cursor:pointer;"><input type="checkbox" ' + (checked ? 'checked' : '') + ' onchange="toggleAnimeGroup(' + animeId + ',' + g.id + ',this.checked)"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:' + esc(g.color || '#4a6ad0') + '"></span>' + esc(g.name) + '</label>';
+                html += '<label class="group-option"><input type="checkbox" ' + (checked ? 'checked' : '') + ' onchange="toggleAnimeGroup(' + animeId + ',' + g.id + ',this.checked)"><span class="group-option-dot" style="background:' + esc(g.color || '#4a6ad0') + '"></span>' + esc(g.name) + '</label>';
             });
-            html += '<div style="text-align:right;margin-top:12px;"><button class="btn-sm" onclick="this.closest(\'div[style*=fixed]\').remove()">完成</button></div></div></div>';
+            html += '</div><div class="modal-actions-right"><button class="btn-sm" onclick="this.closest(\'.detail-overlay\').remove()">完成</button></div></div></div>';
             document.body.insertAdjacentHTML('beforeend', html);
         }
 

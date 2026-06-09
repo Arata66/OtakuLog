@@ -4,7 +4,7 @@ const i18n = {
         zh: {
             'app.title': '追番列表 | OtakuLog',
             'app.subtitle': '追番日记',
-            'btn.theme': '☽',
+            'btn.theme': '主题',
             'btn.export': '导出',
             'btn.import': '导入',
             'btn.logout': '退出',
@@ -57,7 +57,7 @@ const i18n = {
             'form.broadcastDayUnset': '未设置',
             'form.tags': '标签',
             'form.tagsPlaceholder': '热血,奇幻',
-            'form.submit': '+ 添加',
+            'form.submit': '添加'
             'bangumi.search': 'Bangumi 搜索',
             'bangumi.searching': '搜索中...',
             'bangumi.results': 'Bangumi 搜索结果',
@@ -149,7 +149,7 @@ const i18n = {
         en: {
             'app.title': 'Anime List | OtakuLog',
             'app.subtitle': 'ANIME DIARY',
-            'btn.theme': '☽',
+            'btn.theme': '主题',
             'btn.export': 'Export',
             'btn.import': 'Import',
             'btn.logout': 'Logout',
@@ -202,7 +202,7 @@ const i18n = {
             'form.broadcastDayUnset': 'Not set',
             'form.tags': 'Tags',
             'form.tagsPlaceholder': 'action,fantasy',
-            'form.submit': '+ Add',
+            'form.submit': 'Add'
             'bangumi.search': 'Bangumi Search',
             'bangumi.searching': 'Searching...',
             'bangumi.results': 'Bangumi Search Results',
@@ -305,7 +305,12 @@ const i18n = {
     translatePage() {
         document.querySelectorAll('[data-i18n]').forEach(el => {
             const key = el.getAttribute('data-i18n');
-            el.textContent = this.t(key);
+            const icon = el.querySelector('i.ph');
+            if (icon) {
+                el.replaceChildren(icon, document.createTextNode(this.t(key)));
+            } else {
+                el.textContent = this.t(key);
+            }
         });
         document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
             el.placeholder = this.t(el.getAttribute('data-i18n-placeholder'));
