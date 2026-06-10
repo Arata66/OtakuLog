@@ -97,6 +97,76 @@
             const raw = marked.parse(text, { breaks: true, gfm: true });
             return DOMPurify.sanitize(raw, { USE_PROFILES: { html: true } });
         }
+        function progressPercent(anime) { return anime.totalEpisodes > 0 ? Math.round(anime.currentEpisode / anime.totalEpisodes * 100) : 0; }
+        function firstLetter(text) { return text ? text.charAt(0) : '?'; }
+        function coverHtml(anime, className, emptyClass, emptyText) {
+            if (anime.coverUrl) {
+                return `<img data-src="${esc(anime.coverUrl)}" loading="lazy" class="${className}" onerror="this.outerHTML='<div class=${emptyClass}>${esc(firstLetter(anime.name))}</div>'">`;
+            }
+            return `<div class="${emptyClass}">${esc(emptyText || firstLetter(anime.name))}</div>`;
+        }
+        function statusBadgeHtml(status) {
+            const safeStatus = esc(status);
+            return `<span class="dt-status-badge ${safeStatus}">${SM[status] || safeStatus}</span>`;
+        }
+        function scoreBadgeHtml(score, className) {
+            const cls = className || 'score-pill';
+            return `<span class="${cls} ${scoreClass(score)}">${esc(String(score))}</span>`;
+        }
+        function statusSelectHtml(anime) {
+            return `<select class="e-select" id="ss-${anime.id}" onchange="changeStatus(${anime.id})"><option value="watching" ${anime.status==='watching'?'selected':''}>追中</option><option value="finished" ${anime.status==='finished'?'selected':''}>已完成</option><option value="planning" ${anime.status==='planning'?'selected':''}>计划</option><option value="dropped" ${anime.status==='dropped'?'selected':''}>放弃</option></select>`;
+        }
+        function actionHtml(anime, type) {
+            if (type === 'gallery') {
+                return `<div class="g-actions"><button class="g-btn" onclick="openEditModal(${anime.id})">编辑</button><button class="g-btn ep" onclick="prevEpisode(${anime.id})">-</button><button class="g-btn ep" onclick="nextEpisode(${anime.id})">+</button><button class="g-btn del" onclick="deleteAnime(${anime.id})">删</button></div>`;
+            }
+            return `<div class="acts"><button class="a-btn" onclick="openEditModal(${anime.id})">编辑</button><button class="a-btn ep-btn" onclick="prevEpisode(${anime.id})">-</button><button class="a-btn ep-btn" onclick="nextEpisode(${anime.id})">+</button></div>`;
+        }
+        function detailActionHtml(anime) {
+            return `<div class="dt-actions"><button class="dt-btn" onclick="openEditModal(${anime.id})">编辑</button><button class="dt-btn ep" onclick="prevEpisode(${anime.id})">-</button><button class="dt-btn ep" onclick="nextEpisode(${anime.id})">+</button><button class="dt-btn del" onclick="deleteAnime(${anime.id})">删除</button></div>`;
+        }
+        function renderAnimeRow(anime, index, keyword) {
+            const r = document.createElement('tr');
+            r.id = 'r-' + anime.id;
+            r.innerHTML = `<td class="drag-handle">⠿</td><td class="table-col-select"><input type="checkbox" class="batch-cb" data-id="${anime.id}" onchange="toggleRowSelect(${anime.id}, this.checked)"></td><td>${coverHtml(anime, 'cover-img lazy-cover', 'cover-empty', 'N/A')}</td><td class="row-index">${index + 1}</td>
+                <td><span class="clickable-name" onclick="openDetailModal(${anime.id})">${highlightText(anime.name, keyword)}</span>${anime.tags ? '<div class="tag-row">' + renderTags(anime.tags) + '</div>' : ''}</td>
+                <td><span class="season-tag">${esc(anime.season)}</span></td>
+                <td>${statusSelectHtml(anime)}</td>
+                <td>${scoreBadgeHtml(anime.score)}</td>
+                <td class="ep">${anime.currentEpisode} / ${anime.totalEpisodes}</td>
+                <td><span class="remark-cell" title="${esc(anime.remark)}">${esc(anime.remark)}</span></td>
+                <td>${actionHtml(anime)}</td>`;
+            return r;
+        }
+        function renderAnimeDetailCard(anime, keyword) {
+            const card = document.createElement('div');
+            const pct = progressPercent(anime);
+            card.className = 'dt-card';
+            card.innerHTML = `<div class="dt-cover-wrap">${coverHtml(anime, 'dt-cover lazy-cover', 'dt-cover-empty')}</div>${statusBadgeHtml(anime.status)}
+                <div class="dt-body">
+                    <div class="dt-name clickable-name" onclick="openDetailModal(${anime.id})">${highlightText(anime.name, keyword)}</div>
+                    <div class="dt-meta"><span class="dt-tag dt-season">${esc(anime.season)}</span>${scoreBadgeHtml(anime.score, 'dt-tag dt-score')}${anime.tags ? renderTags(anime.tags) : ''}</div>
+                    <div class="dt-progress-wrap"><div class="dt-progress-label"><span>${anime.currentEpisode} / ${anime.totalEpisodes} ep</span><span>${pct}%</span></div><div class="dt-progress"><div class="dt-progress-bar ${anime.status}" style="width:${pct}%"></div></div></div>
+                    ${anime.remark ? `<div class="dt-remark">${renderRemark(anime.remark)}</div>` : '<div class="dt-remark placeholder-hidden">-</div>'}
+                    ${detailActionHtml(anime)}
+                </div>`;
+            return card;
+        }
+        function renderAnimeGalleryCard(anime, keyword) {
+            const card = document.createElement('div');
+            const pct = progressPercent(anime);
+            card.className = 'g-card';
+            card.id = 'gc-' + anime.id;
+            card.innerHTML = `${coverHtml(anime, 'g-cover lazy-cover', 'g-cover-empty')}
+                <div class="g-body">
+                    <div class="g-name clickable-name" onclick="openDetailModal(${anime.id})">${highlightText(anime.name, keyword)}</div>
+                    <div class="g-meta"><span class="g-tag g-season">${esc(anime.season)}</span>${scoreBadgeHtml(anime.score, 'g-tag g-score')}${anime.tags ? renderTags(anime.tags) : ''}</div>
+                    <div class="g-progress"><div class="g-progress-bar ${anime.status}" style="width:${pct}%"></div></div>
+                    <div class="g-ep">${anime.currentEpisode} / ${anime.totalEpisodes} ep / ${SM[anime.status] || anime.status}</div>
+                    <div class="g-actions"><button class="g-btn" onclick="openEditModal(${anime.id})">编辑</button><button class="g-btn ep" onclick="prevEpisode(${anime.id})">-</button><button class="g-btn ep" onclick="nextEpisode(${anime.id})">+</button><button class="g-btn del" onclick="deleteAnime(${anime.id})">删</button></div>
+                </div>`;
+            return card;
+        }
 
         /* Batch selection */
         const selectedIds = new Set();
@@ -626,19 +696,7 @@
             list.forEach(a => _cache[a.id] = a);
             if (viewMode === 'table') {
                 tb.innerHTML = '';
-                list.forEach((a, i) => {
-                    const r = document.createElement('tr'); r.id = 'r-' + a.id;
-                    const cv = a.coverUrl ? `<img data-src="${esc(a.coverUrl)}" loading="lazy" class="cover-img lazy-cover" onerror="this.outerHTML='<div class=cover-empty>N/A</div>'">` : '<div class="cover-empty">N/A</div>';
-                    r.innerHTML = `<td class="drag-handle">⠿</td><td class="table-col-select"><input type="checkbox" class="batch-cb" data-id="${a.id}" onchange="toggleRowSelect(${a.id}, this.checked)"></td><td>${cv}</td><td class="row-index">${i+1}</td>
-                        <td><span class="clickable-name" onclick="openDetailModal(${a.id})">${highlightText(a.name, kw)}</span>${a.tags ? '<div class="tag-row">' + renderTags(a.tags) + '</div>' : ''}</td>
-                        <td><span class="season-tag">${esc(a.season)}</span></td>
-                        <td><select class="e-select" id="ss-${a.id}" onchange="changeStatus(${a.id})"><option value="watching" ${a.status==='watching'?'selected':''}>追中</option><option value="finished" ${a.status==='finished'?'selected':''}>已完成</option><option value="planning" ${a.status==='planning'?'selected':''}>计划</option><option value="dropped" ${a.status==='dropped'?'selected':''}>放弃</option></select></td>
-                        <td><span class="score-pill ${scoreClass(a.score)}">${esc(String(a.score))}</span></td>
-                        <td class="ep">${a.currentEpisode} / ${a.totalEpisodes}</td>
-                        <td><span class="remark-cell" title="${esc(a.remark)}">${esc(a.remark)}</span></td>
-                        <td><div class="acts"><button class="a-btn" onclick="openEditModal(${a.id})">编辑</button><button class="a-btn ep-btn" onclick="prevEpisode(${a.id})">-</button><button class="a-btn ep-btn" onclick="nextEpisode(${a.id})">+</button></div></td>`;
-                    tb.appendChild(r);
-                });
+                list.forEach((a, i) => tb.appendChild(renderAnimeRow(a, i, kw)));
             }
             if (viewMode === 'detail') renderDetail(list, kw);
             if (viewMode === 'gallery') renderGallery(list, kw);
@@ -647,38 +705,12 @@
 
         function renderDetail(list, kw) {
             const g = document.getElementById('detailGrid'); if (!g) return; g.innerHTML = '';
-            list.forEach(a => {
-                const card = document.createElement('div'); card.className = 'dt-card';
-                const pct = a.totalEpisodes > 0 ? Math.round(a.currentEpisode / a.totalEpisodes * 100) : 0;
-                const cover = a.coverUrl ? `<img data-src="${esc(a.coverUrl)}" loading="lazy" class="dt-cover lazy-cover" onerror="this.outerHTML='<div class=dt-cover-empty>${esc(a.name.charAt(0))}</div>'">` : `<div class="dt-cover-empty">${esc(a.name.charAt(0))}</div>`;
-                card.innerHTML = `<div class="dt-cover-wrap">${cover}<span class="dt-status-badge ${a.status}">${SM[a.status] || a.status}</span></div>
-                    <div class="dt-body">
-                        <div class="dt-name clickable-name" onclick="openDetailModal(${a.id})">${highlightText(a.name, kw)}</div>
-                        <div class="dt-meta"><span class="dt-tag dt-season">${esc(a.season)}</span><span class="dt-tag dt-score ${scoreClass(a.score)}">${a.score}</span>${a.tags ? renderTags(a.tags) : ''}</div>
-                        <div class="dt-progress-wrap"><div class="dt-progress-label"><span>${a.currentEpisode} / ${a.totalEpisodes} ep</span><span>${pct}%</span></div><div class="dt-progress"><div class="dt-progress-bar ${a.status}" style="width:${pct}%"></div></div></div>
-                        ${a.remark ? `<div class="dt-remark">${renderRemark(a.remark)}</div>` : '<div class="dt-remark placeholder-hidden">-</div>'}
-                        <div class="dt-actions"><button class="dt-btn" onclick="openEditModal(${a.id})">编辑</button><button class="dt-btn ep" onclick="prevEpisode(${a.id})">-</button><button class="dt-btn ep" onclick="nextEpisode(${a.id})">+</button><button class="dt-btn del" onclick="deleteAnime(${a.id})">删除</button></div>
-                    </div>`;
-                g.appendChild(card);
-            });
+            list.forEach(a => g.appendChild(renderAnimeDetailCard(a, kw)));
         }
 
         function renderGallery(list, kw) {
             const g = document.getElementById('galleryGrid'); if (!g) return; g.innerHTML = '';
-            list.forEach(a => {
-                const card = document.createElement('div'); card.className = 'g-card'; card.id = 'gc-' + a.id;
-                const pct = a.totalEpisodes > 0 ? Math.round(a.currentEpisode / a.totalEpisodes * 100) : 0;
-                const cover = a.coverUrl ? `<img data-src="${esc(a.coverUrl)}" loading="lazy" class="g-cover lazy-cover" onerror="this.outerHTML='<div class=g-cover-empty>${esc(a.name.charAt(0))}</div>'">` : `<div class="g-cover-empty">${esc(a.name.charAt(0))}</div>`;
-                card.innerHTML = `${cover}
-                    <div class="g-body">
-                        <div class="g-name clickable-name" onclick="openDetailModal(${a.id})">${highlightText(a.name, kw)}</div>
-                        <div class="g-meta"><span class="g-tag g-season">${esc(a.season)}</span><span class="g-tag g-score ${scoreClass(a.score)}">${a.score}</span>${a.tags ? renderTags(a.tags) : ''}</div>
-                        <div class="g-progress"><div class="g-progress-bar ${a.status}" style="width:${pct}%"></div></div>
-                        <div class="g-ep">${a.currentEpisode} / ${a.totalEpisodes} ep / ${SM[a.status] || a.status}</div>
-                        <div class="g-actions"><button class="g-btn" onclick="openEditModal(${a.id})">编辑</button><button class="g-btn ep" onclick="prevEpisode(${a.id})">-</button><button class="g-btn ep" onclick="nextEpisode(${a.id})">+</button><button class="g-btn del" onclick="deleteAnime(${a.id})">删</button></div>
-                    </div>`;
-                g.appendChild(card);
-            });
+            list.forEach(a => g.appendChild(renderAnimeGalleryCard(a, kw)));
         }
 
         /* Append results for infinite scroll */
@@ -689,32 +721,11 @@
             const tb = document.querySelector('tbody'), dg = document.getElementById('detailGrid'), gg = document.getElementById('galleryGrid');
             const existing = tb ? tb.querySelectorAll('tr').length : 0;
             list.forEach((a, i) => {
-                const r = document.createElement('tr'); r.id = 'r-' + a.id;
-                const cv = a.coverUrl ? `<img data-src="${esc(a.coverUrl)}" loading="lazy" class="cover-img lazy-cover" onerror="this.outerHTML='<div class=cover-empty>N/A</div>'">` : '<div class="cover-empty">N/A</div>';
-                r.innerHTML = `<td class="drag-handle">⠿</td><td class="table-col-select"><input type="checkbox" class="batch-cb" data-id="${a.id}" onchange="toggleRowSelect(${a.id}, this.checked)"></td><td>${cv}</td><td class="row-index">${existing + i + 1}</td>
-                    <td><span class="clickable-name" onclick="openDetailModal(${a.id})">${highlightText(a.name, kw)}</span>${a.tags ? '<div class="tag-row">' + renderTags(a.tags) + '</div>' : ''}</td>
-                    <td><span class="season-tag">${esc(a.season)}</span></td>
-                    <td><select class="e-select" id="ss-${a.id}" onchange="changeStatus(${a.id})"><option value="watching" ${a.status==='watching'?'selected':''}>追中</option><option value="finished" ${a.status==='finished'?'selected':''}>已完成</option><option value="planning" ${a.status==='planning'?'selected':''}>计划</option><option value="dropped" ${a.status==='dropped'?'selected':''}>放弃</option></select></td>
-                    <td><span class="score-pill ${scoreClass(a.score)}">${esc(String(a.score))}</span></td>
-                    <td class="ep">${a.currentEpisode} / ${a.totalEpisodes}</td>
-                    <td><span class="remark-cell" title="${esc(a.remark)}">${esc(a.remark)}</span></td>
-                    <td><div class="acts"><button class="a-btn" onclick="openEditModal(${a.id})">编辑</button><button class="a-btn ep-btn" onclick="prevEpisode(${a.id})">-</button><button class="a-btn ep-btn" onclick="nextEpisode(${a.id})">+</button></div></td>`;
-                tb.appendChild(r);
+                const r = renderAnimeRow(a, existing + i, kw);
+                if (tb) tb.appendChild(r);
             });
-            if (dg) list.forEach(a => {
-                const card = document.createElement('div'); card.className = 'dt-card';
-                const pct = a.totalEpisodes > 0 ? Math.round(a.currentEpisode / a.totalEpisodes * 100) : 0;
-                const cover = a.coverUrl ? `<img data-src="${esc(a.coverUrl)}" loading="lazy" class="dt-cover lazy-cover" onerror="this.outerHTML='<div class=dt-cover-empty>${esc(a.name.charAt(0))}</div>'">` : `<div class="dt-cover-empty">${esc(a.name.charAt(0))}</div>`;
-                card.innerHTML = `<div class="dt-cover-wrap">${cover}<span class="dt-status-badge ${a.status}">${SM[a.status] || a.status}</span></div><div class="dt-body"><div class="dt-name clickable-name" onclick="openDetailModal(${a.id})">${highlightText(a.name, kw)}</div><div class="dt-meta"><span class="dt-tag dt-season">${esc(a.season)}</span><span class="dt-tag dt-score ${scoreClass(a.score)}">${a.score}</span>${a.tags ? renderTags(a.tags) : ''}</div><div class="dt-progress-wrap"><div class="dt-progress-label"><span>${a.currentEpisode} / ${a.totalEpisodes} ep</span><span>${pct}%</span></div><div class="dt-progress"><div class="dt-progress-bar ${a.status}" style="width:${pct}%"></div></div></div>${a.remark ? `<div class="dt-remark">${renderRemark(a.remark)}</div>` : '<div class="dt-remark placeholder-hidden">-</div>'}<div class="dt-actions"><button class="dt-btn" onclick="openEditModal(${a.id})">编辑</button><button class="dt-btn ep" onclick="prevEpisode(${a.id})">-</button><button class="dt-btn ep" onclick="nextEpisode(${a.id})">+</button><button class="dt-btn del" onclick="deleteAnime(${a.id})">删除</button></div></div>`;
-                dg.appendChild(card);
-            });
-            if (gg) list.forEach(a => {
-                const card = document.createElement('div'); card.className = 'g-card'; card.id = 'gc-' + a.id;
-                const pct = a.totalEpisodes > 0 ? Math.round(a.currentEpisode / a.totalEpisodes * 100) : 0;
-                const cover = a.coverUrl ? `<img data-src="${esc(a.coverUrl)}" loading="lazy" class="g-cover lazy-cover" onerror="this.outerHTML='<div class=g-cover-empty>${esc(a.name.charAt(0))}</div>'">` : `<div class="g-cover-empty">${esc(a.name.charAt(0))}</div>`;
-                card.innerHTML = `${cover}<div class="g-body"><div class="g-name clickable-name" onclick="openDetailModal(${a.id})">${highlightText(a.name, kw)}</div><div class="g-meta"><span class="g-tag g-season">${esc(a.season)}</span><span class="g-tag g-score ${scoreClass(a.score)}">${a.score}</span>${a.tags ? renderTags(a.tags) : ''}</div><div class="g-progress"><div class="g-progress-bar ${a.status}" style="width:${pct}%"></div></div><div class="g-ep">${a.currentEpisode} / ${a.totalEpisodes} ep / ${SM[a.status] || a.status}</div><div class="g-actions"><button class="g-btn" onclick="openEditModal(${a.id})">编辑</button><button class="g-btn ep" onclick="prevEpisode(${a.id})">-</button><button class="g-btn ep" onclick="nextEpisode(${a.id})">+</button><button class="g-btn del" onclick="deleteAnime(${a.id})">删</button></div></div>`;
-                gg.appendChild(card);
-            });
+            if (dg) list.forEach(a => dg.appendChild(renderAnimeDetailCard(a, kw)));
+            if (gg) list.forEach(a => gg.appendChild(renderAnimeGalleryCard(a, kw)));
             initLazyLoad();
         }
 
