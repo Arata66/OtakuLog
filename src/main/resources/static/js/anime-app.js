@@ -48,7 +48,7 @@
                 return await r.json();
             } catch (e) { console.error('Network error:', url, e); toast('网络连接失败', 'error'); return null; }
         }
-        function toast(m, t = 'info') { const c = document.getElementById('tw'), el = document.createElement('div'); el.className = 'toast ' + t; el.textContent = m; c.appendChild(el); setTimeout(() => el.remove(), 3000); }
+        function toast(m, t = 'info') { const c = document.getElementById('tw'), el = document.createElement('div'); el.className = 'toast ' + t; el.textContent = m; if (c) c.appendChild(el); setTimeout(() => el.remove(), 3000); }
         function stateHtml(type, title, desc) {
             const icons = { loading: 'ph-spinner-gap', error: 'ph-warning-circle', empty: 'ph-tray' };
             const safeDesc = desc ? '<div class="state-desc">' + esc(desc) + '</div>' : '';

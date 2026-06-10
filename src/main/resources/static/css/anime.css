@@ -247,7 +247,7 @@
         .batch-cb { appearance: none; -webkit-appearance: none; width: 18px; height: 18px; border: 2px solid var(--border); border-radius: 4px; cursor: pointer; transition: all 0.2s; vertical-align: middle; position: relative; }
         .batch-cb:checked { background: var(--coral); border-color: var(--coral); }
         .batch-cb:checked::after { content: ''; position: absolute; left: 4px; top: 1px; width: 6px; height: 10px; border: solid white; border-width: 0 2px 2px 0; transform: rotate(45deg); }
-        tbody tr.selected { background: var(--amber-soft) !important; }
+        tbody tr.selected { background: var(--amber-soft) !important; box-shadow: inset 3px 0 0 var(--primary); }
         .batch-toolbar { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: var(--text); color: var(--bg); padding: 14px 24px; border-radius: 14px; box-shadow: 0 8px 32px rgba(0,0,0,0.2); display: none; align-items: center; gap: 16px; z-index: 900; font-size: 0.85em; animation: fadeUp 0.3s ease; }
         .batch-toolbar.active { display: flex; }
         .batch-toolbar .bt-count { font-weight: 600; }
@@ -341,9 +341,9 @@
             animation: tIn 0.35s cubic-bezier(0.16,1,0.3,1), tOut 0.3s ease 2.7s forwards;
             pointer-events: auto;
         }
-        .toast.success { background: #5a9a6a; }
-        .toast.error { background: #c46a6a; }
-        .toast.info { background: #6a8ab0; }
+        .toast.success { background: var(--sage); }
+        .toast.error { background: var(--rose); }
+        .toast.info { background: var(--primary); }
         @keyframes tIn { from { opacity: 0; transform: translateX(40px) scale(0.95); } to { opacity: 1; transform: translateX(0) scale(1); } }
         @keyframes tOut { from { opacity: 1; transform: translateX(0); } to { opacity: 0; transform: translateX(40px); } }
 
@@ -713,7 +713,7 @@
             .table-card { overflow-x: auto; }
             .table-card > table { min-width: 700px; }
             .bangumi-grid { grid-template-columns: 1fr; }
-            .batch-toolbar { flex-wrap: wrap; gap: 10px; padding: 12px 16px; font-size: 0.8em; }
+            .batch-toolbar { flex-wrap: wrap; gap: 10px; padding: 12px 16px; font-size: 0.8em; max-width: calc(100vw - 16px); overflow-x: auto; justify-content: flex-start; }
         }
         @media (max-width: 480px) {
             .app { padding: 14px 10px 80px; }
@@ -756,10 +756,10 @@
         .gallery-grid .g-card:nth-child(n+7), .detail-grid .d-card:nth-child(n+7) { animation-delay: 0.14s; }
 
         /* Mobile bottom nav */
-        .mobile-nav { display: none; position: fixed; bottom: 0; left: 0; right: 0; background: var(--card); border-top: 1px solid var(--border-light); z-index: 100; padding: 6px 0 env(safe-area-inset-bottom, 8px); }
-        .mobile-nav-inner { display: flex; justify-content: space-around; align-items: center; }
-        .mobile-nav-btn { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 16px; border: none; background: none; color: var(--text-dim); font-size: 0.68em; cursor: pointer; min-width: 44px; min-height: 44px; justify-content: center; border-radius: 8px; transition: all 0.2s; }
-        .mobile-nav-btn.active { color: var(--primary); }
+        .mobile-nav { display: none; position: fixed; bottom: 0; left: 0; right: 0; background: var(--card); border-top: 1px solid var(--border-light); z-index: 100; padding: 6px 0 env(safe-area-inset-bottom, 8px); box-shadow: 0 -8px 24px rgba(0,0,0,0.06); }
+        .mobile-nav-inner { display: flex; justify-content: space-around; align-items: center; gap: 4px; }
+        .mobile-nav-btn { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 7px 12px; border: none; background: none; color: var(--text-dim); font-size: 0.68em; cursor: pointer; min-width: 44px; min-height: 44px; justify-content: center; border-radius: 8px; transition: all 0.2s; }
+        .mobile-nav-btn.active { color: var(--primary); background: var(--primary-soft); }
         .mobile-nav-btn:hover { background: var(--bg); }
         .mobile-nav-icon { font-size: 1.35em; line-height: 1; }
         /* Mobile touch: show gallery actions on tap */
