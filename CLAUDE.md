@@ -59,22 +59,11 @@ src/main/resources/
 | `anime_group` | V4 新增，番剧分组 |
 | `flyway_schema_history` | Flyway 迁移历史 |
 
-## 前端优化历程（已完成）
+## 工作流程
 
-| 阶段 | 提交 | 内容 |
-|------|------|------|
-| 1-6 | `3c5a04b` | 字体/配色/图标/排版/状态/代码质量（taste-skill 6 步） |
-| 衍生 | `cd3c3d6` → `fd87220` | 主题稳定性、图标加载、渲染函数拆分、a11y 焦点、数据区域状态、Chart 实例清理 |
-| 6 (DOM缓存) | `643aa7e` | 缓存 40+ 常用 DOM 元素到模块级变量，179→107 处查询 |
-
-> 详细进度见 `~/.claude/projects/E--work-OtakuLog/memory/project_frontend_optimization_plan.md`
-
-## 后续方向
-
-- 动态样式提取（进度条宽度、热力图颜色、分组颜色 — JS 生成的内联 style）
-- 按钮体系抽象（`.btn-sm`, `.btn`, `.a-btn` 缺乏统一设计）
-- 浏览器自动化截图验证
-- `otakulog-web/`（Vue 3 重写）与 main 分支旧版的关系梳理
+- 每个阶段任务完成后，自动执行 neat-freak 同步记忆和文档
+- 每个阶段任务完成后，向用户给出总结：变更摘要、当前进度、后续可选方向
+- 总结内容写入记忆文件（`project_frontend_optimization_plan.md`），不写入 CLAUDE.md
 
 ## 深入文档指针
 
