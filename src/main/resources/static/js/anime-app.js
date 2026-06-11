@@ -54,13 +54,17 @@
         function toast(m, t = 'info') { const c = document.getElementById('tw'), el = document.createElement('div'); el.className = 'toast ' + t; el.setAttribute('role', t === 'error' ? 'alert' : 'status'); el.textContent = m; if (c) c.appendChild(el); setTimeout(() => el.remove(), 3000); }
         function stateHtml(type, title, desc) {
             const icons = { loading: 'ph-spinner-gap', error: 'ph-warning-circle', empty: 'ph-tray' };
+            const role = type === 'error' ? 'alert' : 'status';
+            const live = type === 'error' ? 'assertive' : 'polite';
             const safeDesc = desc ? '<div class="state-desc">' + esc(desc) + '</div>' : '';
-            return '<div class="state-block ' + type + '"><i class="ph ' + (icons[type] || icons.empty) + '" aria-hidden="true"></i><div class="state-title">' + esc(title) + '</div>' + safeDesc + '</div>';
+            return '<div class="state-block ' + type + '" role="' + role + '" aria-live="' + live + '"><i class="ph ' + (icons[type] || icons.empty) + '" aria-hidden="true"></i><div class="state-title">' + esc(title) + '</div>' + safeDesc + '</div>';
         }
         function inlineStateHtml(type, title, desc) {
             const icons = { loading: 'ph-spinner-gap', error: 'ph-warning-circle', empty: 'ph-tray' };
+            const role = type === 'error' ? 'alert' : 'status';
+            const live = type === 'error' ? 'assertive' : 'polite';
             const safeDesc = desc ? '<div class="state-desc">' + esc(desc) + '</div>' : '';
-            return '<div class="state-inline ' + type + '"><i class="ph ' + (icons[type] || icons.empty) + '" aria-hidden="true"></i><div class="state-title">' + esc(title) + '</div>' + safeDesc + '</div>';
+            return '<div class="state-inline ' + type + '" role="' + role + '" aria-live="' + live + '"><i class="ph ' + (icons[type] || icons.empty) + '" aria-hidden="true"></i><div class="state-title">' + esc(title) + '</div>' + safeDesc + '</div>';
         }
         function scoreClass(s) { return s >= 8 ? 'sc-high' : s >= 6 ? 'sc-mid' : 'sc-low'; }
         function renderTags(tags) { if (!tags) return ''; return tags.split(',').map(t => t.trim()).filter(Boolean).map(t => `<span class="tag-pill">${esc(t)}</span>`).join(''); }
@@ -906,9 +910,10 @@
         async function loadRecommendations() {
             const grid = document.getElementById('recGrid');
             if (!grid) return;
-            grid.innerHTML = '<div class="bangumi-loading"><div class="skeleton skeleton-text long"></div></div>';
+            grid.innerHTML = inlineStateHtml('loading', '正在加载推荐...');
             const r = await fetchApi('/api/anime/recommendations');
-            if (r && r.code === 200 && r.data && r.data.length > 0) {
+            if (!r || r.code !== 200) { grid.innerHTML = inlineStateHtml('error', '推荐加载失败', '请稍后再试。'); return; }
+            if (r.data && r.data.length > 0) {
                 grid.innerHTML = '';
                 r.data.forEach(item => {
                     const card = document.createElement('div');
@@ -930,12 +935,13 @@
         async function loadHeatmap() {
             const container = document.getElementById('heatmapContainer');
             if (!container) return;
+            container.innerHTML = inlineStateHtml('loading', '正在加载观看热力图...');
             const r = await fetchApi('/api/anime/heatmap');
-            if (!r || r.code !== 200 || !r.data) return;
+            if (!r || r.code !== 200 || !r.data) { container.innerHTML = inlineStateHtml('error', '热力图加载失败', '请稍后重试。'); return; }
 
             const data = r.data;
             const dates = Object.keys(data).sort();
-            if (dates.length === 0) return;
+            if (dates.length === 0) { container.innerHTML = inlineStateHtml('empty', '暂无观看记录', '记录观看集数后，这里会显示观看热力图。'); return; }
 
             container.innerHTML = '';
             const maxVal = Math.max(...Object.values(data), 1);
@@ -993,13 +999,21 @@
 
         function selectCalDay(day) {
             calSelectedDay = day;
-            document.querySelectorAll('.cal-day-btn').forEach(b => b.classList.toggle('active', parseInt(b.dataset.day) === day));
+            document.querySelectorAll('.cal-day-btn').forEach(b => {
+                const active = parseInt(b.dataset.day) === day;
+                b.classList.toggle('active', active);
+                b.setAttribute('aria-pressed', active ? 'true' : 'false');
+            });
             renderCalDay();
         }
 
         async function loadCalendar() {
+            const content = document.getElementById('calContent');
+            const days = document.getElementById('calDays');
+            if (content) content.innerHTML = stateHtml('loading', '正在加载放送日历...');
+            if (days) days.innerHTML = '';
             const r = await fetchApi('/api/anime/airing-schedule');
-            if (!r || r.code !== 200) return;
+            if (!r || r.code !== 200 || !r.data) { if (content) content.innerHTML = stateHtml('error', '日历加载失败', '请稍后重试。'); return; }
             _scheduleData = r.data;
             renderCalDays();
             selectCalDay(_scheduleData.todayDay || 1);
@@ -1012,9 +1026,12 @@
             const dataSource = calViewMode === 'mine' ? _scheduleData.mySchedule : _scheduleData.bangumiSchedule;
             for (let day = 1; day <= 7; day++) {
                 const count = (dataSource && dataSource[day]) ? dataSource[day].length : 0;
-                const btn = document.createElement('div');
+                const btn = document.createElement('button');
+                btn.type = 'button';
                 btn.className = 'cal-day-btn' + (day === todayIdx ? ' today' : '') + (day === calSelectedDay ? ' active' : '');
                 btn.dataset.day = day;
+                btn.setAttribute('aria-pressed', day === calSelectedDay ? 'true' : 'false');
+                btn.setAttribute('aria-label', DAY_NAMES[day] + (count > 0 ? '，' + count + ' 部' : '，暂无'));
                 btn.innerHTML = `<div class="cal-day-name">${DAY_NAMES[day]}</div><div class="cal-day-num">${count > 0 ? count : '-'}</div>`;
                 btn.onclick = () => selectCalDay(day);
                 container.appendChild(btn);
@@ -1106,6 +1123,7 @@
             if (!r || r.code !== 200) { grid.innerHTML = stateHtml('error', '加载失败', '请稍后重试'); return; }
             const list = r.data || [];
             if (!append) grid.innerHTML = '';
+            if (!append && list.length === 0) { grid.innerHTML = stateHtml('empty', '暂无本季新番', '稍后再刷新看看。'); }
             list.forEach(item => grid.appendChild(renderBrowseCard(item)));
             _seasonOffset += list.length;
             document.getElementById('seasonLoadMore').classList.toggle('is-hidden', list.length < 20);
@@ -1123,6 +1141,7 @@
             if (!r || r.code !== 200) { grid.innerHTML = stateHtml('error', '加载失败', '请稍后重试'); return; }
             const list = r.data || [];
             if (!append) grid.innerHTML = '';
+            if (!append && list.length === 0) { grid.innerHTML = stateHtml('empty', '暂无排行榜数据', '稍后再刷新看看。'); }
             list.forEach(item => grid.appendChild(renderBrowseCard(item)));
             _rankOffset += list.length;
             document.getElementById('rankLoadMore').classList.toggle('is-hidden', list.length < 20);
@@ -1271,10 +1290,13 @@
             loadTL();
         }
         async function loadTL() {
+            const c = document.getElementById('tl');
+            if (!c) return;
+            c.innerHTML = inlineStateHtml('loading', '正在加载时间线...');
             const r = await fetchApi('/api/anime/timeline?mode=' + timelineMode);
-            if (!r || r.code !== 200) return;
-            const c = document.getElementById('tl'); c.innerHTML = '';
-            if (!r.data || r.data.length === 0) { c.innerHTML = inlineStateHtml('empty', '暂无数据'); return; }
+            if (!r || r.code !== 200) { c.innerHTML = inlineStateHtml('error', '时间线加载失败', '请稍后重试。'); return; }
+            c.innerHTML = '';
+            if (!r.data || r.data.length === 0) { c.innerHTML = inlineStateHtml('empty', '暂无时间线数据', '添加开播日期或追番记录后会显示在这里。'); return; }
             r.data.forEach(a => {
                 const dateField = timelineMode === 'air' ? a.startDate : (a.watchStartDate || a.startDate);
                 const dateLabel = timelineMode === 'air' ? '开播' : '追番';
