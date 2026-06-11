@@ -63,6 +63,7 @@ src/main/resources/
 
 - 每个阶段任务完成后，自动执行 neat-freak 同步记忆和文档
 - 每个阶段任务完成后，向用户给出总结：变更摘要、当前进度、后续可选方向
+- 每次执行用户命令后，给出简洁反馈（做了什么、结果如何）
 - 总结内容写入记忆文件（`project_frontend_optimization_plan.md`），不写入 CLAUDE.md
 
 ## 深入文档指针
