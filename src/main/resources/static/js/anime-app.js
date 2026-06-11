@@ -796,7 +796,7 @@
         }
 
         /* Charts */
-        let ch1 = null, ch2 = null, ch3 = null, ch4 = null, ch5 = null;
+        let ch1 = null, ch2 = null, ch3 = null, ch4 = null, ch5 = null, ch6 = null, ch7 = null;
         Chart.defaults.font.family = 'Outfit';
         Chart.defaults.color = '#a89f94';
         Chart.defaults.borderColor = '#ede8e0';
@@ -846,7 +846,8 @@
                     const top10 = d.watchDuration.slice(0, 10);
                     const ctxDur = document.getElementById('c-duration');
                     if (ctxDur) {
-                        new Chart(ctxDur, {
+                        if (ch6) ch6.destroy();
+                        ch6 = new Chart(ctxDur, {
                             type: 'bar',
                             data: {
                                 labels: top10.map(d => d.name.length > 8 ? d.name.substring(0, 8) + '...' : d.name),
@@ -866,7 +867,8 @@
                     const months = Object.keys(d.monthlyReport).sort();
                     const ctxMon = document.getElementById('c-monthly');
                     if (ctxMon) {
-                        new Chart(ctxMon, {
+                        if (ch7) ch7.destroy();
+                        ch7 = new Chart(ctxMon, {
                             type: 'line',
                             data: {
                                 labels: months,
