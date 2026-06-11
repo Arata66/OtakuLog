@@ -3,6 +3,30 @@
         let currentPage = 0, isLoading = false, hasMore = true;
         let totalElements = 0, loadedCount = 0;
         const PAGE_SIZE = 12;
+        // === DOM 缓存（init() 中填充）===
+        let $tbody, $tableCard, $emptySearch;
+        let $searchName, $animeName, $animeForm;
+        let $filterStatus, $sortBy, $filterTag;
+        let $galleryGrid, $detailGrid, $detailView, $galleryView;
+        let $viewTable, $viewDetail, $viewGallery;
+        let $themeToggle, $accentPicker, $accentBtn;
+        let $syncMenu, $syncBtn;
+        let $scrollSentinel;
+        let $bangumiResults, $bangumiGrid;
+        let $btnBangumi, $btnBatchMatch, $btnImportBangumi;
+        let $recGrid, $heatmapContainer;
+        let $calContent, $calDays;
+        let $calModeCalendar, $calModeSeason, $calModeRank;
+        let $modeCal, $modeSeason, $modeRank;
+        let $tlViewWatch, $tlViewAir, $tlTitle, $tl;
+        let $seasonGrid, $rankGrid, $seasonLoadMore, $rankLoadMore;
+        let $groupPanel, $groupList, $newGroupName;
+        let $paginationIndicator;
+        // 番剧表单字段
+        let $afBroadcastDay, $afBangumiId, $afStatus, $afSeason, $afScore;
+        let $afRemark, $afCover, $afStartDate, $afEndDate, $afTags, $afLegacy;
+        let $afTotalEpisodes;
+        let $stat = {};
         const _cache = {};
         let _lastFocusedBeforeModal = null;
         function rememberFocus() { _lastFocusedBeforeModal = document.activeElement; }
@@ -10,7 +34,7 @@
         function debounce(fn, ms) { let t; return function(...a) { clearTimeout(t); t = setTimeout(() => fn.apply(this, a), ms); }; }
         function esc(s) { if (s == null) return ''; const d = document.createElement('div'); d.appendChild(document.createTextNode(s)); return d.innerHTML.replace(/"/g, '&quot;'); }
         function showTableSkeleton(rows) {
-            const tb = document.querySelector('tbody'); if (!tb) return;
+            const tb = $tbody; if (!tb) return;
             tb.innerHTML = '';
             for (let i = 0; i < (rows || 5); i++) {
                 const r = document.createElement('tr');
@@ -19,7 +43,7 @@
             }
         }
         function showGallerySkeleton(count) {
-            const g = document.getElementById('galleryGrid'); if (!g) return;
+            const g = $galleryGrid; if (!g) return;
             g.innerHTML = '';
             for (let i = 0; i < (count || 6); i++) {
                 const card = document.createElement('div'); card.className = 'skeleton-card';
@@ -28,7 +52,7 @@
             }
         }
         function showDetailSkeleton(count) {
-            const g = document.getElementById('detailGrid'); if (!g) return;
+            const g = $detailGrid; if (!g) return;
             g.innerHTML = '';
             for (let i = 0; i < (count || 6); i++) {
                 const card = document.createElement('div'); card.className = 'skeleton-card';
@@ -222,7 +246,7 @@
             const root = document.documentElement, dark = root.getAttribute('data-theme') === 'dark';
             root.setAttribute('data-theme', dark ? '' : 'dark');
             localStorage.setItem('otakulog-theme', dark ? 'light' : 'dark');
-            document.getElementById('themeToggle').innerHTML = dark ? '<i class="ph ph-moon" aria-hidden="true"></i>' : '<i class="ph ph-sun" aria-hidden="true"></i>'; 
+            $themeToggle.innerHTML = dark ? '<i class="ph ph-moon" aria-hidden="true"></i>' : '<i class="ph ph-sun" aria-hidden="true"></i>';
             updateChartColors();
         }
         function updateChartColors() {
@@ -307,15 +331,15 @@
         function toggleView(mode) {
             viewMode = mode;
             localStorage.setItem('otakulog-view', mode);
-            document.getElementById('viewTable').classList.toggle('active', mode === 'table');
-            document.getElementById('viewDetail').classList.toggle('active', mode === 'detail');
-            document.getElementById('viewGallery').classList.toggle('active', mode === 'gallery');
-            document.getElementById('viewTable').setAttribute('aria-pressed', mode === 'table' ? 'true' : 'false');
-            document.getElementById('viewDetail').setAttribute('aria-pressed', mode === 'detail' ? 'true' : 'false');
-            document.getElementById('viewGallery').setAttribute('aria-pressed', mode === 'gallery' ? 'true' : 'false');
-            document.querySelector('.table-card').classList.toggle('hidden', mode !== 'table');
-            document.getElementById('detailView').classList.toggle('active', mode === 'detail');
-            document.getElementById('galleryView').classList.toggle('active', mode === 'gallery');
+            $viewTable.classList.toggle('active', mode === 'table');
+            $viewDetail.classList.toggle('active', mode === 'detail');
+            $viewGallery.classList.toggle('active', mode === 'gallery');
+            $viewTable.setAttribute('aria-pressed', mode === 'table' ? 'true' : 'false');
+            $viewDetail.setAttribute('aria-pressed', mode === 'detail' ? 'true' : 'false');
+            $viewGallery.setAttribute('aria-pressed', mode === 'gallery' ? 'true' : 'false');
+            $tableCard.classList.toggle('hidden', mode !== 'table');
+            $detailView.classList.toggle('active', mode === 'detail');
+            $galleryView.classList.toggle('active', mode === 'gallery');
         }
 
         /* Episodes */
@@ -1380,10 +1404,79 @@
         /* Init */
         function init() {
             if (window.__i) return; window.__i = true;
+            // 初始化 DOM 缓存
+            $tbody = document.querySelector('tbody');
+            $tableCard = document.querySelector('.table-card');
+            $emptySearch = document.getElementById('emptySearch');
+            $searchName = document.getElementById('searchName');
+            $animeName = document.getElementById('animeName');
+            $animeForm = document.getElementById('animeForm');
+            $filterStatus = document.getElementById('filterStatus');
+            $sortBy = document.getElementById('sortBy');
+            $filterTag = document.getElementById('filterTag');
+            $galleryGrid = document.getElementById('galleryGrid');
+            $detailGrid = document.getElementById('detailGrid');
+            $detailView = document.getElementById('detailView');
+            $galleryView = document.getElementById('galleryView');
+            $viewTable = document.getElementById('viewTable');
+            $viewDetail = document.getElementById('viewDetail');
+            $viewGallery = document.getElementById('viewGallery');
+            $themeToggle = document.getElementById('themeToggle');
+            $accentPicker = document.getElementById('accentPicker');
+            $accentBtn = document.getElementById('accentBtn');
+            $syncMenu = document.getElementById('syncMenu');
+            $syncBtn = document.getElementById('syncBtn');
+            $scrollSentinel = document.getElementById('scrollSentinel');
+            $bangumiResults = document.getElementById('bangumiResults');
+            $bangumiGrid = document.getElementById('bangumiGrid');
+            $btnBangumi = document.getElementById('btnBangumi');
+            $btnBatchMatch = document.getElementById('btnBatchMatch');
+            $btnImportBangumi = document.getElementById('btnImportBangumi');
+            $recGrid = document.getElementById('recGrid');
+            $heatmapContainer = document.getElementById('heatmapContainer');
+            $calContent = document.getElementById('calContent');
+            $calDays = document.getElementById('calDays');
+            $calModeCalendar = document.getElementById('calModeCalendar');
+            $calModeSeason = document.getElementById('calModeSeason');
+            $calModeRank = document.getElementById('calModeRank');
+            $modeCal = document.getElementById('modeCal');
+            $modeSeason = document.getElementById('modeSeason');
+            $modeRank = document.getElementById('modeRank');
+            $tlViewWatch = document.getElementById('tlViewWatch');
+            $tlViewAir = document.getElementById('tlViewAir');
+            $tlTitle = document.getElementById('tlTitle');
+            $tl = document.getElementById('tl');
+            $seasonGrid = document.getElementById('seasonGrid');
+            $rankGrid = document.getElementById('rankGrid');
+            $seasonLoadMore = document.getElementById('seasonLoadMore');
+            $rankLoadMore = document.getElementById('rankLoadMore');
+            $groupPanel = document.getElementById('groupPanel');
+            $groupList = document.getElementById('groupList');
+            $newGroupName = document.getElementById('newGroupName');
+            $paginationIndicator = document.getElementById('paginationIndicator');
+            // 番剧表单字段
+            $afBroadcastDay = document.getElementById('animeBroadcastDay');
+            $afBangumiId = document.getElementById('animeBangumiId');
+            $afStatus = document.getElementById('animeStatus');
+            $afSeason = document.getElementById('animeSeason');
+            $afScore = document.getElementById('animeScore');
+            $afRemark = document.getElementById('animeRemark');
+            $afCover = document.getElementById('animeCover');
+            $afStartDate = document.getElementById('animeStartDate');
+            $afEndDate = document.getElementById('animeEndDate');
+            $afTags = document.getElementById('animeTags');
+            $afLegacy = document.getElementById('animeLegacy');
+            $afTotalEpisodes = document.getElementById('totalEpisodes');
+            // stats 批量缓存
+            ['total','watching','finished','planning','dropped','progress',
+             'episodes','avg-score','high-score','medium-score','low-score',
+             'ep-day','ep-month']
+              .forEach(k => $stat[k] = document.getElementById('stat-' + k));
+
             const savedTheme = localStorage.getItem('otakulog-theme');
             if (savedTheme === 'dark' || (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
                 document.documentElement.setAttribute('data-theme', 'dark');
-                document.getElementById('themeToggle').innerHTML = '<i class="ph ph-sun" aria-hidden="true"></i>'; 
+                $themeToggle.innerHTML = '<i class="ph ph-sun" aria-hidden="true"></i>';
             }
             if (typeof i18n !== 'undefined') i18n.translatePage();
             if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
@@ -1391,16 +1484,16 @@
             const savedTab = localStorage.getItem('otakulog-tab');
             if (savedTab && savedTab !== 'list') switchTab(savedTab);
             if (viewMode !== 'table') {
-                document.querySelector('.table-card').classList.add('hidden');
-                document.getElementById('viewTable').classList.remove('active');
-                if (viewMode === 'detail') { document.getElementById('detailView').classList.add('active'); document.getElementById('viewDetail').classList.add('active'); }
-                if (viewMode === 'gallery') { document.getElementById('galleryView').classList.add('active'); document.getElementById('viewGallery').classList.add('active'); }
+                $tableCard.classList.add('hidden');
+                $viewTable.classList.remove('active');
+                if (viewMode === 'detail') { $detailView.classList.add('active'); $viewDetail.classList.add('active'); }
+                if (viewMode === 'gallery') { $galleryView.classList.add('active'); $viewGallery.classList.add('active'); }
             }
-            document.getElementById('searchName').addEventListener('input', debounce(() => performSearch(), 300));
-            document.getElementById('filterStatus').addEventListener('change', () => performSearch());
-            document.getElementById('sortBy').addEventListener('change', () => performSearch());
-            document.getElementById('filterTag').addEventListener('input', debounce(() => performSearch(), 300));
-            document.getElementById('animeName').addEventListener('keydown', function(e) { if (e.key === 'Enter') { e.preventDefault(); searchBangumi(); } });
+            $searchName.addEventListener('input', debounce(() => performSearch(), 300));
+            $filterStatus.addEventListener('change', () => performSearch());
+            $sortBy.addEventListener('change', () => performSearch());
+            $filterTag.addEventListener('input', debounce(() => performSearch(), 300));
+            $animeName.addEventListener('keydown', function(e) { if (e.key === 'Enter') { e.preventDefault(); searchBangumi(); } });
 
             // 快捷键支持
             document.addEventListener('keydown', function(e) {
