@@ -4,6 +4,9 @@
         let totalElements = 0, loadedCount = 0;
         const PAGE_SIZE = 12;
         const _cache = {};
+        let _lastFocusedBeforeModal = null;
+        function rememberFocus() { _lastFocusedBeforeModal = document.activeElement; }
+        function restoreFocus() { if (_lastFocusedBeforeModal && typeof _lastFocusedBeforeModal.focus === 'function' && document.contains(_lastFocusedBeforeModal)) { _lastFocusedBeforeModal.focus(); } _lastFocusedBeforeModal = null; }
         function debounce(fn, ms) { let t; return function(...a) { clearTimeout(t); t = setTimeout(() => fn.apply(this, a), ms); }; }
         function esc(s) { if (s == null) return ''; const d = document.createElement('div'); d.appendChild(document.createTextNode(s)); return d.innerHTML.replace(/"/g, '&quot;'); }
         function showTableSkeleton(rows) {
@@ -48,7 +51,7 @@
                 return await r.json();
             } catch (e) { console.error('Network error:', url, e); toast('网络连接失败', 'error'); return null; }
         }
-        function toast(m, t = 'info') { const c = document.getElementById('tw'), el = document.createElement('div'); el.className = 'toast ' + t; el.textContent = m; if (c) c.appendChild(el); setTimeout(() => el.remove(), 3000); }
+        function toast(m, t = 'info') { const c = document.getElementById('tw'), el = document.createElement('div'); el.className = 'toast ' + t; el.setAttribute('role', t === 'error' ? 'alert' : 'status'); el.textContent = m; if (c) c.appendChild(el); setTimeout(() => el.remove(), 3000); }
         function stateHtml(type, title, desc) {
             const icons = { loading: 'ph-spinner-gap', error: 'ph-warning-circle', empty: 'ph-tray' };
             const safeDesc = desc ? '<div class="state-desc">' + esc(desc) + '</div>' : '';
@@ -227,7 +230,11 @@
         /* 主题色切换 */
         function toggleAccentPicker() {
             const picker = document.getElementById('accentPicker');
-            if (picker) picker.classList.toggle('active');
+            const btn = document.getElementById('accentBtn');
+            if (picker) {
+                picker.classList.toggle('active');
+                if (btn) btn.setAttribute('aria-expanded', picker.classList.contains('active') ? 'true' : 'false');
+            }
         }
 
         function setAccent(accent) {
@@ -235,10 +242,14 @@
             localStorage.setItem('otakulog-accent', accent);
             // 更新色板选中状态
             document.querySelectorAll('.accent-swatch').forEach(s => {
-                s.classList.toggle('active', s.dataset.accent === accent);
+                const active = s.dataset.accent === accent;
+                s.classList.toggle('active', active);
+                s.setAttribute('aria-pressed', active ? 'true' : 'false');
             });
             const picker = document.getElementById('accentPicker');
             if (picker) picker.classList.remove('active');
+            const btn = document.getElementById('accentBtn');
+            if (btn) btn.setAttribute('aria-expanded', 'false');
         }
 
         // 初始化主题色
@@ -248,19 +259,21 @@
             // 延迟更新色板选中状态（等 DOM 加载完成）
             document.addEventListener('DOMContentLoaded', function() {
                 document.querySelectorAll('.accent-swatch').forEach(s => {
-                    s.classList.toggle('active', s.dataset.accent === saved);
+                    const active = s.dataset.accent === saved;
+                    s.classList.toggle('active', active);
+                    s.setAttribute('aria-pressed', active ? 'true' : 'false');
                 });
             });
         })();
 
         /* Tabs */
         function switchTab(n) {
-            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab').forEach(t => { t.classList.remove('active'); t.setAttribute('aria-selected', 'false'); });
             document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
             const tabs = document.querySelectorAll('.tab');
             const tabNames = ['list', 'charts', 'calendar', 'timeline'];
             const idx = tabNames.indexOf(n);
-            if (idx >= 0 && tabs[idx]) tabs[idx].classList.add('active');
+            if (idx >= 0 && tabs[idx]) { tabs[idx].classList.add('active'); tabs[idx].setAttribute('aria-selected', 'true'); }
             const content = document.getElementById('tab-' + n);
             if (content) content.classList.add('active');
             localStorage.setItem('otakulog-tab', n);
@@ -279,7 +292,11 @@
             }, 200);
         }
         function updateMobileNav(n) {
-            document.querySelectorAll('.mobile-nav-btn').forEach((b, i) => b.classList.toggle('active', i === n));
+            document.querySelectorAll('.mobile-nav-btn').forEach((b, i) => {
+                const active = i === n;
+                b.classList.toggle('active', active);
+                b.setAttribute('aria-pressed', active ? 'true' : 'false');
+            });
         }
 
         /* View toggle */
@@ -289,6 +306,9 @@
             document.getElementById('viewTable').classList.toggle('active', mode === 'table');
             document.getElementById('viewDetail').classList.toggle('active', mode === 'detail');
             document.getElementById('viewGallery').classList.toggle('active', mode === 'gallery');
+            document.getElementById('viewTable').setAttribute('aria-pressed', mode === 'table' ? 'true' : 'false');
+            document.getElementById('viewDetail').setAttribute('aria-pressed', mode === 'detail' ? 'true' : 'false');
+            document.getElementById('viewGallery').setAttribute('aria-pressed', mode === 'gallery' ? 'true' : 'false');
             document.querySelector('.table-card').classList.toggle('hidden', mode !== 'table');
             document.getElementById('detailView').classList.toggle('active', mode === 'detail');
             document.getElementById('galleryView').classList.toggle('active', mode === 'gallery');
@@ -366,7 +386,7 @@
             }
             toast('已填充 ' + name, 'success');
         }
-        function closeBangumi() { document.getElementById('bangumiResults').classList.remove('active'); }
+        function closeBangumi() { const panel = document.getElementById('bangumiResults'); if (panel) panel.classList.remove('active'); }
 
         /* trace.moe search */
         async function searchTraceMoe(input) {
@@ -388,11 +408,15 @@
             const existing = document.getElementById('traceMoeModal');
             if (existing) existing.remove();
             const overlay = document.createElement('div');
+            rememberFocus();
             overlay.className = 'detail-overlay';
             overlay.id = 'traceMoeModal';
-            overlay.onclick = function(e) { if (e.target === overlay) overlay.remove(); };
+            overlay.onclick = function(e) { if (e.target === overlay) closeTraceMoeModal(); };
             const card = document.createElement('div');
             card.className = 'detail-card detail-card-narrow';
+            card.setAttribute('role', 'dialog');
+            card.setAttribute('aria-modal', 'true');
+            card.setAttribute('aria-label', '以图搜番结果');
             const results = data.allResults || [data];
             let html = '<div class="detail-body"><div class="detail-title">以图搜番结果</div>';
             results.forEach(r => {
@@ -405,7 +429,7 @@
                     ${preview}
                     <div class="trace-name">${esc(name)}</div>
                     <div class="trace-meta"><span>${ep}</span><span class="${confClass}">置信度 ${conf}</span></div>
-                    <button class="a-btn mt-8" onclick="document.getElementById('traceMoeModal').remove();goToAddTracking('${esc(name).replace(/'/g, "\\'")}')">添加追踪</button>
+                    <button class="a-btn mt-8" onclick="closeTraceMoeModal();goToAddTracking('${esc(name).replace(/'/g, "\\'")}')">添加追踪</button>
                 </div>`;
             });
             html += '</div>';
@@ -417,13 +441,14 @@
 
         /* Detail modal */
         function openDetailModal(id) {
+            rememberFocus();
             const a = _cache[id];
             if (!a) { toast('未找到该番剧', 'error'); return; }
             const pct = a.totalEpisodes > 0 ? Math.round(a.currentEpisode / a.totalEpisodes * 100) : 0;
             const cover = a.coverUrl ? `<img src="${esc(a.coverUrl)}" class="detail-cover" onerror="this.outerHTML='<div class=detail-cover-empty>${esc(a.name.charAt(0))}</div>'">` : `<div class="detail-cover-empty">${esc(a.name.charAt(0))}</div>`;
             const bangumiLink = a.bangumiId ? `<a href="https://bgm.tv/subject/${a.bangumiId}" target="_blank" rel="noopener" class="detail-bangumi-link">在 Bangumi 查看 ↗</a>` : '';
             const overlay = document.createElement('div'); overlay.className = 'detail-overlay'; overlay.id = 'detailModal'; overlay.onclick = function(e) { if (e.target === overlay) closeDetailModal(); };
-            const card = document.createElement('div'); card.className = 'detail-card';
+            const card = document.createElement('div'); card.className = 'detail-card'; card.setAttribute('role', 'dialog'); card.setAttribute('aria-modal', 'true'); card.setAttribute('aria-label', '番剧详情');
             card.innerHTML = `<div class="detail-header">
                     <div class="detail-cover-wrap">${cover}<span class="detail-badge ${a.status}">${SM[a.status] || a.status}</span></div>
                     <div class="detail-info-col">
@@ -598,10 +623,17 @@
             if (btn) { btn.disabled = false; btn.innerHTML = '<i class="ph ph-arrow-square-in" aria-hidden="true"></i>从 Bangumi 导入'; }
         }
 
-        function closeDetailModal() { const m = document.getElementById('detailModal'); if (m) m.remove(); }
+        function closeDetailModal() { const m = document.getElementById('detailModal'); if (m) m.remove(); restoreFocus(); }
+        function closeTraceMoeModal() { const m = document.getElementById('traceMoeModal'); if (m) m.remove(); restoreFocus(); }
 
         function trapFocus(overlay) {
             overlay.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape') {
+                    if (overlay.id === 'editModal') closeEditModal();
+                    else if (overlay.id === 'traceMoeModal') closeTraceMoeModal();
+                    else closeDetailModal();
+                    return;
+                }
                 if (e.key !== 'Tab') return;
                 const focusable = overlay.querySelectorAll('button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])');
                 if (focusable.length === 0) return;
@@ -613,11 +645,12 @@
 
         /* Edit modal */
         function openEditModal(id) {
+            rememberFocus();
             const a = _cache[id];
             if (!a) { toast('未找到该番剧', 'error'); return; }
             {
                 const overlay = document.createElement('div'); overlay.className = 'modal-overlay'; overlay.id = 'editModal'; overlay.onclick = function(e) { if (e.target === overlay) closeEditModal(); };
-                const card = document.createElement('div'); card.className = 'modal-card';
+                const card = document.createElement('div'); card.className = 'modal-card'; card.setAttribute('role', 'dialog'); card.setAttribute('aria-modal', 'true'); card.setAttribute('aria-label', '编辑番剧');
                 const statusOpts = ['watching','finished','planning','dropped'].map(s => `<option value="${s}" ${a.status===s?'selected':''}>${SM[s]}</option>`).join('');
                 card.innerHTML = `<h3>编辑：${esc(a.name)}</h3>
                     <div class="modal-field"><label>番剧名</label><input type="text" id="m-name" value="${esc(a.name)}"></div>
@@ -641,7 +674,7 @@
                 trapFocus(overlay);
             }
         }
-        function closeEditModal() { const m = document.getElementById('editModal'); if (m) m.remove(); }
+        function closeEditModal() { const m = document.getElementById('editModal'); if (m) m.remove(); restoreFocus(); }
         async function saveEditModal(id) {
             const n = document.getElementById('m-name').value.trim(), s = document.getElementById('m-season').value.trim(), sv = document.getElementById('m-score').value;
             if (!n || !s || !sv) { toast('请填写必填字段', 'error'); return; }
@@ -953,6 +986,8 @@
             calViewMode = mode;
             document.getElementById('calViewMine').classList.toggle('active', mode === 'mine');
             document.getElementById('calViewAll').classList.toggle('active', mode === 'all');
+            document.getElementById('calViewMine').setAttribute('aria-pressed', mode === 'mine' ? 'true' : 'false');
+            document.getElementById('calViewAll').setAttribute('aria-pressed', mode === 'all' ? 'true' : 'false');
             renderCalDay();
         }
 
@@ -1053,6 +1088,9 @@
             document.getElementById('modeCal').classList.toggle('active', mode === 'calendar');
             document.getElementById('modeSeason').classList.toggle('active', mode === 'season');
             document.getElementById('modeRank').classList.toggle('active', mode === 'rank');
+            document.getElementById('modeCal').setAttribute('aria-pressed', mode === 'calendar' ? 'true' : 'false');
+            document.getElementById('modeSeason').setAttribute('aria-pressed', mode === 'season' ? 'true' : 'false');
+            document.getElementById('modeRank').setAttribute('aria-pressed', mode === 'rank' ? 'true' : 'false');
             document.getElementById('calModeCalendar').classList.toggle('is-hidden', mode !== 'calendar');
             document.getElementById('calModeSeason').classList.toggle('is-hidden', mode !== 'season');
             document.getElementById('calModeRank').classList.toggle('is-hidden', mode !== 'rank');
@@ -1141,7 +1179,7 @@
         async function openBangumiDetailModal(bangumiId) {
             const overlay = document.createElement('div'); overlay.className = 'detail-overlay'; overlay.id = 'detailModal';
             overlay.onclick = function(e) { if (e.target === overlay) closeDetailModal(); };
-            const card = document.createElement('div'); card.className = 'detail-card';
+            const card = document.createElement('div'); card.className = 'detail-card'; card.setAttribute('role', 'dialog'); card.setAttribute('aria-modal', 'true'); card.setAttribute('aria-label', '番剧详情');
             card.innerHTML = '<div class="detail-body detail-body-centered"><div class="skeleton skeleton-text long skeleton-center"></div><div class="skeleton skeleton-text medium skeleton-center"></div></div>';
             overlay.appendChild(card); document.body.appendChild(overlay);
             trapFocus(overlay);
@@ -1227,6 +1265,8 @@
             timelineMode = mode;
             document.getElementById('tlViewWatch').classList.toggle('active', mode === 'watch');
             document.getElementById('tlViewAir').classList.toggle('active', mode === 'air');
+            document.getElementById('tlViewWatch').setAttribute('aria-pressed', mode === 'watch' ? 'true' : 'false');
+            document.getElementById('tlViewAir').setAttribute('aria-pressed', mode === 'air' ? 'true' : 'false');
             document.getElementById('tlTitle').textContent = mode === 'air' ? '开播时间线' : '追番时间线';
             loadTL();
         }
@@ -1249,8 +1289,8 @@
         async function importData(e) { const f = e.target.files[0]; if (!f) return; const rd = new FileReader(); rd.onload = async function(ev) { const r = await fetchApi('/api/anime/import', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: ev.target.result }); if (r && r.code === 200) { toast(r.message || '导入成功', 'success'); performSearch(); updateStats(); } else if (r) toast(r.message || '导入失败', 'error'); }; rd.readAsText(f); e.target.value = ''; }
 
         /* Sync */
-        function toggleSyncMenu() { const m = document.getElementById('syncMenu'); if (m) m.classList.toggle('is-hidden'); }
-        document.addEventListener('click', function(e) { const m = document.getElementById('syncMenu'); const b = document.getElementById('syncBtn'); if (m && b && !m.contains(e.target) && !b.contains(e.target)) m.classList.add('is-hidden'); });
+        function toggleSyncMenu() { const m = document.getElementById('syncMenu'); const b = document.getElementById('syncBtn'); if (m) { m.classList.toggle('is-hidden'); if (b) b.setAttribute('aria-expanded', m.classList.contains('is-hidden') ? 'false' : 'true'); } }
+        document.addEventListener('click', function(e) { const m = document.getElementById('syncMenu'); const b = document.getElementById('syncBtn'); if (m && b && !m.contains(e.target) && !b.contains(e.target)) { m.classList.add('is-hidden'); b.setAttribute('aria-expanded', 'false'); } });
         // 点击外部关闭色板
         document.addEventListener('click', function(e) {
             const picker = document.getElementById('accentPicker');
@@ -1365,7 +1405,7 @@
                     const detailModal = document.getElementById('detailModal');
                     const traceMoeModal = document.getElementById('traceMoeModal');
                     if (editModal) closeEditModal();
-                    else if (traceMoeModal) traceMoeModal.remove();
+                    else if (traceMoeModal) closeTraceMoeModal();
                     else if (detailModal) closeDetailModal();
                 }
             });
