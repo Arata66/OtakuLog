@@ -107,4 +107,65 @@ class AnimeControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200));
     }
+
+    @Test
+    void matchBangumi_shouldReturnUpdatedAnime() throws Exception {
+        AnimeVO vo = new AnimeVO();
+        vo.setId(1L);
+        vo.setBangumiId(1001);
+        when(animeService.matchBangumi(1L)).thenReturn(vo);
+
+        mvc.perform(post("/api/anime/1/match-bangumi"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.bangumiId").value(1001));
+    }
+
+    @Test
+    void matchBangumi_whenServiceThrows_shouldReturn400() throws Exception {
+        when(animeService.matchBangumi(1L)).thenThrow(new IllegalArgumentException("未在 Bangumi 找到匹配结果"));
+
+        mvc.perform(post("/api/anime/1/match-bangumi"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(400))
+                .andExpect(jsonPath("$.message").value("未在 Bangumi 找到匹配结果"));
+    }
+
+    @Test
+    void batchMatchBangumi_shouldReturnSummary() throws Exception {
+        when(animeService.batchMatchBangumi()).thenReturn(java.util.Map.of(
+                "matched", 2,
+                "failed", 1,
+                "total", 3
+        ));
+
+        mvc.perform(post("/api/anime/batch-match-bangumi"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.matched").value(2))
+                .andExpect(jsonPath("$.data.failed").value(1))
+                .andExpect(jsonPath("$.data.total").value(3));
+    }
+
+    @Test
+    void getRecommendations_shouldReturnList() throws Exception {
+        when(animeService.getRecommendations()).thenReturn(java.util.List.of(
+                java.util.Map.of("id", 1001, "name", "推荐番剧", "reason", "标签: 奇幻")
+        ));
+
+        mvc.perform(get("/api/anime/recommendations"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data[0].id").value(1001));
+    }
+
+    @Test
+    void getHeatmap_shouldReturnDateMap() throws Exception {
+        when(animeService.getHeatmap()).thenReturn(java.util.Map.of("2026-06-12", 2));
+
+        mvc.perform(get("/api/anime/heatmap"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data['2026-06-12']").value(2));
+    }
 }
