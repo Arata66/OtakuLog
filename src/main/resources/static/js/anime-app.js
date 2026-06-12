@@ -177,7 +177,7 @@
                 <div class="dt-body">
                     <div class="dt-name clickable-name" onclick="openDetailModal(${anime.id})">${highlightText(anime.name, keyword)}</div>
                     <div class="dt-meta"><span class="dt-tag dt-season">${esc(anime.season)}</span>${scoreBadgeHtml(anime.score, 'dt-tag dt-score')}${anime.tags ? renderTags(anime.tags) : ''}</div>
-                    <div class="dt-progress-wrap"><div class="dt-progress-label"><span>${anime.currentEpisode} / ${anime.totalEpisodes} ep</span><span>${pct}%</span></div><div class="dt-progress"><div class="dt-progress-bar ${anime.status}" style="width:${pct}%"></div></div></div>
+                    <div class="dt-progress-wrap"><div class="dt-progress-label"><span>${anime.currentEpisode} / ${anime.totalEpisodes} ep</span><span>${pct}%</span></div><div class="dt-progress"><div class="dt-progress-bar ${anime.status}" style="--progress:${pct}%"></div></div></div>
                     ${anime.remark ? `<div class="dt-remark">${renderRemark(anime.remark)}</div>` : '<div class="dt-remark placeholder-hidden">-</div>'}
                     ${detailActionHtml(anime)}
                 </div>`;
@@ -192,7 +192,7 @@
                 <div class="g-body">
                     <div class="g-name clickable-name" onclick="openDetailModal(${anime.id})">${highlightText(anime.name, keyword)}</div>
                     <div class="g-meta"><span class="g-tag g-season">${esc(anime.season)}</span>${scoreBadgeHtml(anime.score, 'g-tag g-score')}${anime.tags ? renderTags(anime.tags) : ''}</div>
-                    <div class="g-progress"><div class="g-progress-bar ${anime.status}" style="width:${pct}%"></div></div>
+                    <div class="g-progress"><div class="g-progress-bar ${anime.status}" style="--progress:${pct}%"></div></div>
                     <div class="g-ep">${anime.currentEpisode} / ${anime.totalEpisodes} ep / ${SM[anime.status] || anime.status}</div>
                     <div class="g-actions"><button class="g-btn" onclick="openEditModal(${anime.id})">编辑</button><button class="g-btn ep" onclick="prevEpisode(${anime.id})">-</button><button class="g-btn ep" onclick="nextEpisode(${anime.id})">+</button><button class="g-btn del" onclick="deleteAnime(${anime.id})">删</button></div>
                 </div>`;
@@ -492,7 +492,7 @@
                     </div>
                 </div>
                 <div class="detail-body">
-                    <div class="detail-progress-wrap"><div class="detail-progress-label"><span>进度</span><span>${pct}%</span></div><div class="detail-progress"><div class="detail-progress-bar ${a.status}" style="width:${pct}%"></div></div></div>
+                    <div class="detail-progress-wrap"><div class="detail-progress-label"><span>进度</span><span>${pct}%</span></div><div class="detail-progress"><div class="detail-progress-bar ${a.status}" style="--progress:${pct}%"></div></div></div>
                     ${a.remark ? `<div class="detail-remark">${renderRemark(a.remark)}</div>` : ''}
                     <div id="bangumiDetailSection"></div>
                     <div class="detail-actions"><button class="a-btn" onclick="shareAnimeCard(${a.id})">分享</button><button class="a-btn" onclick="closeDetailModal();openEditModal(${a.id})">编辑</button><button class="a-btn ep-btn" onclick="prevEpisode(${a.id})">上一集</button><button class="a-btn ep-btn" onclick="nextEpisode(${a.id})">下一集</button><button class="a-btn" onclick="showAddToGroup(${a.id})">分组</button><button class="a-btn del" onclick="deleteAnime(${a.id});closeDetailModal()">删除</button></div>
@@ -528,7 +528,7 @@
                     const roseW = ((rDist[1]||0)+(rDist[2]||0)+(rDist[3]||0)+(rDist[4]||0)+(rDist[5]||0))/total*100;
                     html += `<div class="bg-section"><div class="bg-section-title">Bangumi 评分</div>
                         <div class="rating-summary"><span class="rating-score">${d.rating.toFixed(1)}</span><span class="rating-count">${d.ratingCount || 0} 人评分</span></div>
-                        <div class="bg-rating-bar"><div class="bg-rating-sage" style="width:${sageW}%"></div><div class="bg-rating-amber" style="width:${amberW}%"></div><div class="bg-rating-rose" style="width:${roseW}%"></div></div>
+                        <div class="bg-rating-bar"><div class="bg-rating-sage" style="--rating-sage:${sageW}%"></div><div class="bg-rating-amber" style="--rating-amber:${amberW}%"></div><div class="bg-rating-rose" style="--rating-rose:${roseW}%"></div></div>
                         <div class="rating-legend"><span>8-10</span><span>6-7</span><span>1-5</span></div>
                     </div>`;
                 }
@@ -1261,7 +1261,7 @@
                         <span class="rating-score">${d.rating.toFixed(1)}</span>
                         <span class="rating-count">${d.ratingCount || 0} 人评分</span>
                     </div>
-                    <div class="bg-rating-bar"><div class="bg-rating-sage" style="width:${sageW}%"></div><div class="bg-rating-amber" style="width:${amberW}%"></div><div class="bg-rating-rose" style="width:${roseW}%"></div></div>
+                    <div class="bg-rating-bar"><div class="bg-rating-sage" style="--rating-sage:${sageW}%"></div><div class="bg-rating-amber" style="--rating-amber:${amberW}%"></div><div class="bg-rating-rose" style="--rating-rose:${roseW}%"></div></div>
                     <div class="rating-legend"><span>8-10</span><span>6-7</span><span>1-5</span></div>
                 </div>`;
             }
