@@ -1,5 +1,6 @@
 package com.otakulog.service;
 
+import com.otakulog.common.ExternalApiException;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
@@ -86,7 +87,7 @@ public class WebDavSyncService {
                 .body(String.class);
 
         if (json == null || json.isEmpty()) {
-            throw new RuntimeException("WebDAV 文件为空或不存在");
+            throw new ExternalApiException("WebDAV 文件为空或不存在");
         }
 
         Map<String, Object> importResult = animeService.importJson(json);
@@ -129,7 +130,7 @@ public class WebDavSyncService {
 
     private void validateConfig() {
         if (webdavUrl.isEmpty()) {
-            throw new RuntimeException("WebDAV 未配置，请在 application.properties 中设置 otakulog.webdav.url");
+            throw new ExternalApiException("WebDAV 未配置，请在 application.properties 中设置 otakulog.webdav.url");
         }
     }
 }

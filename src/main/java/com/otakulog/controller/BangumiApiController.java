@@ -22,7 +22,6 @@ public class BangumiApiController {
 
     private final BangumiService bangumiService;
     private final TraceMoeService traceMoeService;
-
     private final AnimeService animeService;
 
     public BangumiApiController(BangumiService bangumiService, TraceMoeService traceMoeService, AnimeService animeService) {
@@ -36,45 +35,29 @@ public class BangumiApiController {
     public ResponseEntity<ApiResponse<List<BangumiResult>>> searchBangumi(
             @RequestParam String keyword,
             @RequestParam(defaultValue = "8") int limit) {
-        try {
-            List<BangumiResult> results = bangumiService.search(keyword, limit);
-            return ResponseEntity.ok(ApiResponse.success(results));
-        } catch (Exception e) {
-            return ResponseEntity.status(502).body(ApiResponse.error(502, "Bangumi 搜索失败: " + e.getMessage()));
-        }
+        List<BangumiResult> results = bangumiService.search(keyword, limit);
+        return ResponseEntity.ok(ApiResponse.success(results));
     }
 
     @Operation(summary = "获取Bangumi作品详情")
     @GetMapping("/api/bangumi/subject/{id}")
     public ResponseEntity<ApiResponse<BangumiSubjectDetail>> getBangumiSubject(@PathVariable int id) {
-        try {
-            BangumiSubjectDetail detail = bangumiService.getSubject(id);
-            return ResponseEntity.ok(ApiResponse.success(detail));
-        } catch (Exception e) {
-            return ResponseEntity.status(502).body(ApiResponse.error(502, "获取作品详情失败: " + e.getMessage()));
-        }
+        BangumiSubjectDetail detail = bangumiService.getSubject(id);
+        return ResponseEntity.ok(ApiResponse.success(detail));
     }
 
     @Operation(summary = "获取Bangumi剧集列表")
     @GetMapping("/api/bangumi/subject/{id}/episodes")
     public ResponseEntity<ApiResponse<List<BangumiEpisode>>> getBangumiEpisodes(@PathVariable int id) {
-        try {
-            List<BangumiEpisode> episodes = bangumiService.getSubjectEpisodes(id);
-            return ResponseEntity.ok(ApiResponse.success(episodes));
-        } catch (Exception e) {
-            return ResponseEntity.status(502).body(ApiResponse.error(502, "获取剧集列表失败: " + e.getMessage()));
-        }
+        List<BangumiEpisode> episodes = bangumiService.getSubjectEpisodes(id);
+        return ResponseEntity.ok(ApiResponse.success(episodes));
     }
 
     @Operation(summary = "获取Bangumi放送日历")
     @GetMapping("/api/bangumi/calendar")
     public ResponseEntity<ApiResponse<List<Map<String, Object>>>> getBangumiCalendar() {
-        try {
-            List<Map<String, Object>> calendar = bangumiService.getCalendar();
-            return ResponseEntity.ok(ApiResponse.success(calendar));
-        } catch (Exception e) {
-            return ResponseEntity.status(502).body(ApiResponse.error(502, "获取放送日历失败: " + e.getMessage()));
-        }
+        List<Map<String, Object>> calendar = bangumiService.getCalendar();
+        return ResponseEntity.ok(ApiResponse.success(calendar));
     }
 
     @Operation(summary = "Bangumi排行榜")
@@ -83,12 +66,8 @@ public class BangumiApiController {
             @RequestParam(defaultValue = "rank") String sort,
             @RequestParam(defaultValue = "20") int limit,
             @RequestParam(defaultValue = "0") int offset) {
-        try {
-            List<BangumiResult> results = bangumiService.getSubjectRankings(sort, limit, offset);
-            return ResponseEntity.ok(ApiResponse.success(results));
-        } catch (Exception e) {
-            return ResponseEntity.status(502).body(ApiResponse.error(502, "获取排行榜失败: " + e.getMessage()));
-        }
+        List<BangumiResult> results = bangumiService.getSubjectRankings(sort, limit, offset);
+        return ResponseEntity.ok(ApiResponse.success(results));
     }
 
     @Operation(summary = "当季新番列表")
@@ -97,38 +76,26 @@ public class BangumiApiController {
             @RequestParam(defaultValue = "rank") String sort,
             @RequestParam(defaultValue = "20") int limit,
             @RequestParam(defaultValue = "0") int offset) {
-        try {
-            List<BangumiResult> results = bangumiService.getSeasonAnime(sort, limit, offset);
-            return ResponseEntity.ok(ApiResponse.success(results));
-        } catch (Exception e) {
-            return ResponseEntity.status(502).body(ApiResponse.error(502, "获取季度列表失败: " + e.getMessage()));
-        }
+        List<BangumiResult> results = bangumiService.getSeasonAnime(sort, limit, offset);
+        return ResponseEntity.ok(ApiResponse.success(results));
     }
 
     @Operation(summary = "以图搜番(trace.moe)")
     @PostMapping("/api/tracemoe/search")
     public ResponseEntity<ApiResponse<Map<String, Object>>> searchByImage(@RequestParam("image") MultipartFile image) {
-        try {
-            Map<String, Object> result = traceMoeService.searchByImage(image);
-            if (result == null) {
-                return ResponseEntity.status(404).body(ApiResponse.error(404, "未识别到番剧"));
-            }
-            return ResponseEntity.ok(ApiResponse.success(result));
-        } catch (Exception e) {
-            return ResponseEntity.status(502).body(ApiResponse.error(502, "搜索失败: " + e.getMessage()));
+        Map<String, Object> result = traceMoeService.searchByImage(image);
+        if (result == null) {
+            return ResponseEntity.status(404).body(ApiResponse.error(404, "未识别到番剧"));
         }
+        return ResponseEntity.ok(ApiResponse.success(result));
     }
 
     @Operation(summary = "从Bangumi导入追番记录")
     @PostMapping("/api/bangumi/import/{username}")
     public ResponseEntity<ApiResponse<Map<String, Object>>> importFromBangumi(@PathVariable String username) {
-        try {
-            Map<String, Object> result = animeService.importFromBangumi(username);
-            int created = (int) result.get("created");
-            int skipped = (int) result.get("skipped");
-            return ResponseEntity.ok(ApiResponse.success("已导入 " + created + " 条，跳过 " + skipped + " 条", result));
-        } catch (Exception e) {
-            return ResponseEntity.status(502).body(ApiResponse.error(502, "导入失败: " + e.getMessage()));
-        }
+        Map<String, Object> result = animeService.importFromBangumi(username);
+        int created = (int) result.get("created");
+        int skipped = (int) result.get("skipped");
+        return ResponseEntity.ok(ApiResponse.success("已导入 " + created + " 条，跳过 " + skipped + " 条", result));
     }
 }

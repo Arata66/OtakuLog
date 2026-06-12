@@ -1,5 +1,7 @@
 package com.otakulog.service.impl;
 
+import com.otakulog.common.ExternalApiException;
+import com.otakulog.common.ResourceNotFoundException;
 import com.otakulog.dto.AnimeDTO;
 import com.otakulog.dto.AnimeUpdateDTO;
 import com.otakulog.dto.AnimeVO;
@@ -89,7 +91,7 @@ public class AnimeServiceImpl implements AnimeService {
     @Override
     public AnimeVO nextEpisode(Long id) {
         Anime anime = animeRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("未找到该番剧"));
+                .orElseThrow(() -> new ResourceNotFoundException("未找到该番剧"));
 
         if (anime.getCurrentEpisode() >= anime.getTotalEpisodes()) {
             throw new IllegalArgumentException("reached_max");
@@ -117,7 +119,7 @@ public class AnimeServiceImpl implements AnimeService {
     @Override
     public AnimeVO prevEpisode(Long id) {
         Anime anime = animeRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("未找到该番剧"));
+                .orElseThrow(() -> new ResourceNotFoundException("未找到该番剧"));
 
         if (anime.getCurrentEpisode() <= 1) {
             throw new IllegalArgumentException("reached_min");
@@ -137,7 +139,7 @@ public class AnimeServiceImpl implements AnimeService {
     @Override
     public AnimeVO updateAnime(Long id, AnimeUpdateDTO dto) {
         Anime anime = animeRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("未找到该番剧"));
+                .orElseThrow(() -> new ResourceNotFoundException("未找到该番剧"));
 
         anime.setName(dto.getName());
         if (dto.getTotalEpisodes() != null) {
@@ -167,7 +169,7 @@ public class AnimeServiceImpl implements AnimeService {
     @Override
     public AnimeVO updateStatus(Long id, AnimeStatus status) {
         Anime anime = animeRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("未找到该番剧"));
+                .orElseThrow(() -> new ResourceNotFoundException("未找到该番剧"));
 
         anime.setStatus(status);
         if (status == AnimeStatus.FINISHED) {
@@ -185,15 +187,22 @@ public class AnimeServiceImpl implements AnimeService {
     }
 
     @Override
+    @Transactional
     public void deleteAnime(Long id) {
         if (!animeRepository.existsById(id)) {
-            throw new IllegalArgumentException("未找到该番剧");
+            throw new ResourceNotFoundException("未找到该番剧");
         }
+        // 级联删除关联的观看记录，避免孤儿数据
+        episodeRecordRepository.deleteByAnimeId(id);
         animeRepository.deleteById(id);
     }
 
     @Override
+    @Transactional
     public void batchDelete(List<Long> ids) {
+        for (Long id : ids) {
+            episodeRecordRepository.deleteByAnimeId(id);
+        }
         animeRepository.deleteAllById(ids);
     }
 
@@ -535,7 +544,7 @@ public class AnimeServiceImpl implements AnimeService {
     @Transactional
     public AnimeVO matchBangumi(Long id) {
         Anime anime = animeRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("未找到该番剧"));
+                .orElseThrow(() -> new ResourceNotFoundException("未找到该番剧"));
 
         if (anime.getBangumiId() != null) {
             return toVO(anime);

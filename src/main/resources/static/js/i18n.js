@@ -57,7 +57,7 @@ const i18n = {
             'form.broadcastDayUnset': '未设置',
             'form.tags': '标签',
             'form.tagsPlaceholder': '热血,奇幻',
-            'form.submit': '添加'
+            'form.submit': '添加',
             'bangumi.search': 'Bangumi 搜索',
             'bangumi.searching': '搜索中...',
             'bangumi.results': 'Bangumi 搜索结果',
@@ -202,7 +202,7 @@ const i18n = {
             'form.broadcastDayUnset': 'Not set',
             'form.tags': 'Tags',
             'form.tagsPlaceholder': 'action,fantasy',
-            'form.submit': 'Add'
+            'form.submit': 'Add',
             'bangumi.search': 'Bangumi Search',
             'bangumi.searching': 'Searching...',
             'bangumi.results': 'Bangumi Search Results',

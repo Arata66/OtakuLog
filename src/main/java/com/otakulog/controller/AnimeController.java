@@ -137,7 +137,7 @@ public class AnimeController {
             animeService.batchUpdateStatus(request.getIds(), animeStatus);
             return ResponseEntity.ok(ApiResponse.success("批量状态更新成功", null));
         } catch (IllegalArgumentException e) {
-            return ResponseEntity.ok(ApiResponse.error(400, e.getMessage()));
+            return ResponseEntity.badRequest().body(ApiResponse.error(400, e.getMessage()));
         }
     }
 

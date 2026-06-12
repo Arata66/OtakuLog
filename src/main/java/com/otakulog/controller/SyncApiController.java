@@ -22,21 +22,13 @@ public class SyncApiController {
     @Operation(summary = "WebDAV推送")
     @PostMapping("/api/sync/push")
     public ResponseEntity<ApiResponse<Map<String, Object>>> syncPush() {
-        try {
-            return ResponseEntity.ok(ApiResponse.success(webDavSyncService.push()));
-        } catch (Exception e) {
-            return ResponseEntity.status(502).body(ApiResponse.error(502, "推送失败: " + e.getMessage()));
-        }
+        return ResponseEntity.ok(ApiResponse.success(webDavSyncService.push()));
     }
 
     @Operation(summary = "WebDAV拉取")
     @PostMapping("/api/sync/pull")
     public ResponseEntity<ApiResponse<Map<String, Object>>> syncPull() {
-        try {
-            return ResponseEntity.ok(ApiResponse.success(webDavSyncService.pull()));
-        } catch (Exception e) {
-            return ResponseEntity.status(502).body(ApiResponse.error(502, "拉取失败: " + e.getMessage()));
-        }
+        return ResponseEntity.ok(ApiResponse.success(webDavSyncService.pull()));
     }
 
     @Operation(summary = "WebDAV状态")

@@ -1,5 +1,6 @@
 package com.otakulog.service;
 
+import com.otakulog.common.ExternalApiException;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
@@ -84,7 +85,7 @@ public class TraceMoeService {
 
             return result;
         } catch (Exception e) {
-            throw new RuntimeException("trace.moe 搜索失败: " + e.getMessage(), e);
+            throw new ExternalApiException("trace.moe 搜索失败: " + e.getMessage(), e);
         }
     }
 }
