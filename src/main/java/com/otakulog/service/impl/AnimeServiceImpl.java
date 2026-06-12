@@ -335,7 +335,9 @@ public class AnimeServiceImpl implements AnimeService {
         try {
             List<Anime> all = animeRepository.findAll();
             ObjectMapper mapper = new ObjectMapper();
+            mapper.registerModule(new com.fasterxml.jackson.datatype.jsr310.JavaTimeModule());
             mapper.addMixIn(Anime.class, ExportMixIn.class);
+            mapper.disable(com.fasterxml.jackson.databind.SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
             return mapper.writerWithDefaultPrettyPrinter().writeValueAsString(all);
         } catch (Exception e) {
             throw new RuntimeException("导出失败", e);

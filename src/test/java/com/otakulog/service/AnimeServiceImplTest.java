@@ -1,5 +1,6 @@
 package com.otakulog.service;
 
+import com.otakulog.common.ResourceNotFoundException;
 import com.otakulog.dto.AnimeDTO;
 import com.otakulog.dto.AnimeUpdateDTO;
 import com.otakulog.dto.AnimeVO;
@@ -116,7 +117,7 @@ class AnimeServiceImplTest {
 
     @Test
     void deleteAnime_notFound() {
-        assertThrows(IllegalArgumentException.class, () -> animeService.deleteAnime(999L));
+        assertThrows(ResourceNotFoundException.class, () -> animeService.deleteAnime(999L));
     }
 
     @Test
