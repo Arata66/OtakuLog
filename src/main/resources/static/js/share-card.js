@@ -2,10 +2,15 @@
 const ShareCard = {
     // 单部番剧卡片
     async animeCard(anime) {
+        const dpr = window.devicePixelRatio || 1;
+        const w = 400, h = 560;
         const canvas = document.createElement('canvas');
-        canvas.width = 400;
-        canvas.height = 560;
+        canvas.width = w * dpr;
+        canvas.height = h * dpr;
+        canvas.style.width = w + 'px';
+        canvas.style.height = h + 'px';
         const ctx = canvas.getContext('2d');
+        ctx.scale(dpr, dpr);
 
         // 背景
         const gradient = ctx.createLinearGradient(0, 0, 400, 560);
@@ -104,10 +109,15 @@ const ShareCard = {
 
     // 追番总结卡片
     async summaryCard(stats, topAnime) {
+        const dpr = window.devicePixelRatio || 1;
+        const w = 480, h = 640;
         const canvas = document.createElement('canvas');
-        canvas.width = 480;
-        canvas.height = 640;
+        canvas.width = w * dpr;
+        canvas.height = h * dpr;
+        canvas.style.width = w + 'px';
+        canvas.style.height = h + 'px';
         const ctx = canvas.getContext('2d');
+        ctx.scale(dpr, dpr);
 
         // 背景
         const gradient = ctx.createLinearGradient(0, 0, 480, 640);

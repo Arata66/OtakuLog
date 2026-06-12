@@ -10,17 +10,18 @@
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked@12/marked.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/dompurify@3/dist/purify.min.js"></script>
+    <script type="module" src="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.1/dist/index.umd.min.js"></script>
     <script th:src="@{/js/i18n.js}"></script>
     <link rel="stylesheet" th:href="@{/css/anime.css}">
 </head>
 <body>
-    <div class="tw" id="tw"></div>
+    <div class="tw" id="tw" aria-live="polite" aria-atomic="true"></div>
     <div class="mobile-nav"><div class="mobile-nav-inner">
-        <button class="mobile-nav-btn active" onclick="switchTab('list');updateMobileNav(0)"><span class="mobile-nav-icon">☰</span>列表</button>
-        <button class="mobile-nav-btn" onclick="switchTab('charts');updateMobileNav(1)"><span class="mobile-nav-icon">📊</span>图表</button>
-        <button class="mobile-nav-btn" onclick="switchTab('calendar');updateMobileNav(2)"><span class="mobile-nav-icon">📅</span>日历</button>
-        <button class="mobile-nav-btn" onclick="switchTab('timeline');updateMobileNav(3)"><span class="mobile-nav-icon">📈</span>时间线</button>
-        <button class="mobile-nav-btn" onclick="document.querySelector('.add-form').scrollIntoView({behavior:'smooth'})"><span class="mobile-nav-icon">＋</span>添加</button>
+        <button class="mobile-nav-btn active" onclick="switchTab('list');updateMobileNav(0)" aria-label="列表" aria-pressed="true"><i class="ph ph-list mobile-nav-icon" aria-hidden="true"></i><span>列表</span></button>
+        <button class="mobile-nav-btn" onclick="switchTab('charts');updateMobileNav(1)" aria-label="图表" aria-pressed="false"><i class="ph ph-chart-bar mobile-nav-icon" aria-hidden="true"></i><span>图表</span></button>
+        <button class="mobile-nav-btn" onclick="switchTab('calendar');updateMobileNav(2)" aria-label="日历" aria-pressed="false"><i class="ph ph-calendar mobile-nav-icon" aria-hidden="true"></i><span>日历</span></button>
+        <button class="mobile-nav-btn" onclick="switchTab('timeline');updateMobileNav(3)" aria-label="时间线" aria-pressed="false"><i class="ph ph-trend-up mobile-nav-icon" aria-hidden="true"></i><span>时间线</span></button>
+        <button class="mobile-nav-btn" onclick="document.querySelector('.add-form').scrollIntoView({behavior:'smooth'})" aria-label="添加番剧"><i class="ph ph-plus mobile-nav-icon" aria-hidden="true"></i><span>添加</span></button>
     </div></div>
     <div class="batch-toolbar" id="batchToolbar">
         <span class="bt-count" id="batchCount" data-i18n="batch.selected">已选 0 项</span>
@@ -43,42 +44,42 @@
                 <div class="logo-sub" data-i18n="app.subtitle">追番日记</div>
             </div>
             <div class="header-right">
-                <div style="position:relative;display:inline-block;">
-                    <button class="btn-h" onclick="toggleAccentPicker()" title="主题色">🎨</button>
-                    <div class="accent-picker" id="accentPicker">
-                        <div class="accent-swatch active" data-accent="indigo" style="background:#122e8a;" onclick="setAccent('indigo')"></div>
-                        <div class="accent-swatch" data-accent="jade" style="background:#1a7a4a;" onclick="setAccent('jade')"></div>
-                        <div class="accent-swatch" data-accent="violet" style="background:#6a3a8a;" onclick="setAccent('violet')"></div>
-                        <div class="accent-swatch" data-accent="coral" style="background:#c44a3a;" onclick="setAccent('coral')"></div>
-                        <div class="accent-swatch" data-accent="amber" style="background:#8a6a1a;" onclick="setAccent('amber')"></div>
-                        <div class="accent-swatch" data-accent="rose" style="background:#8a3a5a;" onclick="setAccent('rose')"></div>
+                <div class="menu-anchor">
+                    <button class="btn-h icon-only" id="accentBtn" onclick="toggleAccentPicker()" title="主题色" aria-label="打开主题色选择器" aria-haspopup="true" aria-expanded="false" aria-controls="accentPicker"><i class="ph ph-palette" aria-hidden="true"></i></button>
+                    <div class="accent-picker" id="accentPicker" role="group" aria-label="主题色选择">
+                        <button type="button" class="accent-swatch accent-indigo active" data-accent="indigo" onclick="setAccent('indigo')" aria-label="靛蓝主题色" aria-pressed="true"></button>
+                        <button type="button" class="accent-swatch accent-jade" data-accent="jade" onclick="setAccent('jade')" aria-label="翡翠主题色" aria-pressed="false"></button>
+                        <button type="button" class="accent-swatch accent-violet" data-accent="violet" onclick="setAccent('violet')" aria-label="紫色主题色" aria-pressed="false"></button>
+                        <button type="button" class="accent-swatch accent-coral" data-accent="coral" onclick="setAccent('coral')" aria-label="珊瑚主题色" aria-pressed="false"></button>
+                        <button type="button" class="accent-swatch accent-amber" data-accent="amber" onclick="setAccent('amber')" aria-label="琥珀主题色" aria-pressed="false"></button>
+                        <button type="button" class="accent-swatch accent-rose" data-accent="rose" onclick="setAccent('rose')" aria-label="玫瑰主题色" aria-pressed="false"></button>
                     </div>
                 </div>
-                <button class="btn-h" id="langToggle" onclick="i18n.setLang(i18n.lang === 'zh' ? 'en' : 'zh')">EN</button>
-                <button class="btn-h" id="themeToggle" onclick="toggleTheme()" title="切换主题">☽</button>
-                <div style="position:relative;display:inline-block;">
-                    <button class="btn-h" onclick="toggleSyncMenu()" id="syncBtn">☁ 同步</button>
-                    <div id="syncMenu" style="display:none;position:absolute;right:0;top:100%;margin-top:4px;background:var(--card);border:1px solid var(--border-light);border-radius:10px;box-shadow:var(--shadow-lg);min-width:160px;z-index:50;overflow:hidden;">
-                        <button class="sync-menu-btn" onclick="syncPush()">⬆ 推送到 WebDAV</button>
-                        <button class="sync-menu-btn" onclick="syncPull()">⬇ 从 WebDAV 拉取</button>
-                        <button class="sync-menu-btn" onclick="syncStatus()">ℹ 同步状态</button>
-                        <button class="sync-menu-btn" onclick="batchMatchBangumi()" id="btnBatchMatch">🔗 补全 Bangumi 链接</button>
-                        <button class="sync-menu-btn" onclick="importFromBangumi()" id="btnImportBangumi">📥 从 Bangumi 导入</button>
+                <button class="btn-h" id="langToggle" onclick="i18n.setLang(i18n.lang === 'zh' ? 'en' : 'zh')" aria-label="切换语言">EN</button>
+                <button class="btn-h icon-only" id="themeToggle" onclick="toggleTheme()" title="切换主题" aria-label="切换主题"><i class="ph ph-moon" aria-hidden="true"></i></button>
+                <div class="menu-anchor">
+                    <button class="btn-h" onclick="toggleSyncMenu()" id="syncBtn" aria-haspopup="menu" aria-expanded="false" aria-controls="syncMenu"><i class="ph ph-cloud" aria-hidden="true"></i>同步</button>
+                    <div id="syncMenu" class="dropdown-menu is-hidden" role="menu" aria-label="同步菜单">
+                        <button class="sync-menu-btn" role="menuitem" onclick="syncPush()"><i class="ph ph-upload-simple" aria-hidden="true"></i>推送到 WebDAV</button>
+                        <button class="sync-menu-btn" role="menuitem" onclick="syncPull()"><i class="ph ph-download-simple" aria-hidden="true"></i>从 WebDAV 拉取</button>
+                        <button class="sync-menu-btn" role="menuitem" onclick="syncStatus()"><i class="ph ph-info" aria-hidden="true"></i>同步状态</button>
+                        <button class="sync-menu-btn" role="menuitem" onclick="batchMatchBangumi()" id="btnBatchMatch"><i class="ph ph-link" aria-hidden="true"></i>补全 Bangumi 链接</button>
+                        <button class="sync-menu-btn" role="menuitem" onclick="importFromBangumi()" id="btnImportBangumi"><i class="ph ph-arrow-square-in" aria-hidden="true"></i>从 Bangumi 导入</button>
                     </div>
                 </div>
-                <button class="btn-h" onclick="toggleGroupPanel()">📁 分组</button>
+                <button class="btn-h" onclick="toggleGroupPanel()" aria-haspopup="dialog" aria-controls="groupPanel"><i class="ph ph-folder" aria-hidden="true"></i>分组</button>
                 <button class="btn-h" onclick="exportData()">导出</button>
-                <label class="btn-h" style="cursor:pointer;">导入 <input type="file" accept=".json" onchange="importData(event)" style="display:none;"></label>
-                <form th:action="@{/logout}" method="post" style="display:inline;"><button type="submit" class="btn-h ghost">退出</button></form>
+                <label class="btn-h file-btn">导入 <input class="hidden-input" type="file" accept=".json" onchange="importData(event)"></label>
+                <form th:action="@{/logout}" method="post" class="inline-form"><button type="submit" class="btn-h ghost">退出</button></form>
             </div>
         </div>
 
         <!-- Tabs -->
-        <div class="tabs">
-            <div class="tab active" data-i18n="tab.list" onclick="switchTab('list')">番剧列表</div>
-            <div class="tab" data-i18n="tab.charts" onclick="switchTab('charts')">数据图表</div>
-            <div class="tab" data-i18n="tab.calendar" onclick="switchTab('calendar')">日历</div>
-            <div class="tab" data-i18n="tab.timeline" onclick="switchTab('timeline')">时间线</div>
+        <div class="tabs" role="tablist" aria-label="页面导航">
+            <button type="button" class="tab active" role="tab" aria-selected="true" aria-controls="tab-list" data-i18n="tab.list" onclick="switchTab('list')">番剧列表</button>
+            <button type="button" class="tab" role="tab" aria-selected="false" aria-controls="tab-charts" data-i18n="tab.charts" onclick="switchTab('charts')">数据图表</button>
+            <button type="button" class="tab" role="tab" aria-selected="false" aria-controls="tab-calendar" data-i18n="tab.calendar" onclick="switchTab('calendar')">日历</button>
+            <button type="button" class="tab" role="tab" aria-selected="false" aria-controls="tab-timeline" data-i18n="tab.timeline" onclick="switchTab('timeline')">时间线</button>
         </div>
 
         <!-- ===== List ===== -->
@@ -109,11 +110,11 @@
                 <label data-i18n="search.sort">排序</label>
                 <select id="sortBy"><option value="id-desc" data-i18n="search.sortNewest">最新添加</option><option value="score-desc" data-i18n="search.sortScoreHigh">评分高到低</option><option value="score-asc" data-i18n="search.sortScoreLow">评分低到高</option><option value="progress-desc" data-i18n="search.sortProgressHigh">进度高到低</option><option value="progress-asc" data-i18n="search.sortProgressLow">进度低到高</option><option value="name-asc" data-i18n="search.sortName">名称序</option><option value="sortOrder-asc" data-i18n="search.sortCustom">自定义排序</option></select>
                 <label data-i18n="search.tag">标签</label>
-                <input type="text" id="filterTag" data-i18n-placeholder="search.tagPlaceholder" placeholder="标签筛选" style="width:100px;">
+                <input type="text" id="filterTag" class="filter-tag-input" data-i18n-placeholder="search.tagPlaceholder" placeholder="标签筛选">
                 <div class="view-toggle">
-                    <button class="view-btn active" id="viewTable" onclick="toggleView('table')" title="列表视图">&#9776;</button>
-                    <button class="view-btn" id="viewDetail" onclick="toggleView('detail')" title="详情视图">&#9636;</button>
-                    <button class="view-btn" id="viewGallery" onclick="toggleView('gallery')" title="封面墙">&#9638;</button>
+                    <button class="view-btn active" id="viewTable" onclick="toggleView('table')" title="列表视图" aria-label="列表视图" aria-pressed="true"><i class="ph ph-list" aria-hidden="true"></i></button>
+                    <button class="view-btn" id="viewDetail" onclick="toggleView('detail')" title="详情视图" aria-label="详情视图" aria-pressed="false"><i class="ph ph-squares-four" aria-hidden="true"></i></button>
+                    <button class="view-btn" id="viewGallery" onclick="toggleView('gallery')" title="封面墙" aria-label="封面墙视图" aria-pressed="false"><i class="ph ph-image" aria-hidden="true"></i></button>
                 </div>
                 <button class="btn-sm" data-i18n="search.reset" onclick="resetSearch()">重置</button>
             </div>
@@ -127,8 +128,8 @@
                         <div class="form-row">
                             <div class="ff"><label data-i18n="form.name">番剧名</label><input type="text" id="animeName" data-i18n-placeholder="form.namePlaceholder" placeholder="输入名称后搜索" required></div>
                             <button type="button" class="btn-bangumi" id="btnBangumi" onclick="searchBangumi()" data-i18n="bangumi.search">Bangumi 搜索</button>
-                            <button type="button" class="btn-bangumi" onclick="document.getElementById('traceMoeInput').click()" title="以图搜番">📷 搜图</button>
-                            <input type="file" id="traceMoeInput" accept="image/*" style="display:none" onchange="searchTraceMoe(this)">
+                            <button type="button" class="btn-bangumi" onclick="document.getElementById('traceMoeInput').click()" title="以图搜番" aria-label="以图搜番"><i class="ph ph-camera" aria-hidden="true"></i>搜图</button>
+                            <input type="file" id="traceMoeInput" class="hidden-input" accept="image/*" onchange="searchTraceMoe(this)">
                         </div>
                         <div class="ff"><label data-i18n="form.totalEpisodes">总集数</label><input type="number" id="totalEpisodes" placeholder="12" min="1" required></div>
                         <div class="ff"><label data-i18n="form.season">季度</label><input type="text" id="animeSeason" placeholder="2024冬" required></div>
@@ -140,11 +141,11 @@
                         <div class="ff"><label data-i18n="form.broadcastDay">放送日</label><select id="animeBroadcastDay"><option value="" data-i18n="form.broadcastDayUnset">未设置</option><option value="1" data-i18n="day.mon">周一</option><option value="2" data-i18n="day.tue">周二</option><option value="3" data-i18n="day.wed">周三</option><option value="4" data-i18n="day.thu">周四</option><option value="5" data-i18n="day.fri">周五</option><option value="6" data-i18n="day.sat">周六</option><option value="7" data-i18n="day.sun">周日</option></select></div>
                         <div class="ff"><label data-i18n="form.tags">标签</label><input type="text" id="animeTags" data-i18n-placeholder="form.tagsPlaceholder" placeholder="热血,奇幻"></div>
                         <div class="ff"><label>状态</label><select id="animeStatus"><option value="watching">追中</option><option value="planning">计划</option></select></div>
-                        <div class="ff" style="flex-direction:row;align-items:center;gap:6px;">
-                            <input type="checkbox" id="animeLegacy" style="width:auto;">
-                            <label for="animeLegacy" style="text-transform:none;letter-spacing:0;font-size:0.82em;cursor:pointer;">旧番（不计入追番统计）</label>
+                        <div class="ff check-row">
+                            <input type="checkbox" id="animeLegacy" class="compact-check">
+                            <label for="animeLegacy" class="check-label">旧番（不计入追番统计）</label>
                         </div>
-                        <button type="submit" class="btn-add" data-i18n="form.submit">+ 添加</button>
+                        <button type="submit" class="btn-add" data-i18n="form.submit"><i class="ph ph-plus" aria-hidden="true"></i>添加</button>
                     </div>
                 </form>
                 <div class="bangumi-results" id="bangumiResults">
@@ -154,8 +155,8 @@
             </div>
 
             <!-- Table (JS-rendered) -->
-            <div class="table-card"><table><thead><tr><th style="width:28px;"></th><th style="width:36px;padding:12px 8px;text-align:center;"><input type="checkbox" class="batch-cb" id="selectAll" onclick="toggleSelectAll(this)"></th><th style="width:50px;"></th><th style="width:36px;">#</th><th>作品名</th><th style="width:90px;">季度</th><th style="width:90px;">状态</th><th style="width:70px;">评分</th><th style="width:100px;">集数</th><th style="max-width:160px;">备注</th><th style="width:180px;"></th></tr></thead><tbody></tbody></table></div>
-            <div class="empty" id="emptySearch" style="display:none;"><div class="e-icon">~</div><p>还没有追番记录，快去添加一部吧</p></div>
+            <div class="table-card"><table><thead><tr><th class="table-col-drag"></th><th class="table-col-select"><input type="checkbox" class="batch-cb" id="selectAll" onclick="toggleSelectAll(this)" aria-label="选择全部番剧"></th><th class="table-col-cover"></th><th class="table-col-index">#</th><th>作品名</th><th class="table-col-season">季度</th><th class="table-col-status">状态</th><th class="table-col-score">评分</th><th class="table-col-episode">集数</th><th class="table-col-remark">备注</th><th class="table-col-actions"></th></tr></thead><tbody></tbody></table></div>
+            <div class="empty is-hidden" id="emptySearch"><div class="e-icon"><i class="ph ph-book-open" aria-hidden="true"></i></div><p>还没有追番记录</p><span>添加一部番剧后，这里会显示你的观看进度和评分。</span></div>
 
             <!-- Detail -->
             <div class="detail-container" id="detailView">
@@ -167,8 +168,8 @@
                 <div class="gallery-grid" id="galleryGrid"></div>
             </div>
 
-            <div class="pagination-indicator" id="paginationIndicator" style="display:none;"></div>
-            <div id="scrollSentinel" style="height:1px;"></div>
+            <div class="pagination-indicator is-hidden" id="paginationIndicator"></div>
+            <div id="scrollSentinel" class="scroll-sentinel"></div>
         </div>
 
         <!-- ===== Charts ===== -->
@@ -192,17 +193,17 @@
                 <div class="heatmap-container" id="heatmapContainer"></div>
                 <div class="heatmap-legend">
                     <span class="heatmap-label">少</span>
-                    <div class="heatmap-cell" style="background:var(--border-light)"></div>
-                    <div class="heatmap-cell" style="background:rgba(74,106,208,0.3)"></div>
-                    <div class="heatmap-cell" style="background:rgba(74,106,208,0.5)"></div>
-                    <div class="heatmap-cell" style="background:rgba(74,106,208,0.7)"></div>
-                    <div class="heatmap-cell" style="background:rgba(74,106,208,0.9)"></div>
+                    <div class="heatmap-cell heatmap-level-0"></div>
+                    <div class="heatmap-cell heatmap-level-1"></div>
+                    <div class="heatmap-cell heatmap-level-2"></div>
+                    <div class="heatmap-cell heatmap-level-3"></div>
+                    <div class="heatmap-cell heatmap-level-4"></div>
                     <span class="heatmap-label">多</span>
                 </div>
             </div>
             <div class="chart-card">
                 <div class="cal-top-bar">
-                    <h4 style="margin:0;">猜你想看</h4>
+                    <h4 class="card-title-compact">猜你想看</h4>
                     <button class="btn-sm" onclick="loadRecommendations()">换一批</button>
                 </div>
                 <div class="browse-grid" id="recGrid"></div>
@@ -211,52 +212,55 @@
                 <div class="d-card"><div class="d-label">日均集数</div><div class="d-val" id="stat-ep-day">-</div><div class="d-sub">观看习惯</div></div>
                 <div class="d-card"><div class="d-label">月均集数</div><div class="d-val" id="stat-ep-month">-</div><div class="d-sub">观看习惯</div></div>
             </div>
+            <div class="center-action">
+                <button class="a-btn" onclick="generateSummaryCard()">生成追番总结卡</button>
+            </div>
         </div>
 
         <!-- ===== Calendar ===== -->
         <div id="tab-calendar" class="tab-content">
             <div class="cal-mode-bar">
-                <button class="cal-mode-btn active" id="modeCal" onclick="switchCalMode('calendar')">放送日历</button>
-                <button class="cal-mode-btn" id="modeSeason" onclick="switchCalMode('season')">本季新番</button>
-                <button class="cal-mode-btn" id="modeRank" onclick="switchCalMode('rank')">排行榜</button>
+                <button class="cal-mode-btn active" id="modeCal" onclick="switchCalMode('calendar')" aria-pressed="true">放送日历</button>
+                <button class="cal-mode-btn" id="modeSeason" onclick="switchCalMode('season')" aria-pressed="false">本季新番</button>
+                <button class="cal-mode-btn" id="modeRank" onclick="switchCalMode('rank')" aria-pressed="false">排行榜</button>
             </div>
             <div id="calModeCalendar">
                 <div class="chart-card">
                     <div class="cal-top-bar">
-                        <h4 style="margin:0;">放送日历</h4>
+                        <h4 class="card-title-compact">放送日历</h4>
                         <div class="cal-toggle">
-                            <button class="cal-toggle-btn active" id="calViewMine" onclick="switchCalView('mine')">我的</button>
-                            <button class="cal-toggle-btn" id="calViewAll" onclick="switchCalView('all')">本季</button>
+                            <button class="cal-toggle-btn active" id="calViewMine" onclick="switchCalView('mine')" aria-pressed="true">我的</button>
+                            <button class="cal-toggle-btn" id="calViewAll" onclick="switchCalView('all')" aria-pressed="false">本季</button>
                         </div>
                     </div>
                     <div class="cal-days" id="calDays"></div>
                     <div class="cal-content" id="calContent"></div>
                 </div>
             </div>
-            <div id="calModeSeason" style="display:none;">
+            <div id="calModeSeason" class="is-hidden">
                 <div class="chart-card">
                     <div class="cal-top-bar">
-                        <h4 style="margin:0;">本季新番</h4>
+                        <h4 class="card-title-compact">本季新番</h4>
                         <div class="cal-toggle">
                             <button class="cal-toggle-btn active" onclick="loadSeasonAnime('rank')">排名</button>
                             <button class="cal-toggle-btn" onclick="loadSeasonAnime('date')">时间</button>
                         </div>
                     </div>
                     <div class="browse-grid" id="seasonGrid"></div>
-                    <div class="browse-load-more" id="seasonLoadMore" style="display:none;"><button class="btn-sm" onclick="loadSeasonAnime(null,true)">加载更多</button></div>
+                    <div class="browse-load-more is-hidden" id="seasonLoadMore"><button class="btn-sm" onclick="loadSeasonAnime(null,true)">加载更多</button></div>
                 </div>
             </div>
-            <div id="calModeRank" style="display:none;">
+            <div id="calModeRank" class="is-hidden">
                 <div class="chart-card">
                     <div class="cal-top-bar">
-                        <h4 style="margin:0;">Bangumi 排行榜</h4>
+                        <h4 class="card-title-compact">Bangumi 排行榜</h4>
                         <div class="cal-toggle">
                             <button class="cal-toggle-btn active" onclick="loadRankings('rank')">排名</button>
                             <button class="cal-toggle-btn" onclick="loadRankings('date')">时间</button>
                         </div>
                     </div>
                     <div class="browse-grid" id="rankGrid"></div>
-                    <div class="browse-load-more" id="rankLoadMore" style="display:none;"><button class="btn-sm" onclick="loadRankings(null,true)">加载更多</button></div>
+                    <div class="browse-load-more is-hidden" id="rankLoadMore"><button class="btn-sm" onclick="loadRankings(null,true)">加载更多</button></div>
                 </div>
             </div>
         </div>
@@ -265,10 +269,10 @@
         <div id="tab-timeline" class="tab-content">
             <div class="chart-card">
                 <div class="cal-top-bar">
-                    <h4 style="margin:0;" id="tlTitle">追番时间线</h4>
+                    <h4 class="card-title-compact" id="tlTitle">追番时间线</h4>
                     <div class="cal-toggle">
-                        <button class="cal-toggle-btn active" id="tlViewWatch" onclick="switchTimelineMode('watch')">追番</button>
-                        <button class="cal-toggle-btn" id="tlViewAir" onclick="switchTimelineMode('air')">开播</button>
+                        <button class="cal-toggle-btn active" id="tlViewWatch" onclick="switchTimelineMode('watch')" aria-pressed="true">追番</button>
+                        <button class="cal-toggle-btn" id="tlViewAir" onclick="switchTimelineMode('air')" aria-pressed="false">开播</button>
                     </div>
                 </div>
                 <div class="timeline" id="tl"></div>
@@ -277,20 +281,21 @@
     </div>
 
     <!-- 分组面板 -->
-    <div id="groupPanel" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:900;align-items:center;justify-content:center;">
-        <div style="background:var(--card);border-radius:var(--radius);padding:24px;width:400px;max-width:90vw;max-height:80vh;overflow-y:auto;">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-                <h3 style="margin:0;font-family:var(--serif);">分组管理</h3>
+    <div id="groupPanel" class="group-panel" role="dialog" aria-modal="true" aria-labelledby="groupPanelTitle">
+        <div class="group-card">
+            <div class="group-header">
+                <h3 id="groupPanelTitle">分组管理</h3>
                 <button class="btn-sm" onclick="closeGroupPanel()">关闭</button>
             </div>
-            <div style="display:flex;gap:8px;margin-bottom:16px;">
-                <input type="text" id="newGroupName" placeholder="新分组名称" style="flex:1;padding:8px;border:1px solid var(--border-light);border-radius:var(--radius-sm);background:var(--bg);color:var(--text);">
+            <div class="group-form">
+                <input type="text" id="newGroupName" class="app-input" placeholder="新分组名称" aria-label="新分组名称">
                 <button class="a-btn" onclick="createGroup()">创建</button>
             </div>
             <div id="groupList"></div>
         </div>
     </div>
 
+    <script th:src="@{/js/share-card.js}"></script>
     <script th:src="@{/js/anime-app.js}"></script>
 </body>
 </html>
