@@ -94,71 +94,11 @@ public interface AnimeRepository extends JpaRepository<Anime, Long> {
     @Query("UPDATE Anime a SET a.status = 'FINISHED', a.endDate = CURRENT_DATE WHERE a.id IN :ids")
     int batchFinishByIds(@org.springframework.data.repository.query.Param("ids") List<Long> ids);
 
-    // Batch update sortOrder
+    // 按 ID 更新单条 sortOrder，Service 层循环调用
     @Modifying
-    @Query("UPDATE Anime a SET a.sortOrder = CASE a.id " +
-            "WHEN :id0 THEN :order0 " +
-            "WHEN :id1 THEN :order1 " +
-            "WHEN :id2 THEN :order2 " +
-            "WHEN :id3 THEN :order3 " +
-            "WHEN :id4 THEN :order4 " +
-            "WHEN :id5 THEN :order5 " +
-            "WHEN :id6 THEN :order6 " +
-            "WHEN :id7 THEN :order7 " +
-            "WHEN :id8 THEN :order8 " +
-            "WHEN :id9 THEN :order9 " +
-            "WHEN :id10 THEN :order10 " +
-            "WHEN :id11 THEN :order11 " +
-            "WHEN :id12 THEN :order12 " +
-            "WHEN :id13 THEN :order13 " +
-            "WHEN :id14 THEN :order14 " +
-            "WHEN :id15 THEN :order15 " +
-            "WHEN :id16 THEN :order16 " +
-            "WHEN :id17 THEN :order17 " +
-            "WHEN :id18 THEN :order18 " +
-            "WHEN :id19 THEN :order19 END " +
-            "WHERE a.id IN :ids")
-    int batchUpdateSortOrder(@org.springframework.data.repository.query.Param("ids") List<Long> ids,
-                             @org.springframework.data.repository.query.Param("id0") Long id0,
-                             @org.springframework.data.repository.query.Param("order0") Integer order0,
-                             @org.springframework.data.repository.query.Param("id1") Long id1,
-                             @org.springframework.data.repository.query.Param("order1") Integer order1,
-                             @org.springframework.data.repository.query.Param("id2") Long id2,
-                             @org.springframework.data.repository.query.Param("order2") Integer order2,
-                             @org.springframework.data.repository.query.Param("id3") Long id3,
-                             @org.springframework.data.repository.query.Param("order3") Integer order3,
-                             @org.springframework.data.repository.query.Param("id4") Long id4,
-                             @org.springframework.data.repository.query.Param("order4") Integer order4,
-                             @org.springframework.data.repository.query.Param("id5") Long id5,
-                             @org.springframework.data.repository.query.Param("order5") Integer order5,
-                             @org.springframework.data.repository.query.Param("id6") Long id6,
-                             @org.springframework.data.repository.query.Param("order6") Integer order6,
-                             @org.springframework.data.repository.query.Param("id7") Long id7,
-                             @org.springframework.data.repository.query.Param("order7") Integer order7,
-                             @org.springframework.data.repository.query.Param("id8") Long id8,
-                             @org.springframework.data.repository.query.Param("order8") Integer order8,
-                             @org.springframework.data.repository.query.Param("id9") Long id9,
-                             @org.springframework.data.repository.query.Param("order9") Integer order9,
-                             @org.springframework.data.repository.query.Param("id10") Long id10,
-                             @org.springframework.data.repository.query.Param("order10") Integer order10,
-                             @org.springframework.data.repository.query.Param("id11") Long id11,
-                             @org.springframework.data.repository.query.Param("order11") Integer order11,
-                             @org.springframework.data.repository.query.Param("id12") Long id12,
-                             @org.springframework.data.repository.query.Param("order12") Integer order12,
-                             @org.springframework.data.repository.query.Param("id13") Long id13,
-                             @org.springframework.data.repository.query.Param("order13") Integer order13,
-                             @org.springframework.data.repository.query.Param("id14") Long id14,
-                             @org.springframework.data.repository.query.Param("order14") Integer order14,
-                             @org.springframework.data.repository.query.Param("id15") Long id15,
-                             @org.springframework.data.repository.query.Param("order15") Integer order15,
-                             @org.springframework.data.repository.query.Param("id16") Long id16,
-                             @org.springframework.data.repository.query.Param("order16") Integer order16,
-                             @org.springframework.data.repository.query.Param("id17") Long id17,
-                             @org.springframework.data.repository.query.Param("order17") Integer order17,
-                             @org.springframework.data.repository.query.Param("id18") Long id18,
-                             @org.springframework.data.repository.query.Param("order18") Integer order18,
-                             @org.springframework.data.repository.query.Param("id19") Long id19,
-                             @org.springframework.data.repository.query.Param("order19") Integer order19);
+    @Query("UPDATE Anime a SET a.sortOrder = :sortOrder WHERE a.id = :id")
+    int updateSortOrderById(@org.springframework.data.repository.query.Param("id") Long id,
+                            @org.springframework.data.repository.query.Param("sortOrder") Integer sortOrder);
 
     // Enhanced stats
     @Query("SELECT FUNCTION('YEAR', a.startDate) as yr, COUNT(a), AVG(a.score) FROM Anime a WHERE a.startDate IS NOT NULL AND a.score IS NOT NULL AND a.score > 0 GROUP BY yr ORDER BY yr DESC")

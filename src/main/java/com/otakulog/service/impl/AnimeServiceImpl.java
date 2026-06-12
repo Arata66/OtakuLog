@@ -800,33 +800,10 @@ public class AnimeServiceImpl implements AnimeService {
     @Transactional
     public void reorderAnime(List<Map<String, Object>> orders) {
         if (orders == null || orders.isEmpty()) return;
-        // 分批处理，每批最多 20 条
-        for (int i = 0; i < orders.size(); i += 20) {
-            List<Map<String, Object>> batch = orders.subList(i, Math.min(i + 20, orders.size()));
-            List<Long> ids = new ArrayList<>();
-            Long[] idArr = new Long[20];
-            Integer[] orderArr = new Integer[20];
-            for (int j = 0; j < 20; j++) {
-                if (j < batch.size()) {
-                    Long id = Long.valueOf(batch.get(j).get("id").toString());
-                    Integer order = Integer.valueOf(batch.get(j).get("sortOrder").toString());
-                    ids.add(id);
-                    idArr[j] = id;
-                    orderArr[j] = order;
-                } else {
-                    // 填充占位值（不会匹配任何记录）
-                    idArr[j] = -1L;
-                    orderArr[j] = 0;
-                }
-            }
-            animeRepository.batchUpdateSortOrder(ids,
-                    idArr[0], orderArr[0], idArr[1], orderArr[1], idArr[2], orderArr[2],
-                    idArr[3], orderArr[3], idArr[4], orderArr[4], idArr[5], orderArr[5],
-                    idArr[6], orderArr[6], idArr[7], orderArr[7], idArr[8], orderArr[8],
-                    idArr[9], orderArr[9], idArr[10], orderArr[10], idArr[11], orderArr[11],
-                    idArr[12], orderArr[12], idArr[13], orderArr[13], idArr[14], orderArr[14],
-                    idArr[15], orderArr[15], idArr[16], orderArr[16], idArr[17], orderArr[17],
-                    idArr[18], orderArr[18], idArr[19], orderArr[19]);
+        for (Map<String, Object> order : orders) {
+            Long id = Long.valueOf(order.get("id").toString());
+            Integer sortOrder = Integer.valueOf(order.get("sortOrder").toString());
+            animeRepository.updateSortOrderById(id, sortOrder);
         }
     }
 
