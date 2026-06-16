@@ -267,19 +267,6 @@ otakulog.webdav.password=
 otakulog.webdav.filename=otakulog_backup.json
 ```
 
-## 开发历程
-
-项目经过六阶段系统优化，代码质量与测试覆盖显著提升：
-
-| 阶段 | 内容 | 关键成果 |
-|------|------|----------|
-| 一 | 配色/字体/图标升级 | Phosphor Icons + 6 主题色 + Outfit 字体 |
-| 二 | 错误处理加固 | 全局异常映射 10 种 + 前端统一错误反馈 |
-| 三 | 代码质量清理 | CSS 变量化 + JS 内联样式提取 + 函数拆分 |
-| 四 | Service 层重构 | 接口+实现分离，`batchUpdateSortOrder` 去硬编码 |
-| 五 | 测试基础建设 | 32 测试用例，Controller/Service/Repository 全覆盖 |
-| 六 | 体验润色 | View Toggle 图标 + HiDPI 分享卡 + 焦点环无障碍 |
-
 ## 项目约定
 
 - 语言：中文对话、文档、注释
