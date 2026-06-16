@@ -5,13 +5,14 @@
 ## 核心功能
 
 ### 番剧管理
-- 添加、编辑、删除追番记录（支持 Bangumi ID 去重）
+- 添加、编辑、删除追番记录（支持 Bangumi ID / 名称双重去重）
 - 进度追踪（上一集/下一集），到达最后一集自动标记完成
 - 评分（0-10）与 Markdown 备注
-- 三种视图：表格列表 / 详情卡片 / 封面画廊
-- 批量操作（删除、改状态）
-- 拖拽排序（SortableJS）
-- 番剧分组（创建/查看/删除分组，分组内追番）
+- 三种视图：表格列表 / 详情卡片 / 封面画廊（带 View Toggle 图标切换）
+- 批量操作（删除、改状态、标记完成）
+- 拖拽排序（SortableJS），排序持久化到后端
+- 番剧分组（创建/查看/删除分组，分组内管理番剧）
+- 数据分页查询
 
 ### Bangumi 集成
 - 搜索 Bangumi 番剧数据库（名称/标签）
@@ -23,8 +24,8 @@
 
 ### 数据分析
 - 统计概览：总数/追中/完成/计划/放弃/进度/平均分
-- 增强统计：年度对比/评分分布/标签统计/观看习惯
-- 观看热力图（基于 episode_record 事件驱动，精确到集）
+- 增强统计：年度对比 / 评分分布 / 标签统计 / 观看习惯
+- 观看热力图（基于 `episode_record` 表事件驱动，精确到每集）
 - 季度汇总 / 月度完成报告
 - 追番时间线（按追番日期 / 开播日期）
 
@@ -40,7 +41,7 @@
 - WebDAV 多设备同步（推送/拉取/状态检查）
 
 ### 分享功能
-- 番剧分享卡（单部，带封面 + 评分 + 进度）
+- 番剧分享卡（单部，带封面 + 评分 + 进度，HiDPI 画质）
 - 追番总结卡（含统计概览 + TOP 番剧）
 
 ### 界面特性
@@ -51,6 +52,7 @@
 - 键盘快捷键（1-4 切换 Tab，/ 聚焦搜索，Esc 关闭弹窗）
 - 封面图 IntersectionObserver 懒加载
 - 骨架屏（表格/画廊/详情三种模式）
+- 焦点环（按钮/弹窗键盘无障碍导航）
 - PWA 支持（可安装到桌面 + Service Worker 离线缓存）
 - 中英文国际化（i18n）
 - Phosphor Icons 图标体系
@@ -79,13 +81,13 @@
 
 | 技术 | 用途 |
 |------|------|
-| 原生 JavaScript（1668 行） | 单页应用逻辑 |
+| 原生 JavaScript（~2250 行，3 模块） | 单页应用逻辑 |
 | Chart.js | 统计图表（7 个实例） |
 | SortableJS | 拖拽排序 |
-| Marked + DOMPurify | Markdown 渲染 |
+| Marked + DOMPurify | Markdown 渲染 + XSS 防护 |
 | Phosphor Icons | 图标（CDN） |
 | Outfit 字体 | Google Fonts |
-| CSS 自定义属性 | 主题色/深色模式/进度条 |
+| CSS 自定义属性（~940 行） | 主题色/深色模式/进度条/组件样式 |
 
 ### 测试
 
@@ -113,21 +115,21 @@ OtakuLog/
 │   │   ├── CacheConfig.java                  # Caffeine 缓存配置
 │   │   └── OpenApiConfig.java                # Swagger/OpenAPI 配置
 │   ├── controller/
-│   │   ├── AnimeController.java              # 番剧 CRUD + 统计 + 搜索
+│   │   ├── AnimeController.java              # 番剧 CRUD + 统计 + 搜索（~310 行）
 │   │   ├── BangumiApiController.java         # Bangumi 搜索/详情/导入
 │   │   ├── GroupController.java              # 番剧分组管理
 │   │   ├── LoginController.java              # 登录页
 │   │   └── SyncApiController.java            # WebDAV 数据同步
 │   ├── dto/                                  # 8 个数据传输对象
 │   ├── entity/
-│   │   ├── Anime.java                        # 番剧实体（21 字段）
+│   │   ├── Anime.java                        # 番剧实体（17 字段 + 2 审计）
 │   │   ├── AnimeGroup.java                   # 分组实体
 │   │   ├── EpisodeRecord.java                # 每集观看记录（热力图数据源）
 │   │   └── BaseEntity.java                   # 基础实体（createdAt/updatedAt）
 │   ├── enums/
 │   │   └── AnimeStatus.java                  # WATCHING/FINISHED/PLANNING/DROPPED
 │   ├── repository/
-│   │   ├── AnimeRepository.java              # 番剧数据访问（~20 查询方法）
+│   │   ├── AnimeRepository.java              # 番剧数据访问（~30 查询方法）
 │   │   ├── AnimeGroupRepository.java         # 分组数据访问
 │   │   └── EpisodeRecordRepository.java      # 观看记录数据访问
 │   ├── service/
@@ -137,7 +139,7 @@ OtakuLog/
 │   │   ├── TraceMoeService.java              # 以图搜番接口
 │   │   ├── WebDavSyncService.java            # WebDAV 同步接口
 │   │   └── impl/
-│   │       ├── AnimeServiceImpl.java         # 番剧服务实现（~880 行）
+│   │       ├── AnimeServiceImpl.java         # 番剧服务实现（~870 行）
 │   │       ├── BangumiServiceImpl.java       # Bangumi 服务实现（~360 行）
 │   │       ├── AiringScheduleServiceImpl.java # 放送时间表实现
 │   │       ├── TraceMoeServiceImpl.java      # 以图搜番实现
@@ -150,11 +152,12 @@ OtakuLog/
 │   │   └── login.html                        # 登录页
 │   ├── static/
 │   │   ├── css/
-│   │   │   └── anime.css                     # 样式表（~950 行，CSS 变量体系）
+│   │   │   └── anime.css                     # 样式表（~940 行，CSS 变量体系）
 │   │   ├── js/
-│   │   │   ├── anime-app.js                  # 前端主逻辑（1668 行）
-│   │   │   ├── i18n.js                       # 中英文国际化
-│   │   │   └── share-card.js                 # Canvas 分享卡生成
+│   │   │   ├── anime-app.js                  # 前端主逻辑（~1670 行）
+│   │   │   ├── i18n.js                       # 中英文国际化（~320 行）
+│   │   │   └── share-card.js                 # Canvas 分享卡生成（~260 行）
+│   │   ├── icons/                            # PWA 图标（192/512）
 │   │   ├── manifest.json                     # PWA 清单
 │   │   └── sw.js                             # Service Worker
 │   ├── db/migration/
@@ -179,7 +182,7 @@ OtakuLog/
 
 | 表 | 用途 |
 |----|------|
-| `anime` | 核心番剧表（21 列，含 bangumi_id/legacy/watch_start_date） |
+| `anime` | 核心番剧表（19 列，含 bangumi_id/legacy/watch_start_date） |
 | `anime_group` | V4 新增，番剧分组 |
 | `group_anime` | V4 新增，分组-番剧多对多关联 |
 | `episode_record` | V5 新增，每集观看记录，驱动热力图 |
@@ -233,7 +236,7 @@ OtakuLog/
 mvn test
 ```
 
-测试使用 H2 内存数据库，无需 MySQL。32 个测试覆盖 Controller/Service/Repository 三层。
+测试使用 H2 内存数据库，无需 MySQL。32 个测试覆盖 Controller（8）/ Service（16）/ Repository（8）三层。
 
 ### API 文档
 
@@ -263,6 +266,19 @@ otakulog.webdav.username=
 otakulog.webdav.password=
 otakulog.webdav.filename=otakulog_backup.json
 ```
+
+## 开发历程
+
+项目经过六阶段系统优化，代码质量与测试覆盖显著提升：
+
+| 阶段 | 内容 | 关键成果 |
+|------|------|----------|
+| 一 | 配色/字体/图标升级 | Phosphor Icons + 6 主题色 + Outfit 字体 |
+| 二 | 错误处理加固 | 全局异常映射 10 种 + 前端统一错误反馈 |
+| 三 | 代码质量清理 | CSS 变量化 + JS 内联样式提取 + 函数拆分 |
+| 四 | Service 层重构 | 接口+实现分离，`batchUpdateSortOrder` 去硬编码 |
+| 五 | 测试基础建设 | 32 测试用例，Controller/Service/Repository 全覆盖 |
+| 六 | 体验润色 | View Toggle 图标 + HiDPI 分享卡 + 焦点环无障碍 |
 
 ## 项目约定
 
