@@ -45,7 +45,7 @@
 - 追番总结卡（含统计概览 + TOP 番剧）
 
 ### 界面特性
-- 6 种预设主题色切换（靛蓝/翡翠/紫/珊瑚/琥珀/玫瑰）
+- 6 种预设主题色切换（靛蓝/jade/紫/珊瑚/琥珀/玫瑰）
 - 深色/浅色模式
 - 响应式设计，移动端适配
 - 移动端底部导航栏 + 左右滑动切换 Tab
@@ -65,8 +65,8 @@
 | Spring Data JPA | - | ORM |
 | Spring Security | - | 表单登录认证 |
 | Spring Cache + Caffeine | - | Bangumi API 响应缓存 |
-| Flyway | 9.x | 数据库迁移（5 个版本） |
-| Flyway MySQL | 9.x | MySQL 方言支持 |
+| Flyway | 9.22.3 | 数据库迁移（5 个版本） |
+| Flyway MySQL | 9.22.3 | MySQL 方言支持 |
 | MySQL | 8.0+ | 生产数据库 |
 | H2 | - | 测试环境内存数据库 |
 | Thymeleaf | - | 服务端模板引擎 |
@@ -106,7 +106,7 @@ OtakuLog/
 │   ├── OtakuLogApplication.java              # 应用入口
 │   ├── common/
 │   │   ├── ApiResponse.java                  # 统一 API 响应体
-│   │   ├── GlobalExceptionHandler.java       # 全局异常处理（10 种异常映射）
+│   │   ├── GlobalExceptionHandler.java       # 全局异常处理（11 种异常映射）
 │   │   ├── ResourceNotFoundException.java    # 资源不存在异常（→404）
 │   │   └── ExternalApiException.java         # 外部 API 异常（→502）
 │   ├── config/
@@ -169,11 +169,11 @@ OtakuLog/
 │   └── application.properties                # 应用配置
 ├── src/test/java/com/otakulog/
 │   ├── controller/
-│   │   └── AnimeControllerTest.java          # Controller 层测试（8 用例）
+│   │   └── AnimeControllerTest.java          # Controller 层测试（13 用例）
 │   ├── repository/
 │   │   └── AnimeRepositoryTest.java          # Repository 层测试（8 用例）
 │   └── service/
-│       └── AnimeServiceImplTest.java         # Service 层测试（16 用例）
+│       └── AnimeServiceImplTest.java         # Service 层测试（23 用例）
 ├── pom.xml
 └── README.md
 ```
@@ -236,7 +236,7 @@ OtakuLog/
 mvn test
 ```
 
-测试使用 H2 内存数据库，无需 MySQL。32 个测试覆盖 Controller（8）/ Service（16）/ Repository（8）三层。
+测试使用 H2 内存数据库，无需 MySQL。44 个测试覆盖 Controller（13）/ Service（23）/ Repository（8）三层。
 
 ### API 文档
 
