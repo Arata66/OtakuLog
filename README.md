@@ -267,14 +267,6 @@ otakulog.webdav.password=
 otakulog.webdav.filename=otakulog_backup.json
 ```
 
-## 项目约定
-
-- 语言：中文对话、文档、注释
-- 提交格式：`feat(scope): 描述` | `fix(scope): 描述` | `refactor(scope): 描述`
-- 分支命名：`<用户名>/<功能描述>`
-- 代码质量门禁：编译通过 + JS 语法检查 + 32 个测试全部通过 + 空白字符检查
-- 详细约定见 [CLAUDE.md](CLAUDE.md)
-
 ## 许可证
 
 MIT License
