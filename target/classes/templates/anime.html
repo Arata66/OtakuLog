@@ -215,6 +215,56 @@
             </div>
             <div class="center-action">
                 <button class="a-btn" onclick="generateSummaryCard()">生成追番总结卡</button>
+                <button class="a-btn" onclick="showAnnualReport()" style="margin-left: 10px;">查看年度报告</button>
+            </div>
+        </div>
+
+        <!-- 年度报告弹窗 -->
+        <div id="annualReportModal" class="modal-overlay is-hidden" onclick="closeAnnualReport(event)">
+            <div class="modal-content" onclick="event.stopPropagation()">
+                <div class="modal-header">
+                    <h3 id="reportTitle">年度报告</h3>
+                    <button class="btn-close" onclick="closeAnnualReport()">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="report-stats">
+                        <div class="report-stat-card">
+                            <div class="report-stat-label">完成番剧</div>
+                            <div class="report-stat-value" id="reportTotalWatched">-</div>
+                        </div>
+                        <div class="report-stat-card">
+                            <div class="report-stat-label">总集数</div>
+                            <div class="report-stat-value" id="reportTotalEpisodes">-</div>
+                        </div>
+                        <div class="report-stat-card">
+                            <div class="report-stat-label">平均评分</div>
+                            <div class="report-stat-value" id="reportAvgRating">-</div>
+                        </div>
+                        <div class="report-stat-card">
+                            <div class="report-stat-label">观看时长</div>
+                            <div class="report-stat-value" id="reportWatchingHours">-</div>
+                            <div class="report-stat-sub">小时</div>
+                        </div>
+                    </div>
+                    <div class="report-charts">
+                        <div class="report-chart-card">
+                            <h4>月度完成趋势</h4>
+                            <canvas id="reportMonthlyChart"></canvas>
+                        </div>
+                        <div class="report-chart-card">
+                            <h4>评分分布</h4>
+                            <canvas id="reportRatingChart"></canvas>
+                        </div>
+                        <div class="report-chart-card">
+                            <h4>标签偏好 TOP 10</h4>
+                            <canvas id="reportTagChart"></canvas>
+                        </div>
+                        <div class="report-chart-card">
+                            <h4>年度 TOP 番剧</h4>
+                            <div id="reportTopAnimes" class="report-top-list"></div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
 

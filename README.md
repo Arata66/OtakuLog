@@ -205,7 +205,7 @@ OtakuLog/
 
 2. **创建数据库**
    ```sql
-   CREATE DATABASE otaku_log CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+   CREATE DATABASE otakulog CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
    ```
 
 3. **配置数据库连接**
@@ -216,7 +216,7 @@ OtakuLog/
    spring.datasource.password=${DB_PASS:你的密码}
    ```
 
-   默认连接 `localhost:3306/otaku_log`。
+   默认连接 `localhost:3306/otakulog`。
 
 4. **编译并启动**
    ```bash
@@ -241,6 +241,28 @@ mvn test
 ### API 文档
 
 启动后访问 Swagger UI：http://localhost:8080/swagger-ui.html
+
+### Docker 部署
+
+使用 Docker Compose 一键启动（含 MySQL）：
+
+```bash
+# 设置数据库密码（可选，默认 123456）
+export DB_PASS=your_password
+
+# 构建并启动
+docker-compose up -d
+
+# 查看日志
+docker-compose logs -f otakulog
+
+# 停止
+docker-compose down
+```
+
+启动后访问 http://localhost:8080，默认登录凭据：`admin` / `admin`。
+
+数据持久化在 Docker volume `mysql_data` 中，容器重启不会丢失。
 
 ## 配置说明
 

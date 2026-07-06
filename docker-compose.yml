@@ -1,0 +1,27 @@
+version: '3.8'
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: otakulog-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASS:-123456}
+      MYSQL_DATABASE: otakulog
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+
+  otakulog:
+    build: .
+    container_name: otakulog-app
+    ports:
+      - "8080:8080"
+    environment:
+      DB_USER: root
+      DB_PASS: ${DB_PASS:-123456}
+    depends_on:
+      - mysql
+
+volumes:
+  mysql_data:

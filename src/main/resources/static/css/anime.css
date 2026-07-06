@@ -675,6 +675,36 @@
         .modal-field select option { background: var(--card); }
         .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 20px; }
 
+        /* 年度报告弹窗 */
+        #annualReportModal .modal-content {
+            background: var(--card); border-radius: var(--radius);
+            box-shadow: 0 16px 48px rgba(0,0,0,0.12); padding: 32px;
+            width: 900px; max-width: 95vw; max-height: 90vh; overflow-y: auto;
+        }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+        .modal-header h3 { font-family: var(--display); font-size: 1.3em; color: var(--text); font-weight: 400; margin: 0; }
+        .btn-close { background: none; border: none; font-size: 1.5em; color: var(--text-dim); cursor: pointer; padding: 0 8px; }
+        .btn-close:hover { color: var(--text); }
+        .report-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 32px; }
+        .report-stat-card { background: var(--bg); border-radius: 12px; padding: 20px; text-align: center; }
+        .report-stat-label { font-size: 0.8em; color: var(--text-dim); margin-bottom: 8px; }
+        .report-stat-value { font-size: 2em; font-weight: 700; color: var(--primary); }
+        .report-stat-sub { font-size: 0.75em; color: var(--text-dim); margin-top: 4px; }
+        .report-charts { display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px; }
+        .report-chart-card { background: var(--bg); border-radius: 12px; padding: 20px; }
+        .report-chart-card h4 { font-size: 0.95em; color: var(--text); margin-bottom: 16px; font-weight: 500; }
+        .report-top-list { max-height: 300px; overflow-y: auto; }
+        .report-top-item { display: flex; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border); }
+        .report-top-item:last-child { border-bottom: none; }
+        .report-rank { font-weight: 700; color: var(--primary); width: 40px; }
+        .report-name { flex: 1; font-size: 0.9em; color: var(--text); }
+        .report-score { font-weight: 600; color: var(--text-dim); }
+        .report-empty { text-align: center; color: var(--text-dim); padding: 40px 0; }
+        @media (max-width: 768px) {
+            .report-stats { grid-template-columns: repeat(2, 1fr); }
+            .report-charts { grid-template-columns: 1fr; }
+        }
+
         /* Gallery edit overlay */
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: transparent; }

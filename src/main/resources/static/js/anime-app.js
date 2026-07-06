@@ -1402,6 +1402,67 @@
             }
         }
 
+        /* 年度报告 */
+        let _reportCharts = [];
+        async function showAnnualReport(year) {
+            const url = year ? `/api/report/annual/${year}` : '/api/report/annual/latest';
+            const r = await fetchApi(url);
+            if (!r || r.code !== 200) { toast('获取年度报告失败', 'error'); return; }
+            const d = r.data;
+            document.getElementById('reportTitle').textContent = d.year + ' 年度追番报告';
+            document.getElementById('reportTotalWatched').textContent = d.totalWatched;
+            document.getElementById('reportTotalEpisodes').textContent = d.totalEpisodes;
+            document.getElementById('reportAvgRating').textContent = d.averageRating;
+            document.getElementById('reportWatchingHours').textContent = d.watchingHours;
+
+            // 销毁旧图表
+            _reportCharts.forEach(c => c.destroy());
+            _reportCharts = [];
+
+            // 月度趋势
+            const monthlyCtx = document.getElementById('reportMonthlyChart').getContext('2d');
+            const monthlyLabels = d.monthlyStats.map(m => m.month + '月');
+            const monthlyData = d.monthlyStats.map(m => m.count);
+            _reportCharts.push(new Chart(monthlyCtx, {
+                type: 'bar',
+                data: { labels: monthlyLabels, datasets: [{ label: '完成番剧', data: monthlyData, backgroundColor: 'rgba(26,86,219,0.6)', borderRadius: 4 }] },
+                options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } }
+            }));
+
+            // 评分分布
+            const ratingCtx = document.getElementById('reportRatingChart').getContext('2d');
+            _reportCharts.push(new Chart(ratingCtx, {
+                type: 'bar',
+                data: { labels: d.ratingDistribution.map(r => r.range), datasets: [{ label: '数量', data: d.ratingDistribution.map(r => r.count), backgroundColor: ['#ef4444','#f59e0b','#eab308','#22c55e','#3b82f6'], borderRadius: 4 }] },
+                options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } }
+            }));
+
+            // 标签偏好
+            const tagCtx = document.getElementById('reportTagChart').getContext('2d');
+            const tagColors = ['#3b82f6','#8b5cf6','#ec4899','#f59e0b','#10b981','#06b6d4','#f97316','#6366f1','#14b8a6','#e11d48'];
+            _reportCharts.push(new Chart(tagCtx, {
+                type: 'doughnut',
+                data: { labels: d.tagDistribution.slice(0, 10).map(t => t.tag), datasets: [{ data: d.tagDistribution.slice(0, 10).map(t => t.count), backgroundColor: tagColors.slice(0, d.tagDistribution.length), borderWidth: 0 }] },
+                options: { responsive: true, plugins: { legend: { position: 'right', labels: { font: { size: 11 } } } } }
+            }));
+
+            // TOP 番剧
+            const topEl = document.getElementById('reportTopAnimes');
+            if (d.topAnimes && d.topAnimes.length) {
+                topEl.innerHTML = d.topAnimes.map((a, i) =>
+                    `<div class="report-top-item"><span class="report-rank">#${i + 1}</span><span class="report-name">${esc(a.name)}</span><span class="report-score">${a.score}</span></div>`
+                ).join('');
+            } else {
+                topEl.innerHTML = '<div class="report-empty">本年度暂无完成番剧</div>';
+            }
+
+            document.getElementById('annualReportModal').classList.remove('is-hidden');
+        }
+        function closeAnnualReport(e) {
+            if (e && e.target !== e.currentTarget) return;
+            document.getElementById('annualReportModal').classList.add('is-hidden');
+        }
+
         /* Init */
         function init() {
             if (window.__i) return; window.__i = true;

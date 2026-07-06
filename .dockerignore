@@ -1,0 +1,8 @@
+target/
+.git/
+*.md
+.idea/
+.vscode/
+*.iml
+.DS_Store
+CLAUDE.local.md
