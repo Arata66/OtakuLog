@@ -5,6 +5,7 @@ import com.otakulog.dto.AnimeDTO;
 import com.otakulog.dto.AnimeUpdateDTO;
 import com.otakulog.dto.AnimeVO;
 import com.otakulog.dto.BatchRequest;
+import com.otakulog.dto.TagDTO;
 import com.otakulog.enums.AnimeStatus;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -255,6 +256,40 @@ public class AnimeController {
     @ResponseBody
     public ResponseEntity<ApiResponse<Map<String, Integer>>> getHeatmap() {
         return ResponseEntity.ok(ApiResponse.success(animeService.getHeatmap()));
+    }
+
+    @Operation(summary = "获取所有标签及数量")
+    @GetMapping("/api/tags")
+    @ResponseBody
+    public ResponseEntity<ApiResponse<List<TagDTO>>> getAllTags() {
+        return ResponseEntity.ok(ApiResponse.success(animeService.getAllTagsWithCount()));
+    }
+
+    @Operation(summary = "获取标签下的番剧")
+    @GetMapping("/api/tags/{id}/animes")
+    @ResponseBody
+    public ResponseEntity<ApiResponse<List<AnimeVO>>> getAnimesByTag(@PathVariable Long id) {
+        return ResponseEntity.ok(ApiResponse.success(animeService.getAnimesByTagId(id)));
+    }
+
+    @Operation(summary = "为番剧添加标签")
+    @PostMapping("/api/anime/{id}/tags")
+    @ResponseBody
+    public ResponseEntity<ApiResponse<Void>> addTag(
+            @PathVariable Long id,
+            @RequestBody Map<String, String> body) {
+        animeService.addTagToAnime(id, body.get("tagName"));
+        return ResponseEntity.ok(ApiResponse.success("标签已添加", null));
+    }
+
+    @Operation(summary = "移除番剧的标签")
+    @DeleteMapping("/api/anime/{id}/tags/{tagId}")
+    @ResponseBody
+    public ResponseEntity<ApiResponse<Void>> removeTag(
+            @PathVariable Long id,
+            @PathVariable Long tagId) {
+        animeService.removeTagFromAnime(id, tagId);
+        return ResponseEntity.ok(ApiResponse.success("标签已移除", null));
     }
 
     @Operation(summary = "导出JSON")

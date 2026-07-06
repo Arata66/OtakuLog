@@ -5,11 +5,14 @@ import com.otakulog.common.ResourceNotFoundException;
 import com.otakulog.dto.AnimeDTO;
 import com.otakulog.dto.AnimeUpdateDTO;
 import com.otakulog.dto.AnimeVO;
+import com.otakulog.dto.TagDTO;
 import com.otakulog.entity.Anime;
 import com.otakulog.entity.EpisodeRecord;
+import com.otakulog.entity.Tag;
 import com.otakulog.enums.AnimeStatus;
 import com.otakulog.repository.AnimeRepository;
 import com.otakulog.repository.EpisodeRecordRepository;
+import com.otakulog.repository.TagRepository;
 import com.otakulog.dto.BangumiResult;
 import com.otakulog.service.AnimeService;
 import com.otakulog.service.BangumiService;
@@ -33,12 +36,14 @@ public class AnimeServiceImpl implements AnimeService {
     private final AnimeRepository animeRepository;
     private final BangumiService bangumiService;
     private final EpisodeRecordRepository episodeRecordRepository;
+    private final TagRepository tagRepository;
 
     public AnimeServiceImpl(AnimeRepository animeRepository, BangumiService bangumiService,
-                            EpisodeRecordRepository episodeRecordRepository) {
+                            EpisodeRecordRepository episodeRecordRepository, TagRepository tagRepository) {
         this.animeRepository = animeRepository;
         this.bangumiService = bangumiService;
         this.episodeRecordRepository = episodeRecordRepository;
+        this.tagRepository = tagRepository;
     }
 
     @Override
@@ -60,7 +65,7 @@ public class AnimeServiceImpl implements AnimeService {
         anime.setCoverUrl(dto.getCoverUrl());
         anime.setStartDate(parseDate(dto.getStartDate()));
         anime.setEndDate(parseDate(dto.getEndDate()));
-        anime.setTags(dto.getTags());
+        anime.setTags(parseTags(dto.getTags()));
         anime.setBroadcastDay(dto.getBroadcastDay());
         anime.setBangumiId(dto.getBangumiId());
         // 支持从表单选择状态，默认追中
@@ -151,7 +156,7 @@ public class AnimeServiceImpl implements AnimeService {
         anime.setCoverUrl(dto.getCoverUrl());
         anime.setStartDate(parseDate(dto.getStartDate()));
         anime.setEndDate(parseDate(dto.getEndDate()));
-        anime.setTags(dto.getTags());
+        anime.setTags(parseTags(dto.getTags()));
         anime.setBroadcastDay(dto.getBroadcastDay());
         if (dto.getBangumiId() != null) {
             anime.setBangumiId(dto.getBangumiId());
@@ -232,8 +237,14 @@ public class AnimeServiceImpl implements AnimeService {
     private Page<AnimeVO> doSearch(String name, AnimeStatus status, Pageable pageable, String tag) {
         boolean hasTag = tag != null && !tag.trim().isEmpty();
         if (hasTag) {
-            Page<Anime> page = animeRepository.findByTagContaining(tag.trim(), pageable);
-            return page.map(this::toVO);
+            // 先按名称查找 tag
+            Optional<Tag> foundTag = tagRepository.findByName(tag.trim());
+            if (foundTag.isPresent()) {
+                Page<Anime> page = animeRepository.findByTagId(foundTag.get().getId(), pageable);
+                return page.map(this::toVO);
+            }
+            // 找不到对应标签，返回空结果
+            return Page.empty(pageable);
         }
 
         boolean hasName = name != null && !name.trim().isEmpty();
@@ -378,7 +389,28 @@ public class AnimeServiceImpl implements AnimeService {
                 anime.setEndDate(parseDate((String) map.get("endDate")));
                 String status = (String) map.getOrDefault("status", "watching");
                 anime.setStatus(AnimeStatus.valueOf(status.toUpperCase()));
-                anime.setTags((String) map.get("tags"));
+                // 兼容旧版字符串格式和新版数组格式
+                Object tagsObj = map.get("tags");
+                if (tagsObj instanceof String tagsStr) {
+                    anime.setTags(parseTags(tagsStr));
+                } else if (tagsObj instanceof List<?> tagsList) {
+                    Set<Tag> tags = new HashSet<>();
+                    for (Object item : tagsList) {
+                        if (item instanceof Map<?, ?> tagMap) {
+                            String tagName = (String) tagMap.get("name");
+                            if (tagName != null && !tagName.trim().isEmpty()) {
+                                Tag tag = tagRepository.findByName(tagName.trim())
+                                        .orElseGet(() -> tagRepository.save(new Tag(tagName.trim())));
+                                tags.add(tag);
+                            }
+                        } else if (item instanceof String tagName) {
+                            Tag tag = tagRepository.findByName(tagName.trim())
+                                    .orElseGet(() -> tagRepository.save(new Tag(tagName.trim())));
+                            tags.add(tag);
+                        }
+                    }
+                    anime.setTags(tags);
+                }
                 anime.setBroadcastDay(toIntOrNull(map.get("broadcastDay")));
                 anime.setBangumiId(toIntOrNull(map.get("bangumiId")));
                 anime.setSortOrder(toIntOrNull(map.get("sortOrder")));
@@ -440,21 +472,19 @@ public class AnimeServiceImpl implements AnimeService {
         }
         stats.put("scoreDistribution", scoreDist);
 
-        // Tag breakdown
-        List<Anime> all = animeRepository.findAll();
-        Map<String, Integer> tagCounts = new HashMap<>();
-        for (Anime a : all) {
-            if (a.getTags() != null && !a.getTags().trim().isEmpty()) {
-                for (String tag : a.getTags().split(",")) {
-                    String t = tag.trim();
-                    if (!t.isEmpty()) tagCounts.merge(t, 1, Integer::sum);
-                }
-            }
-        }
+        // Tag breakdown — 从 tag 表统计
+        List<Object[]> tagRows = tagRepository.findAllWithCount();
         List<Map<String, Object>> tagList = new ArrayList<>();
-        tagCounts.entrySet().stream().sorted(Map.Entry.<String, Integer>comparingByValue().reversed()).limit(15)
-                .forEach(e -> { Map<String, Object> m = new HashMap<>(); m.put("tag", e.getKey()); m.put("count", e.getValue()); tagList.add(m); });
+        for (Object[] row : tagRows) {
+            Map<String, Object> m = new HashMap<>();
+            m.put("tag", row[0]);
+            m.put("count", ((Number) row[1]).intValue());
+            tagList.add(m);
+        }
         stats.put("tags", tagList);
+
+        // 后续统计仍需要全量番剧数据
+        List<Anime> all = animeRepository.findAll();
 
         // Watching habits — 只统计非旧番，用 watchStartDate
         long totalWatched = 0;
@@ -664,17 +694,16 @@ public class AnimeServiceImpl implements AnimeService {
     public List<Map<String, Object>> getRecommendations() {
         List<Anime> all = animeRepository.findAll();
 
-        // 统计用户标签频率
+        // 统计用户标签频率（从 tag 关联表）
         Map<String, Integer> tagCounts = new HashMap<>();
         Set<String> trackedNames = new HashSet<>();
         Set<Integer> trackedBangumiIds = new HashSet<>();
         for (Anime a : all) {
             trackedNames.add(a.getName().toLowerCase());
             if (a.getBangumiId() != null) trackedBangumiIds.add(a.getBangumiId());
-            if (a.getTags() != null && !a.getTags().trim().isEmpty()) {
-                for (String tag : a.getTags().split(",")) {
-                    String t = tag.trim();
-                    if (!t.isEmpty()) tagCounts.merge(t, 1, Integer::sum);
+            if (a.getTags() != null) {
+                for (Tag tag : a.getTags()) {
+                    tagCounts.merge(tag.getName(), 1, Integer::sum);
                 }
             }
         }
@@ -823,7 +852,10 @@ public class AnimeServiceImpl implements AnimeService {
         vo.setCoverUrl(anime.getCoverUrl());
         vo.setStartDate(anime.getStartDate() != null ? anime.getStartDate().toString() : null);
         vo.setEndDate(anime.getEndDate() != null ? anime.getEndDate().toString() : null);
-        vo.setTags(anime.getTags());
+        // 将 Set<Tag> 转换为逗号分隔字符串（前端仍期望字符串格式）
+        vo.setTags(anime.getTags() != null && !anime.getTags().isEmpty()
+                ? anime.getTags().stream().map(Tag::getName).collect(Collectors.joining(","))
+                : null);
         vo.setSortOrder(anime.getSortOrder());
         vo.setBroadcastDay(anime.getBroadcastDay());
         vo.setBangumiId(anime.getBangumiId());
@@ -870,5 +902,58 @@ public class AnimeServiceImpl implements AnimeService {
         if (obj instanceof Double d) return d;
         if (obj instanceof Number n) return n.doubleValue();
         return Double.parseDouble(obj.toString());
+    }
+
+    // 将逗号分隔的标签字符串转换为 Set<Tag>
+    private Set<Tag> parseTags(String tagsStr) {
+        Set<Tag> tags = new HashSet<>();
+        if (tagsStr == null || tagsStr.trim().isEmpty()) return tags;
+        for (String raw : tagsStr.split(",")) {
+            String tagName = raw.trim();
+            if (tagName.isEmpty()) continue;
+            Tag tag = tagRepository.findByName(tagName)
+                    .orElseGet(() -> tagRepository.save(new Tag(tagName)));
+            tags.add(tag);
+        }
+        return tags;
+    }
+
+    @Override
+    public List<TagDTO> getAllTagsWithCount() {
+        List<Object[]> rows = tagRepository.findAllWithCount();
+        List<TagDTO> result = new ArrayList<>();
+        for (Object[] row : rows) {
+            result.add(new TagDTO(null, (String) row[0], ((Number) row[1]).intValue()));
+        }
+        return result;
+    }
+
+    @Override
+    public List<AnimeVO> getAnimesByTagId(Long tagId) {
+        return animeRepository.findByTagId(tagId, Sort.by(Sort.Direction.DESC, "id"))
+                .stream().map(this::toVO).collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional
+    public void addTagToAnime(Long animeId, String tagName) {
+        Anime anime = animeRepository.findById(animeId)
+                .orElseThrow(() -> new ResourceNotFoundException("未找到该番剧"));
+        if (tagName == null || tagName.trim().isEmpty()) return;
+        Tag tag = tagRepository.findByName(tagName.trim())
+                .orElseGet(() -> tagRepository.save(new Tag(tagName.trim())));
+        anime.getTags().add(tag);
+        animeRepository.save(anime);
+    }
+
+    @Override
+    @Transactional
+    public void removeTagFromAnime(Long animeId, Long tagId) {
+        Anime anime = animeRepository.findById(animeId)
+                .orElseThrow(() -> new ResourceNotFoundException("未找到该番剧"));
+        Tag tag = tagRepository.findById(tagId)
+                .orElseThrow(() -> new ResourceNotFoundException("未找到该标签"));
+        anime.getTags().remove(tag);
+        animeRepository.save(anime);
     }
 }

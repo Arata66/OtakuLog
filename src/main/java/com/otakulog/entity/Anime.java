@@ -3,6 +3,8 @@ package com.otakulog.entity;
 import com.otakulog.enums.AnimeStatus;
 import jakarta.persistence.*;
 import java.time.LocalDate;
+import java.util.HashSet;
+import java.util.Set;
 
 @Entity
 @Table(name = "anime", indexes = {
@@ -47,8 +49,13 @@ public class Anime extends BaseEntity {
     @Column(name = "end_date")
     private LocalDate endDate;
 
-    @Column(name = "tags", length = 500)
-    private String tags;
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+        name = "anime_tag",
+        joinColumns = @JoinColumn(name = "anime_id"),
+        inverseJoinColumns = @JoinColumn(name = "tag_id")
+    )
+    private Set<Tag> tags = new HashSet<>();
 
     @Column(name = "sort_order")
     private Integer sortOrder;
@@ -156,11 +163,11 @@ public class Anime extends BaseEntity {
         this.endDate = endDate;
     }
 
-    public String getTags() {
+    public Set<Tag> getTags() {
         return tags;
     }
 
-    public void setTags(String tags) {
+    public void setTags(Set<Tag> tags) {
         this.tags = tags;
     }
 

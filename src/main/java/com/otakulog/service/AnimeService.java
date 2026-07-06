@@ -3,6 +3,7 @@ package com.otakulog.service;
 import com.otakulog.dto.AnimeDTO;
 import com.otakulog.dto.AnimeUpdateDTO;
 import com.otakulog.dto.AnimeVO;
+import com.otakulog.dto.TagDTO;
 import com.otakulog.enums.AnimeStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -60,4 +61,13 @@ public interface AnimeService {
     List<Map<String, Object>> getRecommendations();
 
     Map<String, Integer> getHeatmap();
+
+    // 标签管理
+    List<TagDTO> getAllTagsWithCount();
+
+    List<AnimeVO> getAnimesByTagId(Long tagId);
+
+    void addTagToAnime(Long animeId, String tagName);
+
+    void removeTagFromAnime(Long animeId, Long tagId);
 }

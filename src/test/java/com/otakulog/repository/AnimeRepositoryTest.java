@@ -1,6 +1,7 @@
 package com.otakulog.repository;
 
 import com.otakulog.entity.Anime;
+import com.otakulog.entity.Tag;
 import com.otakulog.enums.AnimeStatus;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -12,6 +13,7 @@ import org.springframework.data.domain.Sort;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -22,9 +24,13 @@ class AnimeRepositoryTest {
     @Autowired
     private AnimeRepository animeRepository;
 
+    @Autowired
+    private TagRepository tagRepository;
+
     @BeforeEach
     void setUp() {
         animeRepository.deleteAll();
+        tagRepository.deleteAll();
     }
 
     private Anime createAnime(String name, AnimeStatus status, int eps) {
@@ -99,14 +105,18 @@ class AnimeRepositoryTest {
     }
 
     @Test
-    void findByTagContaining_shouldMatchTags() {
+    void findByTagId_shouldMatchTags() {
+        Tag tag1 = tagRepository.save(new Tag("热血"));
+        Tag tag2 = tagRepository.save(new Tag("战斗"));
+
         Anime a = createAnime("热血番", AnimeStatus.WATCHING, 12);
-        a.setTags("热血,战斗");
+        a.setTags(Set.of(tag1, tag2));
         animeRepository.save(a);
 
-        List<Anime> results = animeRepository.findByTagContaining("热血", PageRequest.of(0, 10))
+        List<Anime> results = animeRepository.findByTagId(tag1.getId(), PageRequest.of(0, 10))
                 .getContent();
         assertEquals(1, results.size());
+        assertEquals("热血番", results.get(0).getName());
     }
 
     @Test

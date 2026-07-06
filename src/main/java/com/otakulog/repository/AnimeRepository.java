@@ -60,12 +60,12 @@ public interface AnimeRepository extends JpaRepository<Anime, Long> {
     @Query("SELECT a.season, COUNT(a), AVG(a.score) FROM Anime a WHERE a.score IS NOT NULL GROUP BY a.season ORDER BY a.season DESC")
     List<Object[]> getSeasonStats();
 
-    // Tag 精确匹配：用逗号边界避免子串误匹配（如 "热血" 不会匹配 "热血战斗"）
-    @Query("SELECT a FROM Anime a WHERE CONCAT(',', a.tags, ',') LIKE CONCAT('%,', :tag, ',%')")
-    List<Anime> findByTagContaining(@org.springframework.data.repository.query.Param("tag") String tag, Sort sort);
+    // Tag 关联查询（通过 anime_tag 表）
+    @Query("SELECT a FROM Anime a JOIN a.tags t WHERE t.id = :tagId")
+    List<Anime> findByTagId(@org.springframework.data.repository.query.Param("tagId") Long tagId, Sort sort);
 
-    @Query("SELECT a FROM Anime a WHERE CONCAT(',', a.tags, ',') LIKE CONCAT('%,', :tag, ',%')")
-    Page<Anime> findByTagContaining(@org.springframework.data.repository.query.Param("tag") String tag, Pageable pageable);
+    @Query("SELECT a FROM Anime a JOIN a.tags t WHERE t.id = :tagId")
+    Page<Anime> findByTagId(@org.springframework.data.repository.query.Param("tagId") Long tagId, Pageable pageable);
 
     // Merged stats: returns [total, watching, finished, planning, dropped, sumTotal, sumCurrent, avgScore, highScore, midScore, lowScore]
     @Query("SELECT " +
