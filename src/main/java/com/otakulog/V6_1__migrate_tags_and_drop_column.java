@@ -9,13 +9,22 @@ import java.sql.Connection;
 import java.util.List;
 import java.util.Map;
 
-// 将 anime.tags 逗号分隔字符串迁移到 tag + anime_tag 表，然后删除旧列
+// 将 anime.tags 逗号分隔字符串迁移到 tag + anime_tag 表
+// 注意：tags 列的删除已由 V6 SQL 迁移完成，此处只做数据迁移
 public class V6_1__migrate_tags_and_drop_column extends BaseJavaMigration {
 
     @Override
     public void migrate(Context context) throws Exception {
         Connection conn = context.getConnection();
         JdbcTemplate jdbc = new JdbcTemplate(new SingleConnectionDataSource(conn, true));
+
+        // 检查 tags 列是否还存在（V6 可能已删除）
+        List<Map<String, Object>> columns = jdbc.queryForList(
+                "SHOW COLUMNS FROM anime WHERE Field = 'tags'");
+        if (columns.isEmpty()) {
+            // 列已不存在，跳过数据迁移
+            return;
+        }
 
         // 读取所有有 tags 的番剧
         List<Map<String, Object>> rows = jdbc.queryForList(

@@ -49,7 +49,7 @@ public class Anime extends BaseEntity {
     @Column(name = "end_date")
     private LocalDate endDate;
 
-    @ManyToMany(fetch = FetchType.LAZY)
+    @ManyToMany(fetch = FetchType.EAGER)
     @JoinTable(
         name = "anime_tag",
         joinColumns = @JoinColumn(name = "anime_id"),
