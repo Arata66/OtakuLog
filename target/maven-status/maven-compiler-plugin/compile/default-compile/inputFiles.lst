@@ -3,6 +3,7 @@ E:\work\OtakuLog\src\main\java\com\otakulog\dto\BangumiSubjectDetail.java
 E:\work\OtakuLog\src\main\java\com\otakulog\service\AiringScheduleService.java
 E:\work\OtakuLog\src\main\java\com\otakulog\service\AnimeService.java
 E:\work\OtakuLog\src\main\java\com\otakulog\enums\AnimeStatus.java
+E:\work\OtakuLog\src\main\java\com\otakulog\dto\TagDTO.java
 E:\work\OtakuLog\src\main\java\com\otakulog\controller\LoginController.java
 E:\work\OtakuLog\src\main\java\com\otakulog\controller\SyncApiController.java
 E:\work\OtakuLog\src\main\java\com\otakulog\service\WebDavSyncService.java
@@ -28,10 +29,13 @@ E:\work\OtakuLog\src\main\java\com\otakulog\dto\AnimeUpdateDTO.java
 E:\work\OtakuLog\src\main\java\com\otakulog\common\ApiResponse.java
 E:\work\OtakuLog\src\main\java\com\otakulog\dto\BangumiEpisode.java
 E:\work\OtakuLog\src\main\java\com\otakulog\entity\AnimeGroup.java
+E:\work\OtakuLog\src\main\java\com\otakulog\entity\Tag.java
 E:\work\OtakuLog\src\main\java\com\otakulog\service\TraceMoeService.java
 E:\work\OtakuLog\src\main\java\com\otakulog\util\SortUtil.java
 E:\work\OtakuLog\src\main\java\com\otakulog\entity\BaseEntity.java
 E:\work\OtakuLog\src\main\java\com\otakulog\repository\AnimeGroupRepository.java
+E:\work\OtakuLog\src\main\java\com\otakulog\repository\TagRepository.java
+E:\work\OtakuLog\src\main\java\com\otakulog\V6_1__migrate_tags_and_drop_column.java
 E:\work\OtakuLog\src\main\java\com\otakulog\repository\AnimeRepository.java
 E:\work\OtakuLog\src\main\java\com\otakulog\config\CorsConfig.java
 E:\work\OtakuLog\src\main\java\com\otakulog\service\BangumiService.java

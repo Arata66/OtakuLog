@@ -80,6 +80,7 @@ public class AnimeServiceImpl implements AnimeService {
         anime.setCurrentEpisode(targetStatus == AnimeStatus.PLANNING ? 0 : 1);
         anime.setLegacy(dto.getLegacy() != null && dto.getLegacy());
         anime.setWatchStartDate(parseDate(dto.getWatchStartDate()) != null ? parseDate(dto.getWatchStartDate()) : LocalDate.now());
+        anime.setWatchSeason(dto.getWatchSeason());
 
         Anime saved = animeRepository.save(anime);
 
@@ -166,6 +167,9 @@ public class AnimeServiceImpl implements AnimeService {
         }
         if (dto.getWatchStartDate() != null) {
             anime.setWatchStartDate(parseDate(dto.getWatchStartDate()));
+        }
+        if (dto.getWatchSeason() != null) {
+            anime.setWatchSeason(dto.getWatchSeason());
         }
 
         return toVO(animeRepository.save(anime));
@@ -417,6 +421,7 @@ public class AnimeServiceImpl implements AnimeService {
                 anime.setWatchStartDate(parseDate((String) map.get("watchStartDate")));
                 Object legacyObj = map.get("legacy");
                 anime.setLegacy(legacyObj != null && Boolean.TRUE.equals(legacyObj));
+                anime.setWatchSeason((String) map.get("watchSeason"));
 
                 Anime saved = animeRepository.save(anime);
                 result.add(toVO(saved));
@@ -861,6 +866,7 @@ public class AnimeServiceImpl implements AnimeService {
         vo.setBangumiId(anime.getBangumiId());
         vo.setWatchStartDate(anime.getWatchStartDate() != null ? anime.getWatchStartDate().toString() : null);
         vo.setLegacy(anime.isLegacy());
+        vo.setWatchSeason(anime.getWatchSeason());
         if (anime.getTotalEpisodes() != null && anime.getTotalEpisodes() > 0) {
             vo.setProgress(Math.round((double) anime.getCurrentEpisode() / anime.getTotalEpisodes() * 1000.0) / 10.0);
         }

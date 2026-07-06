@@ -72,6 +72,9 @@ public class Anime extends BaseEntity {
     @Column(name = "legacy")
     private boolean legacy;
 
+    @Column(name = "watch_season")
+    private String watchSeason;
+
     public Anime() {
     }
 
@@ -209,5 +212,13 @@ public class Anime extends BaseEntity {
 
     public void setLegacy(boolean legacy) {
         this.legacy = legacy;
+    }
+
+    public String getWatchSeason() {
+        return watchSeason;
+    }
+
+    public void setWatchSeason(String watchSeason) {
+        this.watchSeason = watchSeason;
     }
 }

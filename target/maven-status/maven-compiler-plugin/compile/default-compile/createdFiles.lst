@@ -1,3 +1,4 @@
+com\otakulog\dto\TagDTO.class
 com\otakulog\service\impl\TraceMoeServiceImpl.class
 com\otakulog\config\OpenApiConfig.class
 com\otakulog\service\impl\BangumiServiceImpl$2.class
@@ -12,6 +13,9 @@ com\otakulog\common\GlobalExceptionHandler.class
 com\otakulog\service\impl\BangumiServiceImpl$3.class
 com\otakulog\service\impl\BangumiServiceImpl$6.class
 com\otakulog\repository\AnimeRepository.class
+com\otakulog\repository\TagRepository.class
+com\otakulog\entity\Tag.class
+com\otakulog\V6_1__migrate_tags_and_drop_column.class
 com\otakulog\util\SortUtil.class
 com\otakulog\enums\AnimeStatus.class
 com\otakulog\service\impl\AiringScheduleServiceImpl.class

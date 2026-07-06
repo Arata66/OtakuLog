@@ -124,6 +124,7 @@ public class AnimeUpdateDTO {
 
     private String watchStartDate;
     private Boolean legacy;
+    private String watchSeason;
 
     public String getWatchStartDate() {
         return watchStartDate;
@@ -139,5 +140,13 @@ public class AnimeUpdateDTO {
 
     public void setLegacy(Boolean legacy) {
         this.legacy = legacy;
+    }
+
+    public String getWatchSeason() {
+        return watchSeason;
+    }
+
+    public void setWatchSeason(String watchSeason) {
+        this.watchSeason = watchSeason;
     }
 }

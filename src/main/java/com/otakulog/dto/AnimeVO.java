@@ -161,6 +161,7 @@ public class AnimeVO {
 
     private String watchStartDate;
     private boolean legacy;
+    private String watchSeason;
 
     public String getWatchStartDate() {
         return watchStartDate;
@@ -176,5 +177,13 @@ public class AnimeVO {
 
     public void setLegacy(boolean legacy) {
         this.legacy = legacy;
+    }
+
+    public String getWatchSeason() {
+        return watchSeason;
+    }
+
+    public void setWatchSeason(String watchSeason) {
+        this.watchSeason = watchSeason;
     }
 }

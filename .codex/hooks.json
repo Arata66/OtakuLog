@@ -1,0 +1,17 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "py -c \"import sys,json,subprocess;data=json.load(sys.stdin);p=data.get('tool_input',{}).get('file_path')or data.get('tool_response',{}).get('filePath','');r=subprocess.run(['mvn','compile','-q'],capture_output=True,text=True,shell=True)if p.endswith('.java')else None;print(json.dumps({'systemMessage':'Compile OK' if r and r.returncode==0 else 'Compile failed: '+r.stderr[:200] if r else ''}))if r else None\"",
+            "timeout": 120,
+            "statusMessage": "编译检查中..."
+          }
+        ]
+      }
+    ]
+  }
+}
