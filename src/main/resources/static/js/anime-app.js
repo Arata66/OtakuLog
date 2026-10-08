@@ -64,6 +64,7 @@
         async function fetchApi(url, options = {}) {
             try {
                 const requestOptions = { ...options, headers: new Headers(options.headers) };
+                delete requestOptions.returnConflict;
                 const method = (options.method || 'GET').toUpperCase();
                 // 页面令牌只用于本站写入，避免跨站请求泄露令牌。
                 if (!['GET', 'HEAD', 'OPTIONS'].includes(method)
@@ -82,6 +83,7 @@
                 if (!r.ok) {
                     let msg = '请求失败 (' + r.status + ')';
                     try { const body = await r.json(); if (body.message) msg = body.message; } catch(_) {}
+                    if (r.status === 409 && options.returnConflict) return { code: 409, message: msg };
                     console.error('HTTP ' + r.status + ': ' + url);
                     toast(msg, 'error');
                     return null;
@@ -508,11 +510,13 @@
                 <div class="detail-body">
                     <div class="detail-progress-wrap"><div class="detail-progress-label"><span>进度</span><span>${pct}%</span></div><div class="detail-progress"><div class="detail-progress-bar ${a.status}" style="--progress:${pct}%"></div></div></div>
                     ${a.remark ? `<div class="detail-remark">${renderRemark(a.remark)}</div>` : ''}
+                    <section id="episodeHistorySection" class="episode-history" data-anime-id="${a.id}" aria-label="逐集观看记录"></section>
                     <div id="bangumiDetailSection"></div>
                     <div class="detail-actions"><button class="a-btn" onclick="shareAnimeCard(${a.id})">分享</button><button class="a-btn" onclick="closeDetailModal();openEditModal(${a.id})">编辑</button><button class="a-btn ep-btn" onclick="prevEpisode(${a.id})">上一集</button><button class="a-btn ep-btn" onclick="nextEpisode(${a.id})">下一集</button><button class="a-btn" onclick="showAddToGroup(${a.id})">分组</button><button class="a-btn del" onclick="deleteAnime(${a.id});closeDetailModal()">删除</button></div>
                 </div>`;
             overlay.appendChild(card); document.body.appendChild(overlay);
             trapFocus(overlay);
+            loadEpisodeHistory(id);
             if (a.bangumiId) loadBangumiDetail(a.bangumiId);
             else {
                 document.getElementById('bangumiDetailSection').innerHTML = '<div class="detail-match-wrap"><button class="detail-match-btn" onclick="matchBangumiFor(' + a.id + ', this)">匹配 Bangumi 链接</button></div>';

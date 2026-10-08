@@ -13,6 +13,7 @@
 - 拖拽排序（SortableJS），排序持久化到后端
 - 番剧分组（创建/查看/删除分组，分组内管理番剧）
 - 数据分页查询
+- 详情内逐集观看记录、来源核对与日期补录（保留未知日期，保存冲突保护）
 
 ### Bangumi 集成
 - 搜索 Bangumi 番剧数据库（名称/标签）
@@ -82,7 +83,7 @@
 
 | 技术 | 用途 |
 |------|------|
-| 原生 JavaScript（3 个脚本） | 单页应用逻辑 |
+| 原生 JavaScript（4 个脚本） | 单页应用逻辑与独立逐集记录交互 |
 | Chart.js | 统计图表（7 个实例） |
 | SortableJS | 拖拽排序 |
 | Marked + DOMPurify | Markdown 渲染 + XSS 防护 |
@@ -98,7 +99,7 @@
 | Mockito | Mock 框架 |
 | Spring Security Test | 认证测试 |
 | H2 | 测试内存数据库 |
-| Node.js 内置测试运行器 | 前端请求令牌、恢复确认与 Service Worker 缓存行为测试 |
+| Node.js 内置测试运行器 | 请求令牌、恢复确认、逐集补录与 Service Worker 缓存行为测试 |
 
 ## 项目结构
 
@@ -119,6 +120,7 @@ OtakuLog/
 │   ├── controller/
 │   │   ├── AnimeController.java              # 番剧 CRUD + 统计 + 搜索（~310 行）
 │   │   ├── BangumiApiController.java         # Bangumi 搜索/详情/导入
+│   │   ├── EpisodeHistoryController.java     # 逐集查看与日期核对
 │   │   ├── GroupController.java              # 番剧分组管理
 │   │   ├── LoginController.java              # 登录页
 │   │   ├── ReportController.java             # 年度报告
@@ -140,6 +142,7 @@ OtakuLog/
 │   ├── service/
 │   │   ├── BackupService.java                # 完整备份、预览与原子恢复
 │   │   ├── WatchProgressService.java         # 统一观看写入规则
+│   │   ├── EpisodeHistoryService.java        # 记录分页、快照校验与事务锁
 │   │   ├── AnimeService.java                 # 番剧服务接口
 │   │   ├── BangumiService.java               # Bangumi 服务接口
 │   │   ├── AiringScheduleService.java        # 放送时间表接口
@@ -164,6 +167,7 @@ OtakuLog/
 │   │   │   └── anime.css                     # 样式表（~940 行，CSS 变量体系）
 │   │   ├── js/
 │   │   │   ├── anime-app.js                  # 前端主逻辑与 CSRF 请求适配
+│   │   │   ├── episode-history.js            # 逐集记录查看、补录与冲突提示
 │   │   │   ├── i18n.js                       # 中英文国际化（~320 行）
 │   │   │   └── share-card.js                 # Canvas 分享卡生成（~260 行）
 │   │   ├── icons/                            # PWA 图标（192/512）
@@ -184,7 +188,8 @@ OtakuLog/
 │   ├── config/
 │   │   └── SecurityConfigTest.java           # 认证、CSRF 与登录退出测试
 │   ├── controller/
-│   │   └── AnimeControllerTest.java          # Controller 层测试（13 用例）
+│   │   ├── AnimeControllerTest.java          # Controller 层测试（13 用例）
+│   │   └── EpisodeHistoryTest.java           # 逐集记录接口、权限与回滚
 │   ├── deployment/
 │   │   └── MySqlDeploymentTest.java          # 显式启用的真实 MySQL 验收
 │   ├── repository/
@@ -195,7 +200,7 @@ OtakuLog/
 │       ├── BackupServiceTest.java            # 完整恢复、预览、冲突与回滚
 │       ├── AnnualReportServiceTest.java      # 跨年、来源、评分与数据覆盖
 │       └── WebDavBackupTest.java             # 模拟远程文件与摘要确认
-├── src/test/js/security.test.cjs               # 前端令牌与私人缓存测试
+├── src/test/js/                               # 前端令牌、私人缓存与逐集记录测试
 ├── pom.xml
 └── README.md
 ```
@@ -229,6 +234,8 @@ JSON 与 WebDAV 使用相同的版本化完整备份，包含作品、逐集日�
 ### 年度统计规则
 
 年报完成数按完成日期统计；观看集数按逐集日期统计，包含尚未完成作品，不把完成作品的整部集数归入完成年。LEGACY 来源可能含旧估算，单列历史参考，不并入明确日期观看量；日期未知记录、进度缺记录和完成日期未知作品显示为全库覆盖提示，不猜年份。年/月均分只以有效评分作品为分母，无评分显示“未评分”；时长按每集 24 分钟估算，页面明确标记。详见[年度统计口径](docs/年度统计口径.md)。
+
+点击番剧名称可查看逐集日期和来源，在详情内核对或补录实际日期，未知留空。保存只修改该集，保持作品进度、状态和观看起止日期；过期快照返回冲突，不覆盖较新记录。详见[逐集观看记录](docs/逐集观看记录.md)。
 
 ## 快速开始
 
@@ -277,10 +284,10 @@ JSON 与 WebDAV 使用相同的版本化完整备份，包含作品、逐集日�
 
 ```bash
 mvn test
-node --test src/test/js/security.test.cjs
+node --test src/test/js/security.test.cjs src/test/js/episode-history.test.cjs
 ```
 
-默认 Java 测试使用 H2 内存数据库，无需 MySQL。包括 44 个原有业务测试、29 个安全用例、27 个观看一致性用例、20 个完整恢复用例、4 个模拟 WebDAV HTTP 用例与 13 个年度统计用例；另有 7 个需要显式启用的 MySQL 用例，包含真实行锁并发、完整恢复与跨年统计验证。前端测试使用 Node.js 22 或更高版本，无需 npm 安装依赖。
+默认 Java 测试使用 H2 内存数据库，无需 MySQL。包括 44 个原有业务测试、29 个安全用例、27 个观看一致性用例、20 个完整恢复用例、4 个模拟 WebDAV HTTP 用例、13 个年度统计用例与 20 个逐集记录用例；另有 8 个需要显式启用的 MySQL 用例，包含真实行锁并发、完整恢复、跨年统计与日期下界验证。前端测试使用 Node.js 22 或更高版本，无需 npm 安装依赖。
 
 H2 测试禁用 Flyway，因此不能代替 MySQL 数据库迁移和 Docker 部署验证。
 

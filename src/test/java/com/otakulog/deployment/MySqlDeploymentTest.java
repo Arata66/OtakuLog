@@ -159,6 +159,58 @@ class MySqlDeploymentTest {
     }
 
     @Test
+    void 当MySQL并发核对同一快照时应该仅一次成功并保留统计备份语义() throws Exception {
+        withDatabase(database -> {
+            try (ConfigurableApplicationContext application = startApplication(database)) {
+                execute(database, "INSERT INTO anime (name,current_episode,total_episodes,status,legacy) VALUES ('逐集核对验收',2,12,'WATCHING',0)");
+                execute(database, "INSERT INTO episode_record (anime_id,episode_number,watched_date,record_source) VALUES (1,1,'2024-01-02','LEGACY')");
+                var history = application.getBean(com.otakulog.service.EpisodeHistoryService.class);
+                var report = application.getBean(AnnualReportService.class);
+                assertEquals(0, report.getAnnualReport(2024).getTotalEpisodes());
+                var expected = history.get(1L, 0, 20).entries().get(0);
+                var request = new com.otakulog.dto.EpisodeHistoryDTO.UpdateRequest(java.time.LocalDate.of(2024, 1, 2), expected);
+                var executor = Executors.newFixedThreadPool(2);
+                var ready = new CountDownLatch(2); var start = new CountDownLatch(1);
+                try {
+                    java.util.concurrent.Callable<Boolean> call = () -> {
+                        ready.countDown();
+                        if (!start.await(10, TimeUnit.SECONDS)) throw new IllegalStateException("并发核对等待超时");
+                        try { history.update(1L, 1, request); return true; }
+                        catch (com.otakulog.common.ConflictException e) { return false; }
+                    };
+                    var first = executor.submit(call); var second = executor.submit(call);
+                    if (!ready.await(10, TimeUnit.SECONDS)) throw new IllegalStateException("并发核对启动超时");
+                    start.countDown();
+                    assertEquals(1, (first.get(20, TimeUnit.SECONDS) ? 1 : 0) + (second.get(20, TimeUnit.SECONDS) ? 1 : 0));
+                } finally { start.countDown(); executor.shutdownNow(); }
+                assertEquals(1, report.getAnnualReport(2024).getTotalEpisodes());
+                assertEquals(0, report.getAnnualReport(2024).getLegacyDatedEpisodes());
+                assertEquals("2", query(database, "SELECT current_episode FROM anime"));
+                var confirmed = history.get(1L, 0, 20).entries().get(0);
+                history.update(1L, 1, new com.otakulog.dto.EpisodeHistoryDTO.UpdateRequest(java.time.LocalDate.of(2024, 2, 3), confirmed));
+                var missing = history.get(1L, 0, 20).entries().get(1);
+                history.update(1L, 2, new com.otakulog.dto.EpisodeHistoryDTO.UpdateRequest(null, missing));
+                var backup = application.getBean(BackupService.class);
+                String json = backup.exportJson();
+                execute(database, "DELETE FROM anime");
+                backup.importJson(json);
+                assertEquals("2024-02-03", query(database, "SELECT watched_date FROM episode_record WHERE episode_number=1"));
+                assertEquals("2", query(database, "SELECT COUNT(*) FROM episode_record WHERE record_source='MANUAL'"));
+                assertEquals("1", query(database, "SELECT COUNT(*) FROM episode_record WHERE watched_date IS NULL"));
+                assertEquals(1, report.getAnnualReport(2024).getTotalEpisodes());
+                assertEquals(1, report.getAnnualReport(2024).getUndatedEpisodeRecords());
+                assertEquals(0, report.getAnnualReport(2024).getMissingEpisodeRecords());
+                Long restoredId = application.getBean(AnimeRepository.class).findAll().get(0).getId();
+                var restoredEntry = history.get(restoredId, 0, 20).entries().get(0);
+                // H2 的古代日期 JDBC 转换与 MySQL 不同，存储下界在目标数据库验收。
+                history.update(restoredId, 1, new com.otakulog.dto.EpisodeHistoryDTO.UpdateRequest(java.time.LocalDate.of(1000, 1, 1), restoredEntry));
+                assertEquals(java.time.LocalDate.of(1000, 1, 1), history.get(restoredId, 0, 20).entries().get(0).watchedDate());
+                assertEquals("1000-01-01", query(database, "SELECT watched_date FROM episode_record WHERE episode_number=1"));
+            }
+        });
+    }
+
+    @Test
     void 当已有库在V1建立基线时应该忽略V0并正常升级() throws Exception {
         withDatabase(database -> {
             try (Connection connection = DriverManager.getConnection(url(database), user, password)) {

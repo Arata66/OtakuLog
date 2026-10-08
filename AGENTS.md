@@ -82,4 +82,5 @@ src/main/resources/
 | `docs/superpowers/plans/2026-10-08-观看写入一致性.md` | 观看事务、状态规则、日期来源与回滚验收 |
 | `docs/备份与恢复.md` | 完整备份格式、合并规则、操作与 API |
 | `docs/年度统计口径.md` | 年度与月度规则、历史来源、数据覆盖范围与 API 字段 |
+| `docs/逐集观看记录.md` | 逐集日期补录、来源核对、快照冲突与 API |
 | `~/.Codex/plans/OtakuLog-可靠自用第一阶段.md` | 当前实施工作区与阶段入口 |

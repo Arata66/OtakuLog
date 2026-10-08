@@ -45,6 +45,17 @@ function createBackupApp(preview, accepted = true) {
     return app;
 }
 
+test('当调用方需要处理记录冲突时应该返回冲突并保留默认错误提示行为', async () => {
+    const app = createApp(new Response('{"message":"记录已变化"}', { status: 409 }));
+    const result = await app.context.fetchApi('/api/anime/1/episodes/1', { method: 'PUT', returnConflict: true });
+    assert.equal(result.code, 409); assert.equal(result.message, '记录已变化');
+    assert.equal(app.messages.length, 0); assert.equal(app.requests[0].options.returnConflict, undefined);
+    assert.equal(app.requests[0].options.headers.get('X-CSRF-TOKEN'), 'page-token');
+    const ordinary = createApp(new Response('{"message":"冲突"}', { status: 409 }));
+    assert.equal(await ordinary.context.fetchApi('/api/anime/1', { method: 'PUT' }), null);
+    assert.equal(ordinary.messages[0].message, '冲突');
+});
+
 function createReportApp(overrides = {}) {
     const app = createApp();
     const elements = new Map(), charts = [];

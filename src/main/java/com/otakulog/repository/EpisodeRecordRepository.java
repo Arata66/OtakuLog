@@ -15,6 +15,8 @@ public interface EpisodeRecordRepository extends JpaRepository<EpisodeRecord, Lo
 
     Optional<EpisodeRecord> findByAnimeIdAndEpisodeNumber(Long animeId, Integer episodeNumber);
 
+    List<EpisodeRecord> findByAnimeIdOrderByEpisodeNumberAsc(Long animeId);
+
     void deleteByAnimeIdAndEpisodeNumber(Long animeId, Integer episodeNumber);
 
     void deleteByAnimeId(Long animeId);
