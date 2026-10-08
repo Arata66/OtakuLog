@@ -718,33 +718,7 @@ public class AnimeServiceImpl implements AnimeService {
     }
 
     private AnimeVO toVO(Anime anime) {
-        AnimeVO vo = new AnimeVO();
-        vo.setId(anime.getId());
-        vo.setName(anime.getName());
-        vo.setCurrentEpisode(anime.getCurrentEpisode());
-        vo.setTotalEpisodes(anime.getTotalEpisodes());
-        vo.setStatus(anime.getStatus().name().toLowerCase());
-        vo.setStatusDisplay(anime.getStatus().getDisplayName());
-        vo.setScore(anime.getScore());
-        vo.setSeason(anime.getSeason());
-        vo.setRemark(anime.getRemark());
-        vo.setCoverUrl(anime.getCoverUrl());
-        vo.setStartDate(anime.getStartDate() != null ? anime.getStartDate().toString() : null);
-        vo.setEndDate(anime.getEndDate() != null ? anime.getEndDate().toString() : null);
-        // 将 Set<Tag> 转换为逗号分隔字符串（前端仍期望字符串格式）
-        vo.setTags(anime.getTags() != null && !anime.getTags().isEmpty()
-                ? anime.getTags().stream().map(Tag::getName).collect(Collectors.joining(","))
-                : null);
-        vo.setSortOrder(anime.getSortOrder());
-        vo.setBroadcastDay(anime.getBroadcastDay());
-        vo.setBangumiId(anime.getBangumiId());
-        vo.setWatchStartDate(anime.getWatchStartDate() != null ? anime.getWatchStartDate().toString() : null);
-        vo.setLegacy(anime.isLegacy());
-        vo.setWatchSeason(anime.getWatchSeason());
-        if (anime.getTotalEpisodes() != null && anime.getTotalEpisodes() > 0) {
-            vo.setProgress(Math.round((double) anime.getCurrentEpisode() / anime.getTotalEpisodes() * 1000.0) / 10.0);
-        }
-        return vo;
+        return com.otakulog.util.AnimeVOMapper.toVO(anime);
     }
 
     private LocalDate parseDate(String dateStr) {

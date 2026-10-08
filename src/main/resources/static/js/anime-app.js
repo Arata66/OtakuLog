@@ -65,6 +65,7 @@
             try {
                 const requestOptions = { ...options, headers: new Headers(options.headers) };
                 delete requestOptions.returnConflict;
+                delete requestOptions.returnError;
                 const method = (options.method || 'GET').toUpperCase();
                 // 页面令牌只用于本站写入，避免跨站请求泄露令牌。
                 if (!['GET', 'HEAD', 'OPTIONS'].includes(method)
@@ -84,6 +85,7 @@
                     let msg = '请求失败 (' + r.status + ')';
                     try { const body = await r.json(); if (body.message) msg = body.message; } catch(_) {}
                     if (r.status === 409 && options.returnConflict) return { code: 409, message: msg };
+                    if (options.returnError) return { code: r.status, message: msg };
                     console.error('HTTP ' + r.status + ': ' + url);
                     toast(msg, 'error');
                     return null;
@@ -165,12 +167,12 @@
         }
         function actionHtml(anime, type) {
             if (type === 'gallery') {
-                return `<div class="g-actions"><button class="g-btn" onclick="openEditModal(${anime.id})">编辑</button><button class="g-btn ep" onclick="prevEpisode(${anime.id})">-</button><button class="g-btn ep" onclick="nextEpisode(${anime.id})">+</button><button class="g-btn del" onclick="deleteAnime(${anime.id})">删</button></div>`;
+                return `<div class="g-actions"><button class="g-btn" onclick="openEditModal(${anime.id})">编辑</button><button class="g-btn ep" data-watch-id="${anime.id}" onclick="prevEpisode(${anime.id})">-</button><button class="g-btn ep" data-watch-id="${anime.id}" onclick="nextEpisode(${anime.id})">+</button><button class="g-btn del" onclick="deleteAnime(${anime.id})">删</button></div>`;
             }
-            return `<div class="acts"><button class="a-btn" onclick="openEditModal(${anime.id})">编辑</button><button class="a-btn ep-btn" onclick="prevEpisode(${anime.id})">-</button><button class="a-btn ep-btn" onclick="nextEpisode(${anime.id})">+</button></div>`;
+            return `<div class="acts"><button class="a-btn" onclick="openEditModal(${anime.id})">编辑</button><button class="a-btn ep-btn" data-watch-id="${anime.id}" onclick="prevEpisode(${anime.id})">-</button><button class="a-btn ep-btn" data-watch-id="${anime.id}" onclick="nextEpisode(${anime.id})">+</button></div>`;
         }
         function detailActionHtml(anime) {
-            return `<div class="dt-actions"><button class="dt-btn" onclick="openEditModal(${anime.id})">编辑</button><button class="dt-btn ep" onclick="prevEpisode(${anime.id})">-</button><button class="dt-btn ep" onclick="nextEpisode(${anime.id})">+</button><button class="dt-btn del" onclick="deleteAnime(${anime.id})">删除</button></div>`;
+            return `<div class="dt-actions"><button class="dt-btn" onclick="openEditModal(${anime.id})">编辑</button><button class="dt-btn ep" data-watch-id="${anime.id}" onclick="prevEpisode(${anime.id})">-</button><button class="dt-btn ep" data-watch-id="${anime.id}" onclick="nextEpisode(${anime.id})">+</button><button class="dt-btn del" onclick="deleteAnime(${anime.id})">删除</button></div>`;
         }
         function renderAnimeRow(anime, index, keyword) {
             const r = document.createElement('tr');
@@ -210,7 +212,7 @@
                     <div class="g-meta"><span class="g-tag g-season">${esc(anime.season)}</span>${scoreBadgeHtml(anime.score, 'g-tag g-score')}${anime.tags ? renderTags(anime.tags) : ''}</div>
                     <div class="g-progress"><div class="g-progress-bar ${anime.status}" style="--progress:${pct}%"></div></div>
                     <div class="g-ep">${anime.currentEpisode} / ${anime.totalEpisodes} ep / ${SM[anime.status] || anime.status}</div>
-                    <div class="g-actions"><button class="g-btn" onclick="openEditModal(${anime.id})">编辑</button><button class="g-btn ep" onclick="prevEpisode(${anime.id})">-</button><button class="g-btn ep" onclick="nextEpisode(${anime.id})">+</button><button class="g-btn del" onclick="deleteAnime(${anime.id})">删</button></div>
+                    <div class="g-actions"><button class="g-btn" onclick="openEditModal(${anime.id})">编辑</button><button class="g-btn ep" data-watch-id="${anime.id}" onclick="prevEpisode(${anime.id})">-</button><button class="g-btn ep" data-watch-id="${anime.id}" onclick="nextEpisode(${anime.id})">+</button><button class="g-btn del" onclick="deleteAnime(${anime.id})">删</button></div>
                 </div>`;
             return card;
         }
@@ -325,6 +327,7 @@
             if (n === 'charts') loadCharts();
             if (n === 'timeline') loadTL();
             if (n === 'calendar') loadCalendar();
+            if (n === 'list') loadDailyWatch();
         }
         function goToAddTracking(name) {
             closeDetailModal();
@@ -357,10 +360,6 @@
             $detailView.classList.toggle('active', mode === 'detail');
             $galleryView.classList.toggle('active', mode === 'gallery');
         }
-
-        /* Episodes */
-        async function nextEpisode(id) { const r = await fetchApi(`/api/anime/${id}/next-episode`, { method: 'POST' }); if (r && r.code === 200) { toast('集数已更新', 'success'); performSearch(); updateStats(); } else if (r && r.message === 'reached_max') toast('已经是最后一集了', 'info'); else if (r) toast('更新失败', 'error'); }
-        async function prevEpisode(id) { const r = await fetchApi(`/api/anime/${id}/prev-episode`, { method: 'POST' }); if (r && r.code === 200) { toast('集数已更新', 'success'); performSearch(); updateStats(); } else if (r && r.message === 'reached_min') toast('已经是第0集了', 'info'); else if (r) toast('更新失败', 'error'); }
 
         /* Add anime */
         async function addAnime(e) {
@@ -491,32 +490,33 @@
             const pct = a.totalEpisodes > 0 ? Math.round(a.currentEpisode / a.totalEpisodes * 100) : 0;
             const cover = a.coverUrl ? `<img src="${esc(a.coverUrl)}" class="detail-cover" onerror="this.outerHTML='<div class=detail-cover-empty>${esc(a.name.charAt(0))}</div>'">` : `<div class="detail-cover-empty">${esc(a.name.charAt(0))}</div>`;
             const bangumiLink = a.bangumiId ? `<a href="https://bgm.tv/subject/${a.bangumiId}" target="_blank" rel="noopener" class="detail-bangumi-link">在 Bangumi 查看 ↗</a>` : '';
-            const overlay = document.createElement('div'); overlay.className = 'detail-overlay'; overlay.id = 'detailModal'; overlay.onclick = function(e) { if (e.target === overlay) closeDetailModal(); };
+            const overlay = document.createElement('div'); overlay.className = 'detail-overlay'; overlay.id = 'detailModal'; overlay.dataset.animeId = String(id); overlay.onclick = function(e) { if (e.target === overlay) closeDetailModal(); };
             const card = document.createElement('div'); card.className = 'detail-card'; card.setAttribute('role', 'dialog'); card.setAttribute('aria-modal', 'true'); card.setAttribute('aria-label', '番剧详情');
             card.innerHTML = `<div class="detail-header">
-                    <div class="detail-cover-wrap">${cover}<span class="detail-badge ${a.status}">${SM[a.status] || a.status}</span></div>
+                    <div class="detail-cover-wrap">${cover}<span id="detailBadge" class="detail-badge ${a.status}">${SM[a.status] || a.status}</span></div>
                     <div class="detail-info-col">
                         <div class="detail-title">${esc(a.name)}</div>
                         <div class="detail-meta"><span class="detail-tag detail-tag-muted">${esc(a.season)}</span><span class="detail-tag detail-tag-score ${scoreClass(a.score)}">${a.score}</span></div>
                         <div class="detail-info">
-                            <div class="detail-info-item"><div class="detail-info-label">状态</div><div class="detail-info-val">${SM[a.status] || a.status}</div></div>
-                            <div class="detail-info-item"><div class="detail-info-label">集数</div><div class="detail-info-val">${a.currentEpisode} / ${a.totalEpisodes}</div></div>
+                            <div class="detail-info-item"><div class="detail-info-label">状态</div><div id="detailStatus" class="detail-info-val">${SM[a.status] || a.status}</div></div>
+                            <div class="detail-info-item"><div class="detail-info-label">集数</div><div id="detailEpisodeCount" class="detail-info-val">${a.currentEpisode} / ${a.totalEpisodes}</div></div>
                             <div class="detail-info-item"><div class="detail-info-label">开播</div><div class="detail-info-val">${a.startDate || '-'}</div></div>
-                            <div class="detail-info-item"><div class="detail-info-label">完结</div><div class="detail-info-val">${a.endDate || '-'}</div></div>
+                            <div class="detail-info-item"><div class="detail-info-label">完结</div><div id="detailEndDate" class="detail-info-val">${a.endDate || '-'}</div></div>
                         </div>
                         ${bangumiLink}
                     </div>
                 </div>
                 <div class="detail-body">
-                    <div class="detail-progress-wrap"><div class="detail-progress-label"><span>进度</span><span>${pct}%</span></div><div class="detail-progress"><div class="detail-progress-bar ${a.status}" style="--progress:${pct}%"></div></div></div>
+                    <div class="detail-progress-wrap"><div class="detail-progress-label"><span>进度</span><span id="detailProgressPercent">${pct}%</span></div><div class="detail-progress"><div id="detailProgressBar" class="detail-progress-bar ${a.status}" style="--progress:${pct}%"></div></div></div>
                     ${a.remark ? `<div class="detail-remark">${renderRemark(a.remark)}</div>` : ''}
                     <section id="episodeHistorySection" class="episode-history" data-anime-id="${a.id}" aria-label="逐集观看记录"></section>
                     <div id="bangumiDetailSection"></div>
-                    <div class="detail-actions"><button class="a-btn" onclick="shareAnimeCard(${a.id})">分享</button><button class="a-btn" onclick="closeDetailModal();openEditModal(${a.id})">编辑</button><button class="a-btn ep-btn" onclick="prevEpisode(${a.id})">上一集</button><button class="a-btn ep-btn" onclick="nextEpisode(${a.id})">下一集</button><button class="a-btn" onclick="showAddToGroup(${a.id})">分组</button><button class="a-btn del" onclick="deleteAnime(${a.id});closeDetailModal()">删除</button></div>
+                    <div class="detail-actions"><button class="a-btn" onclick="shareAnimeCard(${a.id})">分享</button><button class="a-btn" onclick="closeDetailModal();openEditModal(${a.id})">编辑</button><button class="a-btn ep-btn" data-watch-id="${a.id}" onclick="prevEpisode(${a.id})">上一集</button><button class="a-btn ep-btn" data-watch-id="${a.id}" onclick="nextEpisode(${a.id})">下一集</button><button class="a-btn" onclick="showAddToGroup(${a.id})">分组</button><button class="a-btn del" onclick="deleteAnime(${a.id});closeDetailModal()">删除</button></div>
                 </div>`;
             overlay.appendChild(card); document.body.appendChild(overlay);
             trapFocus(overlay);
             loadEpisodeHistory(id);
+            syncWatchButtons();
             if (a.bangumiId) loadBangumiDetail(a.bangumiId);
             else {
                 document.getElementById('bangumiDetailSection').innerHTML = '<div class="detail-match-wrap"><button class="detail-match-btn" onclick="matchBangumiFor(' + a.id + ', this)">匹配 Bangumi 链接</button></div>';
@@ -780,6 +780,7 @@
             }
             if (viewMode === 'detail') renderDetail(list, kw);
             if (viewMode === 'gallery') renderGallery(list, kw);
+            syncWatchButtons();
             initLazyLoad();
         }
 
@@ -806,6 +807,7 @@
             });
             if (dg) list.forEach(a => dg.appendChild(renderAnimeDetailCard(a, kw)));
             if (gg) list.forEach(a => gg.appendChild(renderAnimeGalleryCard(a, kw)));
+            syncWatchButtons();
             initLazyLoad();
         }
 
@@ -820,7 +822,8 @@
         }
 
         /* 统计只请求 detailed 端点，已包含概览数据 */
-        async function updateStats() {
+        async function updateStats(refreshDaily = true) {
+            if (refreshDaily) loadDailyWatch();
             const r = await fetchApi('/api/anime/stats/detailed');
             if (r && r.code === 200) {
                 const d = r.data;

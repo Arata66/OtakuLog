@@ -1,8 +1,10 @@
-const CACHE_NAME = 'otakulog-v9';
+const CACHE_NAME = 'otakulog-v10';
 const STATIC_ASSETS = [
     '/css/anime.css',
     '/js/anime-app.js',
     '/js/episode-history.js',
+    '/js/watch-actions.js',
+    '/js/daily-watch.js',
     '/js/i18n.js',
     '/manifest.json'
 ];

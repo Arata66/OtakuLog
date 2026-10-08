@@ -56,6 +56,17 @@ test('当调用方需要处理记录冲突时应该返回冲突并保留默认�
     assert.equal(ordinary.messages[0].message, '冲突');
 });
 
+test('当调用方处理进度边界错误时应该返回原因且不泄漏内部选项或绕过登录', async () => {
+    const app = createApp(new Response('{"message":"reached_max"}', { status: 400 }));
+    const result = await app.context.fetchApi('/api/anime/1/next-episode', { method: 'POST', returnError: true });
+    assert.equal(result.code, 400); assert.equal(result.message, 'reached_max');
+    assert.equal(app.messages.length, 0); assert.equal(app.requests[0].options.returnError, undefined);
+    assert.equal(app.requests[0].options.headers.get('X-CSRF-TOKEN'), 'page-token');
+    const expired = createApp(new Response('{}', { status: 401 }));
+    assert.equal(await expired.context.fetchApi('/api/anime/1/next-episode', { method: 'POST', returnError: true }), null);
+    assert.equal(expired.redirects.length, 1);
+});
+
 function createReportApp(overrides = {}) {
     const app = createApp();
     const elements = new Map(), charts = [];

@@ -17,6 +17,11 @@ public interface EpisodeRecordRepository extends JpaRepository<EpisodeRecord, Lo
 
     List<EpisodeRecord> findByAnimeIdOrderByEpisodeNumberAsc(Long animeId);
 
+    @Query("SELECT er.animeId, MAX(er.watchedDate) FROM EpisodeRecord er WHERE er.animeId IN :ids " +
+            "AND er.source IN :sources AND er.watchedDate <= :today GROUP BY er.animeId")
+    List<Object[]> findLatestKnownDates(@Param("ids") List<Long> ids, @Param("today") LocalDate today,
+                                      @Param("sources") List<com.otakulog.enums.EpisodeRecordSource> sources);
+
     void deleteByAnimeIdAndEpisodeNumber(Long animeId, Integer episodeNumber);
 
     void deleteByAnimeId(Long animeId);

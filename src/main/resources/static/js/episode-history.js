@@ -2,6 +2,33 @@ function episodeHistoryCurrent(section) {
     return document.getElementById('episodeHistorySection') === section;
 }
 
+async function refreshDetailProgress(anime) {
+    const modal = document.getElementById('detailModal');
+    if (modal?.dataset?.animeId !== String(anime.id)) return;
+    const percent = anime.totalEpisodes > 0 ? Math.round(anime.currentEpisode / anime.totalEpisodes * 100) : 0;
+    const values = { detailEpisodeCount: `${anime.currentEpisode} / ${anime.totalEpisodes}`, detailStatus: SM[anime.status] || anime.status,
+        detailProgressPercent: percent + '%', detailBadge: SM[anime.status] || anime.status, detailEndDate: anime.endDate || '-' };
+    for (const [id, value] of Object.entries(values)) {
+        const element = document.getElementById(id);
+        if (element) element.textContent = value;
+    }
+    const badge = document.getElementById('detailBadge');
+    if (badge) badge.className = 'detail-badge ' + anime.status;
+    const bar = document.getElementById('detailProgressBar');
+    if (bar) { bar.style.setProperty('--progress', percent + '%'); bar.className = 'detail-progress-bar ' + anime.status; }
+    const section = document.getElementById('episodeHistorySection');
+    const state = section?.historyState;
+    if (state?.saving) return;
+    const dirty = state?.entries.some(entry => document.getElementById(`episode-date-${entry.episodeNumber}`)?.value !== (entry.watchedDate || ''));
+    if (dirty) {
+        state.conflicted = true;
+        document.getElementById('episodeHistoryStatus').textContent = '进度已更新，有未保存日期，输入已保留，请重新加载后核对。';
+        section.querySelectorAll('.episode-history-row button').forEach(button => { button.disabled = true; });
+        return;
+    }
+    await loadEpisodeHistory(anime.id, state?.page || 0);
+}
+
 async function loadEpisodeHistory(id, page = 0) {
     const section = document.getElementById('episodeHistorySection');
     if (!section || section.dataset.animeId !== String(id) || section.historyState?.saving) return;
@@ -16,6 +43,8 @@ async function loadEpisodeHistory(id, page = 0) {
         return;
     }
     Object.assign(state, result.data);
+    const lastPage = Math.max(0, Math.ceil(state.totalRows / state.size) - 1);
+    if (state.page > lastPage) return loadEpisodeHistory(id, lastPage);
     renderEpisodeHistory(state);
 }
 
@@ -71,7 +100,7 @@ async function saveEpisodeDate(id, number) {
         method: 'PUT', headers: { 'Content-Type': 'application/json' }, returnConflict: true,
         body: JSON.stringify({ watchedDate, expected })
     });
-    if (result?.code === 200) loadHeatmap();
+    if (result?.code === 200) { loadHeatmap(); loadDailyWatch(); }
     if (!episodeHistoryCurrent(section) || section.historyState !== state) return;
     state.saving = false;
     controls.forEach((control, index) => { control.disabled = previous[index]; });

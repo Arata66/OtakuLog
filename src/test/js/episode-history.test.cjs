@@ -14,7 +14,7 @@ function app(accepted = true) {
         document: { getElementById(id) { return id === 'episodeHistorySection' ? current : id === 'episodeHistoryStatus' ? status : input; } },
         esc: value => String(value ?? '').replaceAll('<', '&lt;').replaceAll('"', '&quot;'),
         confirm: message => { confirmations.push(message); return accepted; },
-        toast: message => messages.push(message), loadHeatmap: () => {}, Date,
+        toast: message => messages.push(message), loadHeatmap: () => {}, loadDailyWatch: () => {}, Date,
         fetchApi: async (url, options) => {
             requests.push({ url, options });
             return { code: 200, data: { animeId: 7, currentEpisode: 1, page: 0, size: 20, totalRows: 1, entries: [entry] } };
@@ -131,4 +131,50 @@ test('当保存另一集后刷新时应该保留草稿且不把未修改旧值�
     await a.context.saveEpisodeDate(7, 1);
     assert.equal(inputs.get(2).value, '2024-02-03');
     assert.equal(inputs.get(3).value, '2024-03-04');
+});
+
+function addProgressFields(a) {
+    const original = a.context.document.getElementById;
+    const fields = new Map(['detailEpisodeCount', 'detailStatus', 'detailProgressPercent', 'detailBadge', 'detailEndDate']
+        .map(id => [id, { textContent: '', className: '' }]));
+    fields.set('detailModal', { dataset: { animeId: '7' } });
+    fields.set('detailProgressBar', { className: '', style: { setProperty() {} } });
+    a.context.SM = { watching: '追中', finished: '已完成', planning: '计划' };
+    a.context.document.getElementById = id => fields.has(id) ? fields.get(id) : original(id);
+    return fields;
+}
+
+test('当详情内进度变化且没有草稿时应该更新状态并重新读取逐集记录', async () => {
+    const a = app(); const fields = addProgressFields(a); await a.context.loadEpisodeHistory(7);
+    await a.context.refreshDetailProgress({ id: 7, currentEpisode: 12, totalEpisodes: 12, status: 'finished', endDate: '2024-02-03' });
+    assert.equal(fields.get('detailEpisodeCount').textContent, '12 / 12');
+    assert.equal(fields.get('detailStatus').textContent, '已完成');
+    assert.equal(fields.get('detailProgressPercent').textContent, '100%');
+    assert.equal(a.requests.length, 2);
+});
+
+test('当详情进度变化但有日期草稿时应该保留输入并提示核对', async () => {
+    const a = app(); addProgressFields(a); await a.context.loadEpisodeHistory(7); a.input.value = '2024-02-03';
+    await a.context.refreshDetailProgress({ id: 7, currentEpisode: 2, totalEpisodes: 12, status: 'watching' });
+    assert.equal(a.input.value, '2024-02-03'); assert.equal(a.requests.length, 1);
+    assert.match(a.status.textContent, /进度已更新.*未保存/);
+});
+
+test('当进度响应属于其他作品时应该不覆盖当前详情', async () => {
+    const a = app(); const fields = addProgressFields(a);
+    await a.context.refreshDetailProgress({ id: 8, currentEpisode: 2, totalEpisodes: 12, status: 'watching' });
+    assert.equal(fields.get('detailEpisodeCount').textContent, ''); assert.equal(a.requests.length, 0);
+});
+
+test('当退集后当前历史页超出范围时应该重新读取最后一页', async () => {
+    const a = app();
+    a.context.fetchApi = async url => {
+        a.requests.push({ url });
+        const page = url.includes('page=1') ? 1 : 0;
+        return { code: 200, data: { page, size: 20, totalRows: 20, currentEpisode: 20, entries: page ? [] : [a.entry] } };
+    };
+    await a.context.loadEpisodeHistory(7, 1);
+    assert.equal(a.requests.length, 2);
+    assert.match(a.requests[1].url, /page=0/);
+    assert.match(a.section.innerHTML, /第 1 \/ 1 页/);
 });

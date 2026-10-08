@@ -14,6 +14,7 @@
 - 番剧分组（创建/查看/删除分组，分组内管理番剧）
 - 数据分页查询
 - 详情内逐集观看记录、来源核对与日期补录（保留未知日期，保存冲突保护）
+- 首页继续观看与今日放送参考，支持直接记进度、同作品防重复点击和详情联动
 
 ### Bangumi 集成
 - 搜索 Bangumi 番剧数据库（名称/标签）
@@ -83,7 +84,7 @@
 
 | 技术 | 用途 |
 |------|------|
-| 原生 JavaScript（4 个脚本） | 单页应用逻辑与独立逐集记录交互 |
+| 原生 JavaScript（6 个脚本） | 单页应用、逐集记录、日常追番与统一进退集交互 |
 | Chart.js | 统计图表（7 个实例） |
 | SortableJS | 拖拽排序 |
 | Marked + DOMPurify | Markdown 渲染 + XSS 防护 |
@@ -121,6 +122,7 @@ OtakuLog/
 │   │   ├── AnimeController.java              # 番剧 CRUD + 统计 + 搜索（~310 行）
 │   │   ├── BangumiApiController.java         # Bangumi 搜索/详情/导入
 │   │   ├── EpisodeHistoryController.java     # 逐集查看与日期核对
+│   │   ├── DailyWatchController.java         # 只读日常追番入口
 │   │   ├── GroupController.java              # 番剧分组管理
 │   │   ├── LoginController.java              # 登录页
 │   │   ├── ReportController.java             # 年度报告
@@ -143,6 +145,7 @@ OtakuLog/
 │   │   ├── BackupService.java                # 完整备份、预览与原子恢复
 │   │   ├── WatchProgressService.java         # 统一观看写入规则
 │   │   ├── EpisodeHistoryService.java        # 记录分页、快照校验与事务锁
+│   │   ├── DailyWatchService.java            # 可继续作品与本地放送参考
 │   │   ├── AnimeService.java                 # 番剧服务接口
 │   │   ├── BangumiService.java               # Bangumi 服务接口
 │   │   ├── AiringScheduleService.java        # 放送时间表接口
@@ -157,6 +160,7 @@ OtakuLog/
 │   │       ├── TraceMoeServiceImpl.java      # 以图搜番实现
 │   │       └── WebDavSyncServiceImpl.java    # WebDAV 同步实现
 │   └── util/
+│       ├── AnimeVOMapper.java                # 列表与日常入口共用作品映射
 │       └── SortUtil.java                     # 排序工具
 ├── src/main/resources/
 │   ├── templates/
@@ -168,6 +172,8 @@ OtakuLog/
 │   │   ├── js/
 │   │   │   ├── anime-app.js                  # 前端主逻辑与 CSRF 请求适配
 │   │   │   ├── episode-history.js            # 逐集记录查看、补录与冲突提示
+│   │   │   ├── daily-watch.js                # 日常追番展示、重试与过期响应保护
+│   │   │   ├── watch-actions.js              # 进退集请求去重与结果联动
 │   │   │   ├── i18n.js                       # 中英文国际化（~320 行）
 │   │   │   └── share-card.js                 # Canvas 分享卡生成（~260 行）
 │   │   ├── icons/                            # PWA 图标（192/512）
@@ -239,6 +245,8 @@ JSON 与 WebDAV 使用相同的版本化完整备份，包含作品、逐集日�
 
 ## 快速开始
 
+首页日常入口不受下方筛选影响，按最近明确观看日期排列；放送参考只读取保存的放送日，未核实本周更新。进退集显示具体结果并同步详情，有日期草稿时保留输入供核对。规则与 API 见[日常追番入口](docs/日常追番入口.md)。
+
 ### 前置要求
 
 - Java 17 或更高版本
@@ -284,10 +292,10 @@ JSON 与 WebDAV 使用相同的版本化完整备份，包含作品、逐集日�
 
 ```bash
 mvn test
-node --test src/test/js/security.test.cjs src/test/js/episode-history.test.cjs
+node --test src/test/js/*.test.cjs
 ```
 
-默认 Java 测试使用 H2 内存数据库，无需 MySQL。包括 44 个原有业务测试、29 个安全用例、27 个观看一致性用例、20 个完整恢复用例、4 个模拟 WebDAV HTTP 用例、13 个年度统计用例与 20 个逐集记录用例；另有 8 个需要显式启用的 MySQL 用例，包含真实行锁并发、完整恢复、跨年统计与日期下界验证。前端测试使用 Node.js 22 或更高版本，无需 npm 安装依赖。
+默认 Java 测试使用 H2 内存数据库，无需 MySQL。包括 44 个原有业务测试、29 个安全用例、27 个观看一致性用例、20 个完整恢复用例、4 个模拟 WebDAV HTTP 用例、13 个年度统计用例、20 个逐集记录用例与 9 个日常入口用例；另有 9 个需要显式启用的 MySQL 用例，包含真实行锁并发、完整恢复、跨年统计、日期下界与日常入口联动验证。全部启用共 175 个 Java 用例。前端有 57 个行为用例，使用 Node.js 22 或更高版本，无需 npm 安装依赖；语法检查覆盖 6 个业务脚本和 sw.js。
 
 H2 测试禁用 Flyway，因此不能代替 MySQL 数据库迁移和 Docker 部署验证。
 
@@ -297,7 +305,7 @@ H2 测试禁用 Flyway，因此不能代替 MySQL 数据库迁移和 Docker 部�
 - 未登录或会话失效的 API 请求返回 JSON 和 HTTP `401`；普通页面跳转登录页。
 - `POST`、`PUT`、`PATCH`、`DELETE` 等写操作需要当前会话的 CSRF 令牌。主页面通过 `_csrf`、`_csrf_header` 元标签提供令牌和头名称，统一请求函数自动携带；登录和退出表单由 Thymeleaf 自动加入隐藏令牌。
 - 已登录但令牌缺失或无效时返回 JSON 和 HTTP `403`，刷新页面后重试。会话失效时前端引导重新登录。
-- 私人 API 响应不保存在 Service Worker 缓存；当前 v8 激活时清理旧版 OtakuLog 缓存。离线 API 返回 HTTP `503`，不回退到旧私人数据。
+- 私人 API 响应不保存在 Service Worker 缓存；当前 v10 激活时清理旧版 OtakuLog 缓存。离线 API 返回 HTTP `503`，不回退到旧私人数据。
 - 当前 PWA 提供静态资源缓存和安装能力，未提供完整离线启动或离线编辑。
 
 ### API 文档

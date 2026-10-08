@@ -97,6 +97,33 @@ class MySqlDeploymentTest {
     }
 
     @Test
+    void 当MySQL记看与退集时应该同步日常入口并只使用明确日期() throws Exception {
+        withDatabase(database -> {
+            try (ConfigurableApplicationContext application = startApplication(database)) {
+                var today = java.time.LocalDate.now();
+                execute(database, "INSERT INTO anime (name,current_episode,total_episodes,status,broadcast_day,legacy) VALUES "
+                        + "('日常入口验收',2,3,'WATCHING'," + today.getDayOfWeek().getValue() + ",0)");
+                execute(database, "INSERT INTO episode_record (anime_id,episode_number,watched_date,record_source) VALUES "
+                        + "(1,1,'" + today.minusDays(2) + "','IMPORT'),(1,2,'" + today + "','LEGACY')");
+                var daily = application.getBean(com.otakulog.service.DailyWatchService.class);
+                String before = query(database, "SELECT CONCAT(current_episode,'/',status,'/',COALESCE(updated_at,'')) FROM anime WHERE id=1");
+                var read = daily.getDaily();
+                assertEquals(1, read.ongoingCount()); assertEquals(1, read.todayAiringCount());
+                assertEquals(today.minusDays(2), read.continueWatching().get(0).lastWatchedDate());
+                assertEquals(before, query(database, "SELECT CONCAT(current_episode,'/',status,'/',COALESCE(updated_at,'')) FROM anime WHERE id=1"));
+                AnimeService service = application.getBean(AnimeService.class);
+                service.nextEpisode(1L);
+                assertEquals(0, daily.getDaily().ongoingCount());
+                assertEquals("FINISHED", query(database, "SELECT status FROM anime WHERE id=1"));
+                service.prevEpisode(1L);
+                assertEquals(1, daily.getDaily().ongoingCount());
+                assertEquals(today.minusDays(2), daily.getDaily().continueWatching().get(0).lastWatchedDate());
+                assertEquals("2", query(database, "SELECT COUNT(*) FROM episode_record"));
+            }
+        });
+    }
+
+    @Test
     void 当MySQL读取跨年观看与历史来源时应该分开年度口径并排除未评分() throws Exception {
         withDatabase(database -> {
             try (ConfigurableApplicationContext application = startApplication(database)) {
