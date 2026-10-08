@@ -1,4 +1,4 @@
-const CACHE_NAME = 'otakulog-v5';
+const CACHE_NAME = 'otakulog-v6';
 const STATIC_ASSETS = [
     '/css/anime.css',
     '/js/anime-app.js',

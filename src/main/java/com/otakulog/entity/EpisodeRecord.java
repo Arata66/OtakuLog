@@ -1,6 +1,9 @@
 package com.otakulog.entity;
 
 import jakarta.persistence.*;
+import com.otakulog.enums.EpisodeRecordSource;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import java.time.LocalDate;
 
 @Entity
@@ -21,8 +24,13 @@ public class EpisodeRecord extends BaseEntity {
     @Column(name = "episode_number", nullable = false)
     private Integer episodeNumber;
 
-    @Column(name = "watched_date", nullable = false)
+    @Column(name = "watched_date")
     private LocalDate watchedDate;
+
+    @Enumerated(EnumType.STRING)
+    @JdbcTypeCode(SqlTypes.VARCHAR)
+    @Column(name = "record_source", nullable = false, length = 20)
+    private EpisodeRecordSource source = EpisodeRecordSource.LEGACY;
 
     public EpisodeRecord() {
     }
@@ -38,4 +46,7 @@ public class EpisodeRecord extends BaseEntity {
 
     public LocalDate getWatchedDate() { return watchedDate; }
     public void setWatchedDate(LocalDate watchedDate) { this.watchedDate = watchedDate; }
+
+    public EpisodeRecordSource getSource() { return source; }
+    public void setSource(EpisodeRecordSource source) { this.source = source; }
 }

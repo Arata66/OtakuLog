@@ -4,6 +4,8 @@ import com.otakulog.OtakuLogApplication;
 import com.otakulog.entity.Anime;
 import com.otakulog.enums.AnimeStatus;
 import com.otakulog.repository.AnimeRepository;
+import com.otakulog.dto.AnimeDTO;
+import com.otakulog.service.AnimeService;
 import org.flywaydb.core.Flyway;
 import org.flywaydb.core.api.FlywayException;
 import org.junit.jupiter.api.Test;
@@ -18,6 +20,9 @@ import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.Statement;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -69,6 +74,9 @@ class MySqlDeploymentTest {
             assertEquals("收藏", query(database,
                     "SELECT g.name FROM anime_group g JOIN anime_group_relation r ON r.group_id = g.id WHERE r.anime_id = 1"));
             assertEquals("2025-12-31", query(database, "SELECT watched_date FROM episode_record"));
+            assertEquals("LEGACY", query(database, "SELECT record_source FROM episode_record"));
+            execute(database, "INSERT INTO episode_record (anime_id, episode_number, watched_date, record_source) VALUES (1, 2, NULL, 'IMPORT')");
+            assertEquals("1", query(database, "SELECT COUNT(*) FROM episode_record WHERE watched_date IS NULL AND record_source = 'IMPORT'"));
             assertEquals("0", query(database,
                     "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'anime' AND column_name = 'tags'"));
         });
@@ -136,6 +144,44 @@ class MySqlDeploymentTest {
              Statement statement = connection.createStatement()) {
             statement.execute(sql);
         }
+    }
+
+    @Test
+    void 当MySQL并发推进两集时应该逐次增加并保留两条记录() throws Exception {
+        withDatabase(database -> {
+            try (ConfigurableApplicationContext application = startApplication(database)) {
+                AnimeService service = application.getBean(AnimeService.class);
+                AnimeDTO dto = new AnimeDTO();
+                dto.setName("并发验收");
+                dto.setTotalEpisodes(3);
+                dto.setSeason("2026秋");
+                dto.setScore(0.0);
+                Long id = service.addAnime(dto).getId();
+                var executor = Executors.newFixedThreadPool(2);
+                CountDownLatch ready = new CountDownLatch(2);
+                CountDownLatch start = new CountDownLatch(1);
+                try {
+                    java.util.concurrent.Callable<Void> request = () -> {
+                        ready.countDown();
+                        if (!start.await(10, TimeUnit.SECONDS)) throw new IllegalStateException("并发验收等待超时");
+                        service.nextEpisode(id);
+                        return null;
+                    };
+                    var first = executor.submit(request);
+                    var second = executor.submit(request);
+                    if (!ready.await(10, TimeUnit.SECONDS)) throw new IllegalStateException("并发验收启动超时");
+                    start.countDown();
+                    first.get(20, TimeUnit.SECONDS);
+                    second.get(20, TimeUnit.SECONDS);
+                    assertEquals("3", query(database, "SELECT current_episode FROM anime"));
+                    assertEquals("FINISHED", query(database, "SELECT status FROM anime"));
+                    assertEquals("3", query(database, "SELECT COUNT(*) FROM episode_record WHERE record_source = 'WATCHED'"));
+                } finally {
+                    start.countDown();
+                    executor.shutdownNow();
+                }
+            }
+        });
     }
 
     private String query(String database, String sql) throws Exception {

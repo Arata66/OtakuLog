@@ -7,7 +7,6 @@ import com.otakulog.dto.AnimeUpdateDTO;
 import com.otakulog.dto.AnimeVO;
 import com.otakulog.dto.TagDTO;
 import com.otakulog.entity.Anime;
-import com.otakulog.entity.EpisodeRecord;
 import com.otakulog.entity.Tag;
 import com.otakulog.enums.AnimeStatus;
 import com.otakulog.repository.AnimeRepository;
@@ -16,6 +15,7 @@ import com.otakulog.repository.TagRepository;
 import com.otakulog.dto.BangumiResult;
 import com.otakulog.service.AnimeService;
 import com.otakulog.service.BangumiService;
+import com.otakulog.service.WatchProgressService;
 import com.otakulog.util.SortUtil;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -37,16 +37,20 @@ public class AnimeServiceImpl implements AnimeService {
     private final BangumiService bangumiService;
     private final EpisodeRecordRepository episodeRecordRepository;
     private final TagRepository tagRepository;
+    private final WatchProgressService watchProgress;
 
     public AnimeServiceImpl(AnimeRepository animeRepository, BangumiService bangumiService,
-                            EpisodeRecordRepository episodeRecordRepository, TagRepository tagRepository) {
+                            EpisodeRecordRepository episodeRecordRepository, TagRepository tagRepository,
+                            WatchProgressService watchProgress) {
         this.animeRepository = animeRepository;
         this.bangumiService = bangumiService;
         this.episodeRecordRepository = episodeRecordRepository;
         this.tagRepository = tagRepository;
+        this.watchProgress = watchProgress;
     }
 
     @Override
+    @Transactional
     public AnimeVO addAnime(AnimeDTO dto) {
         // 重复检测
         if (dto.getName() != null && animeRepository.existsByName(dto.getName())) {
@@ -79,84 +83,64 @@ public class AnimeServiceImpl implements AnimeService {
         // 计划状态从第 0 集开始，追中从第 1 集开始
         anime.setCurrentEpisode(targetStatus == AnimeStatus.PLANNING ? 0 : 1);
         anime.setLegacy(dto.getLegacy() != null && dto.getLegacy());
-        anime.setWatchStartDate(parseDate(dto.getWatchStartDate()) != null ? parseDate(dto.getWatchStartDate()) : LocalDate.now());
+        LocalDate watchDate = parseDate(dto.getWatchStartDate());
+        anime.setWatchStartDate(watchDate != null ? watchDate
+                : (!anime.isLegacy() && targetStatus == AnimeStatus.WATCHING ? LocalDate.now() : null));
         anime.setWatchSeason(dto.getWatchSeason());
 
         Anime saved = animeRepository.save(anime);
 
-        // 非 PLANNING 状态时，为每集创建观看记录
-        if (targetStatus != AnimeStatus.PLANNING && saved.getCurrentEpisode() != null && saved.getCurrentEpisode() > 0) {
-            for (int ep = 1; ep <= saved.getCurrentEpisode(); ep++) {
-                saveRecordIfAbsent(saved.getId(), ep, LocalDate.now());
-            }
-        }
+        watchProgress.initialize(saved, watchDate != null);
 
         return toVO(saved);
     }
 
     @Override
+    @Transactional
     public AnimeVO nextEpisode(Long id) {
-        Anime anime = animeRepository.findById(id)
+        Anime anime = animeRepository.findByIdForUpdate(id)
                 .orElseThrow(() -> new ResourceNotFoundException("未找到该番剧"));
 
-        if (anime.getCurrentEpisode() >= anime.getTotalEpisodes()) {
-            throw new IllegalArgumentException("reached_max");
-        }
-
-        int newEp = anime.getCurrentEpisode() + 1;
-        anime.setCurrentEpisode(newEp);
-        // 自动设置追番开始日
-        if (anime.getWatchStartDate() == null) {
-            anime.setWatchStartDate(LocalDate.now());
-        }
-        if (anime.getCurrentEpisode().equals(anime.getTotalEpisodes())) {
-            anime.setStatus(AnimeStatus.FINISHED);
-            anime.setEndDate(LocalDate.now());
-        } else {
-            anime.setStatus(AnimeStatus.WATCHING);
-        }
-
-        // 记录这一集的观看
-        saveRecordIfAbsent(id, newEp, LocalDate.now());
+        watchProgress.next(anime);
 
         return toVO(animeRepository.save(anime));
     }
 
     @Override
+    @Transactional
     public AnimeVO prevEpisode(Long id) {
-        Anime anime = animeRepository.findById(id)
+        Anime anime = animeRepository.findByIdForUpdate(id)
                 .orElseThrow(() -> new ResourceNotFoundException("未找到该番剧"));
 
-        if (anime.getCurrentEpisode() <= 1) {
-            throw new IllegalArgumentException("reached_min");
-        }
-
-        int removedEp = anime.getCurrentEpisode();
-        anime.setCurrentEpisode(removedEp - 1);
-        anime.setStatus(AnimeStatus.WATCHING);
-        anime.setEndDate(null);
-
-        // 删除这一集的观看记录
-        episodeRecordRepository.deleteByAnimeIdAndEpisodeNumber(id, removedEp);
+        watchProgress.previous(anime);
 
         return toVO(animeRepository.save(anime));
     }
 
     @Override
+    @Transactional
     public AnimeVO updateAnime(Long id, AnimeUpdateDTO dto) {
-        Anime anime = animeRepository.findById(id)
+        Anime anime = animeRepository.findByIdForUpdate(id)
                 .orElseThrow(() -> new ResourceNotFoundException("未找到该番剧"));
+        AnimeStatus originalStatus = anime.getStatus();
 
         anime.setName(dto.getName());
         if (dto.getTotalEpisodes() != null) {
+            if (dto.getTotalEpisodes() < 1 || dto.getTotalEpisodes() < anime.getCurrentEpisode()) {
+                throw new IllegalArgumentException("总集数不能小于当前观看进度");
+            }
             anime.setTotalEpisodes(dto.getTotalEpisodes());
+            if (anime.getStatus() == AnimeStatus.FINISHED && anime.getCurrentEpisode() < dto.getTotalEpisodes()) {
+                anime.setStatus(AnimeStatus.WATCHING);
+                anime.setEndDate(null);
+            }
         }
         anime.setSeason(dto.getSeason());
         anime.setScore(dto.getScore());
         anime.setRemark(dto.getRemark() != null ? dto.getRemark() : "");
         anime.setCoverUrl(dto.getCoverUrl());
         anime.setStartDate(parseDate(dto.getStartDate()));
-        anime.setEndDate(parseDate(dto.getEndDate()));
+        LocalDate completion = parseDate(dto.getEndDate());
         anime.setTags(parseTags(dto.getTags()));
         anime.setBroadcastDay(dto.getBroadcastDay());
         if (dto.getBangumiId() != null) {
@@ -172,26 +156,27 @@ public class AnimeServiceImpl implements AnimeService {
             anime.setWatchSeason(dto.getWatchSeason());
         }
 
+        if (dto.getStatus() != null && !dto.getStatus().isBlank()) {
+            AnimeStatus requested = AnimeStatus.valueOf(dto.getStatus().toUpperCase(Locale.ROOT));
+            // 状态未改动时，保留增加总集数后自动恢复追中的结果。
+            if (requested != originalStatus) watchProgress.changeStatus(anime, requested);
+        }
+        if (anime.getStatus() == AnimeStatus.FINISHED) {
+            if (completion != null) anime.setEndDate(completion);
+        } else {
+            anime.setEndDate(null);
+        }
+
         return toVO(animeRepository.save(anime));
     }
 
     @Override
+    @Transactional
     public AnimeVO updateStatus(Long id, AnimeStatus status) {
-        Anime anime = animeRepository.findById(id)
+        Anime anime = animeRepository.findByIdForUpdate(id)
                 .orElseThrow(() -> new ResourceNotFoundException("未找到该番剧"));
 
-        anime.setStatus(status);
-        if (status == AnimeStatus.FINISHED) {
-            anime.setEndDate(LocalDate.now());
-        }
-        // 从计划改为追中时，自动设置集数为 1
-        if (status == AnimeStatus.WATCHING && anime.getCurrentEpisode() == 0) {
-            anime.setCurrentEpisode(1);
-            if (anime.getWatchStartDate() == null) {
-                anime.setWatchStartDate(LocalDate.now());
-            }
-            saveRecordIfAbsent(id, 1, LocalDate.now());
-        }
+        watchProgress.changeStatus(anime, status);
         return toVO(animeRepository.save(anime));
     }
 
@@ -219,10 +204,11 @@ public class AnimeServiceImpl implements AnimeService {
     @Transactional
     public void batchUpdateStatus(List<Long> ids, AnimeStatus status) {
         if (ids == null || ids.isEmpty()) return;
-        if (status == AnimeStatus.FINISHED) {
-            animeRepository.batchFinishByIds(ids);
-        } else {
-            animeRepository.batchUpdateStatusByIds(ids, status);
+        for (Long id : ids.stream().distinct().sorted().toList()) {
+            Anime anime = animeRepository.findByIdForUpdate(id)
+                    .orElseThrow(() -> new ResourceNotFoundException("未找到该番剧"));
+            watchProgress.changeStatus(anime, status);
+            animeRepository.save(anime);
         }
     }
 
@@ -367,30 +353,32 @@ public class AnimeServiceImpl implements AnimeService {
     }
 
     @Override
+    @Transactional
     public Map<String, Object> importJson(String json) {
         try {
             ObjectMapper mapper = new ObjectMapper();
             List<Map<String, Object>> list = mapper.readValue(json, new TypeReference<>() {});
 
-            Map<String, Anime> existing = animeRepository.findAll().stream()
-                    .collect(Collectors.toMap(Anime::getName, a -> a, (a, b) -> a));
-
             int created = 0, updated = 0;
             List<AnimeVO> result = new ArrayList<>();
             for (Map<String, Object> map : list) {
                 String name = (String) map.get("name");
-                Anime anime = existing.getOrDefault(name, new Anime());
+                if (name == null || name.isBlank()) throw new IllegalArgumentException("番剧名称不能为空");
+                List<Long> existingIds = animeRepository.findIdsByName(name);
+                Anime anime = existingIds.isEmpty() ? new Anime()
+                        : animeRepository.findByIdForUpdate(existingIds.get(0))
+                                .orElseThrow(() -> new ResourceNotFoundException("未找到该番剧"));
 
                 boolean isNew = anime.getId() == null;
                 anime.setName(name);
                 anime.setTotalEpisodes(toInt(map.get("totalEpisodes")));
-                anime.setCurrentEpisode(toInt(map.get("currentEpisode")));
+                int importedProgress = toInt(map.get("currentEpisode"));
                 anime.setScore(toDouble(map.get("score")));
                 anime.setSeason((String) map.get("season"));
                 anime.setRemark((String) map.getOrDefault("remark", ""));
                 anime.setCoverUrl((String) map.get("coverUrl"));
                 anime.setStartDate(parseDate((String) map.get("startDate")));
-                anime.setEndDate(parseDate((String) map.get("endDate")));
+                LocalDate importedEndDate = parseDate((String) map.get("endDate"));
                 String status = (String) map.getOrDefault("status", "watching");
                 anime.setStatus(AnimeStatus.valueOf(status.toUpperCase()));
                 // 兼容旧版字符串格式和新版数组格式
@@ -418,22 +406,15 @@ public class AnimeServiceImpl implements AnimeService {
                 anime.setBroadcastDay(toIntOrNull(map.get("broadcastDay")));
                 anime.setBangumiId(toIntOrNull(map.get("bangumiId")));
                 anime.setSortOrder(toIntOrNull(map.get("sortOrder")));
-                anime.setWatchStartDate(parseDate((String) map.get("watchStartDate")));
+                LocalDate importedStartDate = parseDate((String) map.get("watchStartDate"));
+                if (importedStartDate != null) anime.setWatchStartDate(importedStartDate);
                 Object legacyObj = map.get("legacy");
                 anime.setLegacy(legacyObj != null && Boolean.TRUE.equals(legacyObj));
                 anime.setWatchSeason((String) map.get("watchSeason"));
 
                 Anime saved = animeRepository.save(anime);
+                watchProgress.restore(saved, importedProgress, anime.getStatus(), importedEndDate);
                 result.add(toVO(saved));
-
-                // 为导入的集数创建观看记录
-                if (!saved.isLegacy() && saved.getCurrentEpisode() != null && saved.getCurrentEpisode() > 0) {
-                    episodeRecordRepository.deleteByAnimeId(saved.getId());
-                    LocalDate baseDate = saved.getWatchStartDate() != null ? saved.getWatchStartDate() : LocalDate.now();
-                    for (int ep = 1; ep <= saved.getCurrentEpisode(); ep++) {
-                        saveRecordIfAbsent(saved.getId(), ep, baseDate);
-                    }
-                }
 
                 if (isNew) created++; else updated++;
             }
@@ -444,7 +425,7 @@ public class AnimeServiceImpl implements AnimeService {
             res.put("list", result);
             return res;
         } catch (IllegalArgumentException e) {
-            throw new IllegalArgumentException("无效的状态值: " + e.getMessage());
+            throw new IllegalArgumentException("导入数据无效: " + e.getMessage(), e);
         } catch (Exception e) {
             throw new RuntimeException("导入失败: JSON 格式错误", e);
         }
@@ -668,22 +649,16 @@ public class AnimeServiceImpl implements AnimeService {
             anime.setName(displayName);
             anime.setBangumiId(subjectId);
             anime.setTotalEpisodes(totalEps > 0 ? totalEps : 12);
-            anime.setCurrentEpisode(epStatus);
+            anime.setCurrentEpisode(0);
             anime.setStatus(status);
             anime.setCoverUrl((String) item.get("image"));
             anime.setSeason(guessSeason((String) item.get("date")));
             anime.setScore(0.0);
             anime.setRemark("");
-            anime.setWatchStartDate(LocalDate.now());
 
             Anime saved = animeRepository.save(anime);
 
-            // 为导入的集数创建观看记录
-            if (epStatus > 0 && !saved.isLegacy()) {
-                for (int ep = 1; ep <= epStatus; ep++) {
-                    saveRecordIfAbsent(saved.getId(), ep, LocalDate.now());
-                }
-            }
+            watchProgress.restore(saved, epStatus, status, null);
 
             created++;
         }
@@ -767,7 +742,7 @@ public class AnimeServiceImpl implements AnimeService {
 
         // 优先从 episode_record 聚合（事件驱动，精确记录）
         List<Object[]> rows = episodeRecordRepository.countByWatchedDateBetween(oneYearAgo, today);
-        if (!rows.isEmpty()) {
+        if (episodeRecordRepository.count() > 0) {
             for (Object[] row : rows) {
                 LocalDate date = (LocalDate) row[0];
                 long count = (long) row[1];
@@ -805,17 +780,6 @@ public class AnimeServiceImpl implements AnimeService {
             }
         }
         return heatmap;
-    }
-
-    private void saveRecordIfAbsent(Long animeId, int episodeNumber, LocalDate watchedDate) {
-        episodeRecordRepository.findByAnimeIdAndEpisodeNumber(animeId, episodeNumber)
-                .orElseGet(() -> {
-                    EpisodeRecord r = new EpisodeRecord();
-                    r.setAnimeId(animeId);
-                    r.setEpisodeNumber(episodeNumber);
-                    r.setWatchedDate(watchedDate);
-                    return episodeRecordRepository.save(r);
-                });
     }
 
     // 根据放送日期猜测季度
@@ -878,7 +842,7 @@ public class AnimeServiceImpl implements AnimeService {
         try {
             return LocalDate.parse(dateStr);
         } catch (Exception e) {
-            return null;
+            throw new IllegalArgumentException("日期格式必须为 yyyy-MM-dd", e);
         }
     }
 

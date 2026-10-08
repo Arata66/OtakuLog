@@ -6,7 +6,7 @@
 
 ### 番剧管理
 - 添加、编辑、删除追番记录（支持 Bangumi ID / 名称双重去重）
-- 进度追踪（上一集/下一集），到达最后一集自动标记完成
+- 进度追踪（上一集/下一集），到达最后一集自动标记完成，退回第 0 集恢复计划
 - 评分（0-10）与 Markdown 备注
 - 三种视图：表格列表 / 详情卡片 / 封面画廊（带 View Toggle 图标切换）
 - 批量操作（删除、改状态、标记完成）
@@ -25,7 +25,7 @@
 ### 数据分析
 - 统计概览：总数/追中/完成/计划/放弃/进度/平均分
 - 增强统计：年度对比 / 评分分布 / 标签统计 / 观看习惯
-- 观看热力图（基于 `episode_record` 表事件驱动，精确到每集）
+- 观看热力图（按逐集已知日期聚合，日期未知的补录不生成观看量；已有历史估算日期保留）
 - 季度汇总 / 月度完成报告
 - 追番时间线（按追番日期 / 开播日期）
 
@@ -65,7 +65,7 @@
 | Spring Data JPA | - | ORM |
 | Spring Security | - | 表单登录、API 认证、CSRF 写入保护 |
 | Spring Cache + Caffeine | - | Bangumi API 响应缓存 |
-| Flyway | 9.22.3 | 数据库迁移（V1–V7，含 V6.1 Java 数据迁移） |
+| Flyway | 9.22.3 | 数据库迁移（V0–V9，含 V6.1、V8 Java 迁移） |
 | Flyway MySQL | 9.22.3 | MySQL 方言支持 |
 | MySQL | 8.0+ | 生产数据库 |
 | H2 | - | 测试环境内存数据库 |
@@ -174,7 +174,8 @@ OtakuLog/
 │   │   ├── V4__add_anime_group.sql           # 番剧分组表
 │   │   ├── V5__add_episode_record.sql        # 每集观看记录表
 │   │   ├── V6__add_tag_system.sql            # 标签表与关联表
-│   │   └── V7__add_watch_season.sql          # 观看季度字段
+│   │   ├── V7__add_watch_season.sql          # 观看季度字段
+│   │   └── V9__add_episode_record_source.sql # 观看来源与未知日期
 │   └── application.properties                # 应用配置
 ├── src/test/java/com/otakulog/
 │   ├── config/
@@ -186,7 +187,8 @@ OtakuLog/
 │   ├── repository/
 │   │   └── AnimeRepositoryTest.java          # Repository 层测试（8 用例）
 │   └── service/
-│       └── AnimeServiceImplTest.java         # Service 层测试（23 用例）
+│       ├── AnimeServiceImplTest.java         # 原有 Service 层测试（23 用例）
+│       └── WatchConsistencyTest.java         # 无测试外层事务的观看一致性验收
 ├── src/test/js/security.test.cjs               # 前端令牌与私人缓存测试
 ├── pom.xml
 └── README.md
@@ -203,6 +205,20 @@ OtakuLog/
 | `tag` / `anime_tag` | V6 新增，标签与番剧关联 |
 
 V6.1 Java 迁移负责迁移旧字符串标签；V8 Java 迁移负责对齐状态列类型，两者位于 `src/main/java/com/otakulog/`。V0 补齐空库初始化，历史迁移文件保持不变。
+
+### 观看与导入规则
+
+观看进度、状态和逐集记录在同一事务内写入；编辑弹窗的资料与状态也一次提交，失败时全部回滚。单条与批量状态切换使用相同规则。
+
+- 计划从 0 集开始，追中默认记录第 1 集；进到最后一集自动完成，退至 0 集恢复计划。
+- 手动或批量标记完成会补齐进度，保留已有完成日期与逐集日期；缺失逐集日期保留未知，不把整部算到今天。
+- 有进度时直接改计划会拒绝，先退回 0 集后再切换；改追中或搁置会清除完成日期并保留观看历史。
+- 编辑时增加已完成作品的总集数，会恢复追中；总集数不能低于已有进度。主动填写的日期必须为 `yyyy-MM-dd`。
+- 旧 JSON 导入仍按名称合并，整次操作原子化。已有进度不能倒退，已有逐集日期保留；JSON/Bangumi 缺少逐集日期时补未知日期记录。
+
+V9 允许 `episode_record.watched_date` 为空，并新增 `record_source`：`WATCHED` 为本次观看，`MANUAL` 为手动补录，`IMPORT` 为导入，`LEGACY` 为来源不可考的已有记录。迁移不修改旧日期，也不把旧估算自动升级为真实观看。热力图只聚合已知日期；有逐集记录时不再回退伪造日期，无记录的历史库仍保留估算兼容。
+
+当前 JSON/WebDAV 仍仅备份番剧信息，尚不能完整恢复逐集记录、分组与来源；下一小节将处理完整备份格式。详细规则与验收见[观看写入一致性](docs/superpowers/plans/2026-10-08-观看写入一致性.md)。
 
 ## 快速开始
 
@@ -254,7 +270,7 @@ mvn test
 node --test src/test/js/security.test.cjs
 ```
 
-默认 Java 测试使用 H2 内存数据库，无需 MySQL。包括 44 个原有业务测试与 27 个安全行为用例；另有 4 个需要显式启用的 MySQL 部署用例。前端测试使用 Node.js 22 或更高版本，无需 npm 安装依赖。
+默认 Java 测试使用 H2 内存数据库，无需 MySQL。包括 44 个原有业务测试、27 个安全用例、27 个观看一致性用例；另有 5 个需要显式启用的 MySQL 用例，包含真实行锁并发验证。前端测试使用 Node.js 22 或更高版本，无需 npm 安装依赖。
 
 H2 测试禁用 Flyway，因此不能代替 MySQL 数据库迁移和 Docker 部署验证。
 

@@ -39,7 +39,7 @@ src/main/java/com/otakulog/
 src/main/resources/
 ├── templates/       # Thymeleaf 模板（anime.html, login.html）
 ├── static/          # 前端资源（js/, css/, manifest.json, sw.js）
-└── db/migration/    # Flyway SQL 迁移（V0-V7）；V6.1、V8 为 Java 迁移
+└── db/migration/    # Flyway SQL 迁移（V0-V7、V9）；V6.1、V8 为 Java 迁移
 ```
 
 ## 关键约束
@@ -49,6 +49,7 @@ src/main/resources/
 - **CORS**：允许 `http://localhost:5173`（前端开发跨域）
 - **前端**：单页应用（anime.html），原生 JS + Chart.js，无构建工具
 - **热力图**：V5 起使用 `episode_record` 表事件驱动聚合，优先查表，fallback 旧估算逻辑
+- **观看写入**：统一调用 `WatchProgressService`，必须处于服务事务内；未知逐集日期存 NULL，来源单独记录，不能根据进度猜日期；已有记录时热力图不回退估算
 
 ## 数据库表
 
@@ -76,4 +77,5 @@ src/main/resources/
 | `Codex.local.md` | 个人本地环境配置（不入 git） |
 | `docs/superpowers/` | 历史功能设计文档 |
 | `docs/superpowers/plans/2026-10-08-可复现部署.md` | 部署方案、隔离测试与容器验证边界 |
+| `docs/superpowers/plans/2026-10-08-观看写入一致性.md` | 观看事务、状态规则、日期来源与回滚验收 |
 | `~/.Codex/plans/OtakuLog-可靠自用第一阶段.md` | 当前实施工作区与阶段入口 |

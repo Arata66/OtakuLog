@@ -2,6 +2,8 @@ package com.otakulog.repository;
 
 import com.otakulog.entity.Anime;
 import com.otakulog.enums.AnimeStatus;
+import jakarta.persistence.LockModeType;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -15,6 +17,13 @@ import java.util.List;
 
 @Repository
 public interface AnimeRepository extends JpaRepository<Anime, Long> {
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT a FROM Anime a WHERE a.id = :id")
+    java.util.Optional<Anime> findByIdForUpdate(@org.springframework.data.repository.query.Param("id") Long id);
+
+    @Query("SELECT a.id FROM Anime a WHERE a.name = :name ORDER BY a.id")
+    List<Long> findIdsByName(@org.springframework.data.repository.query.Param("name") String name);
 
     List<Anime> findByNameContaining(String name);
 
@@ -82,17 +91,6 @@ public interface AnimeRepository extends JpaRepository<Anime, Long> {
             "SUM(CASE WHEN a.score IS NOT NULL AND a.score > 0 AND a.score < 6.0 THEN 1 ELSE 0 END) " +
             "FROM Anime a")
     List<Object[]> getAggregatedStats();
-
-    // Batch update status
-    @Modifying
-    @Query("UPDATE Anime a SET a.status = :status WHERE a.id IN :ids")
-    int batchUpdateStatusByIds(@org.springframework.data.repository.query.Param("ids") List<Long> ids,
-                               @org.springframework.data.repository.query.Param("status") AnimeStatus status);
-
-    // Batch update status to FINISHED with endDate
-    @Modifying
-    @Query("UPDATE Anime a SET a.status = 'FINISHED', a.endDate = CURRENT_DATE WHERE a.id IN :ids")
-    int batchFinishByIds(@org.springframework.data.repository.query.Param("ids") List<Long> ids);
 
     // 按 ID 更新单条 sortOrder，Service 层循环调用
     @Modifying

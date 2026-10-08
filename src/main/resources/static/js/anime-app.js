@@ -358,7 +358,7 @@
 
         /* Episodes */
         async function nextEpisode(id) { const r = await fetchApi(`/api/anime/${id}/next-episode`, { method: 'POST' }); if (r && r.code === 200) { toast('集数已更新', 'success'); performSearch(); updateStats(); } else if (r && r.message === 'reached_max') toast('已经是最后一集了', 'info'); else if (r) toast('更新失败', 'error'); }
-        async function prevEpisode(id) { const r = await fetchApi(`/api/anime/${id}/prev-episode`, { method: 'POST' }); if (r && r.code === 200) { toast('集数已更新', 'success'); performSearch(); updateStats(); } else if (r && r.message === 'reached_min') toast('已经是第1集了', 'info'); else if (r) toast('更新失败', 'error'); }
+        async function prevEpisode(id) { const r = await fetchApi(`/api/anime/${id}/prev-episode`, { method: 'POST' }); if (r && r.code === 200) { toast('集数已更新', 'success'); performSearch(); updateStats(); } else if (r && r.message === 'reached_min') toast('已经是第0集了', 'info'); else if (r) toast('更新失败', 'error'); }
 
         /* Add anime */
         async function addAnime(e) {
@@ -724,9 +724,9 @@
             const bd = document.getElementById('m-broadcastDay').value;
             const body = { name: n, totalEpisodes: parseInt(document.getElementById('m-total').value) || null, season: s, score: parseFloat(sv), coverUrl: document.getElementById('m-cover').value || null, startDate: document.getElementById('m-start').value || null, endDate: document.getElementById('m-end').value || null, remark: document.getElementById('m-remark').value || null, tags: document.getElementById('m-tags').value || null, watchSeason: document.getElementById('m-watchSeason').value || null, broadcastDay: bd ? parseInt(bd) : null, watchStartDate: document.getElementById('m-watchStart').value || null, legacy: document.getElementById('m-legacy').checked };
             const st = document.getElementById('m-status').value;
+            body.status = st;
             const r = await fetchApi(`/api/anime/${id}/update`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
             if (!r || r.code !== 200) { if (r) toast(r.message || '保存失败', 'error'); return; }
-            if (st) { await fetchApi(`/api/anime/${id}/status?status=${encodeURIComponent(st)}`, { method: 'POST' }); }
             closeEditModal(); toast('已保存', 'success'); performSearch(); updateStats();
         }
         async function deleteAnime(id) { if (!confirm('确定删除这个番剧吗？')) return; const r = await fetchApi(`/api/anime/${id}`, { method: 'DELETE' }); if (r && r.code === 200) { toast('已删除', 'success'); performSearch(); updateStats(); } else if (r) toast(r.message || '删除失败', 'error'); }

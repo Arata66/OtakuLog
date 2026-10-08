@@ -100,6 +100,21 @@ test('当服务拒绝写入时应该显示服务返回的原因', async () => {
     assert.equal(messages[0].message, '请求令牌无效');
 });
 
+test('当保存编辑弹窗时应该用一次请求同时提交资料和状态', async () => {
+    const { context, requests } = createApp();
+    const fields = {
+        'm-name': '编辑样本', 'm-season': '2026秋', 'm-score': '8',
+        'm-total': '12', 'm-status': 'finished'
+    };
+    context.document.getElementById = id => ({ value: fields[id] || '', checked: false });
+    context.closeEditModal = () => {};
+    context.performSearch = () => {};
+    context.updateStats = () => {};
+    await context.saveEditModal(1);
+    assert.equal(requests.length, 1);
+    assert.equal(JSON.parse(requests[0].options.body).status, 'finished');
+});
+
 function createWorker(offline = false) {
     const listeners = {}, reads = [], writes = [], deleted = [], requests = [];
     const context = vm.createContext({

@@ -137,8 +137,9 @@ class AnimeServiceImplTest {
     }
 
     @Test
-    void prevEpisode_reachedMin() {
+    void 当退回零集后再次退集时应该拒绝越界() {
         AnimeVO vo = animeService.addAnime(createDTO("测试番剧", 12, "2024冬", 8.0));
+        assertEquals(0, animeService.prevEpisode(vo.getId()).getCurrentEpisode());
         assertThrows(IllegalArgumentException.class, () -> animeService.prevEpisode(vo.getId()));
     }
 

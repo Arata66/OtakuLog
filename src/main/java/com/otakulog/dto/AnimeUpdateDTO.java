@@ -4,6 +4,11 @@ import jakarta.validation.constraints.*;
 
 public class AnimeUpdateDTO {
 
+    private String status;
+
+    public String getStatus() { return status; }
+    public void setStatus(String status) { this.status = status; }
+
     @NotBlank(message = "番剧名称不能为空")
     @Size(max = 100, message = "名称长度不能超过100个字符")
     private String name;

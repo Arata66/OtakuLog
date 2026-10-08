@@ -1,0 +1,2 @@
+ALTER TABLE episode_record MODIFY watched_date DATE DEFAULT NULL;
+ALTER TABLE episode_record ADD COLUMN record_source VARCHAR(20) NOT NULL DEFAULT 'LEGACY';
