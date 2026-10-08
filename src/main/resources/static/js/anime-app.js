@@ -61,10 +61,24 @@
             }
         }
 
-        async function fetchApi(url, options) {
+        async function fetchApi(url, options = {}) {
             try {
-                const r = await fetch(url, options);
-                if (options && options.responseType === 'blob') return r;
+                const requestOptions = { ...options, headers: new Headers(options.headers) };
+                const method = (options.method || 'GET').toUpperCase();
+                // 页面令牌只用于本站写入，避免跨站请求泄露令牌。
+                if (!['GET', 'HEAD', 'OPTIONS'].includes(method)
+                    && new URL(url, window.location.href).origin === window.location.origin) {
+                    const token = document.querySelector('meta[name="_csrf"]')?.content;
+                    const headerName = document.querySelector('meta[name="_csrf_header"]')?.content;
+                    if (token && headerName) requestOptions.headers.set(headerName, token);
+                }
+                const r = await fetch(url, requestOptions);
+                if (r.status === 401) {
+                    toast('登录已失效，请重新登录', 'error');
+                    window.location.assign('/login');
+                    return null;
+                }
+                if (options.responseType === 'blob') return r;
                 if (!r.ok) {
                     let msg = '请求失败 (' + r.status + ')';
                     try { const body = await r.json(); if (body.message) msg = body.message; } catch(_) {}

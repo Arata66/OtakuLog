@@ -1,4 +1,4 @@
-const CACHE_NAME = 'otakulog-v4';
+const CACHE_NAME = 'otakulog-v5';
 const STATIC_ASSETS = [
     '/css/anime.css',
     '/js/anime-app.js',
@@ -18,7 +18,8 @@ self.addEventListener('install', event => {
 self.addEventListener('activate', event => {
     event.waitUntil(
         caches.keys().then(keys =>
-            Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)))
+            Promise.all(keys.filter(k => k.startsWith('otakulog-') && k !== CACHE_NAME)
+                .map(k => caches.delete(k)))
         )
     );
     self.clients.claim();
@@ -26,30 +27,16 @@ self.addEventListener('activate', event => {
 
 self.addEventListener('fetch', event => {
     const url = new URL(event.request.url);
-    const method = event.request.method;
 
-    // API 请求：GET 用 network-first，其他方法直接走网络
-    if (url.pathname.startsWith('/api/')) {
-        if (method !== 'GET') {
-            event.respondWith(
-                fetch(event.request).catch(() =>
-                    new Response(JSON.stringify({ code: 503, message: '网络离线，操作失败' }), {
-                        headers: { 'Content-Type': 'application/json' }
-                    })
-                )
-            );
-            return;
-        }
+    // 私人数据仅走网络，避免退出后仍能读取离线缓存。
+    if (url.origin === self.location.origin && url.pathname.startsWith('/api/')) {
         event.respondWith(
-            fetch(event.request)
-                .then(response => {
-                    if (response.ok) {
-                        const cloned = response.clone();
-                        caches.open(CACHE_NAME).then(cache => cache.put(event.request, cloned));
-                    }
-                    return response;
+            fetch(event.request, { cache: 'no-store' }).catch(() =>
+                new Response(JSON.stringify({ code: 503, message: '网络离线，请联网后重试' }), {
+                    status: 503,
+                    headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }
                 })
-                .catch(() => caches.match(event.request))
+            )
         );
         return;
     }

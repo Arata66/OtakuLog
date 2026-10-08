@@ -53,7 +53,7 @@
 - 封面图 IntersectionObserver 懒加载
 - 骨架屏（表格/画廊/详情三种模式）
 - 焦点环（按钮/弹窗键盘无障碍导航）
-- PWA 支持（可安装到桌面 + Service Worker 离线缓存）
+- PWA 支持（可安装到桌面，缓存静态资源；私人 API 数据仅在线访问）
 - 中英文国际化（i18n）
 - Phosphor Icons 图标体系
 
@@ -63,9 +63,9 @@
 |------|------|------|
 | Spring Boot | 3.2.0 | Web 框架 |
 | Spring Data JPA | - | ORM |
-| Spring Security | - | 表单登录认证 |
+| Spring Security | - | 表单登录、API 认证、CSRF 写入保护 |
 | Spring Cache + Caffeine | - | Bangumi API 响应缓存 |
-| Flyway | 9.22.3 | 数据库迁移（5 个版本） |
+| Flyway | 9.22.3 | 数据库迁移（V1–V7，含 V6.1 Java 数据迁移） |
 | Flyway MySQL | 9.22.3 | MySQL 方言支持 |
 | MySQL | 8.0+ | 生产数据库 |
 | H2 | - | 测试环境内存数据库 |
@@ -81,7 +81,7 @@
 
 | 技术 | 用途 |
 |------|------|
-| 原生 JavaScript（~2250 行，3 模块） | 单页应用逻辑 |
+| 原生 JavaScript（3 个脚本） | 单页应用逻辑 |
 | Chart.js | 统计图表（7 个实例） |
 | SortableJS | 拖拽排序 |
 | Marked + DOMPurify | Markdown 渲染 + XSS 防护 |
@@ -97,6 +97,7 @@
 | Mockito | Mock 框架 |
 | Spring Security Test | 认证测试 |
 | H2 | 测试内存数据库 |
+| Node.js 内置测试运行器 | 前端请求令牌与 Service Worker 缓存行为测试 |
 
 ## 项目结构
 
@@ -110,7 +111,7 @@ OtakuLog/
 │   │   ├── ResourceNotFoundException.java    # 资源不存在异常（→404）
 │   │   └── ExternalApiException.java         # 外部 API 异常（→502）
 │   ├── config/
-│   │   ├── SecurityConfig.java               # Spring Security 表单登录
+│   │   ├── SecurityConfig.java               # 表单登录、API 认证与 CSRF
 │   │   ├── CorsConfig.java                   # CORS 跨域配置
 │   │   ├── CacheConfig.java                  # Caffeine 缓存配置
 │   │   └── OpenApiConfig.java                # Swagger/OpenAPI 配置
@@ -119,29 +120,34 @@ OtakuLog/
 │   │   ├── BangumiApiController.java         # Bangumi 搜索/详情/导入
 │   │   ├── GroupController.java              # 番剧分组管理
 │   │   ├── LoginController.java              # 登录页
+│   │   ├── ReportController.java             # 年度报告
 │   │   └── SyncApiController.java            # WebDAV 数据同步
-│   ├── dto/                                  # 8 个数据传输对象
+│   ├── dto/                                  # 番剧、标签、分组与报告传输对象
 │   ├── entity/
 │   │   ├── Anime.java                        # 番剧实体（17 字段 + 2 审计）
 │   │   ├── AnimeGroup.java                   # 分组实体
 │   │   ├── EpisodeRecord.java                # 每集观看记录（热力图数据源）
+│   │   ├── Tag.java                          # 标签实体
 │   │   └── BaseEntity.java                   # 基础实体（createdAt/updatedAt）
 │   ├── enums/
 │   │   └── AnimeStatus.java                  # WATCHING/FINISHED/PLANNING/DROPPED
 │   ├── repository/
 │   │   ├── AnimeRepository.java              # 番剧数据访问（~30 查询方法）
 │   │   ├── AnimeGroupRepository.java         # 分组数据访问
+│   │   ├── TagRepository.java                # 标签数据访问
 │   │   └── EpisodeRecordRepository.java      # 观看记录数据访问
 │   ├── service/
 │   │   ├── AnimeService.java                 # 番剧服务接口
 │   │   ├── BangumiService.java               # Bangumi 服务接口
 │   │   ├── AiringScheduleService.java        # 放送时间表接口
+│   │   ├── AnnualReportService.java          # 年度报告接口
 │   │   ├── TraceMoeService.java              # 以图搜番接口
 │   │   ├── WebDavSyncService.java            # WebDAV 同步接口
 │   │   └── impl/
-│   │       ├── AnimeServiceImpl.java         # 番剧服务实现（~870 行）
+│   │       ├── AnimeServiceImpl.java         # 番剧服务实现
 │   │       ├── BangumiServiceImpl.java       # Bangumi 服务实现（~360 行）
 │   │       ├── AiringScheduleServiceImpl.java # 放送时间表实现
+│   │       ├── AnnualReportServiceImpl.java  # 年度报告实现
 │   │       ├── TraceMoeServiceImpl.java      # 以图搜番实现
 │   │       └── WebDavSyncServiceImpl.java    # WebDAV 同步实现
 │   └── util/
@@ -154,7 +160,7 @@ OtakuLog/
 │   │   ├── css/
 │   │   │   └── anime.css                     # 样式表（~940 行，CSS 变量体系）
 │   │   ├── js/
-│   │   │   ├── anime-app.js                  # 前端主逻辑（~1670 行）
+│   │   │   ├── anime-app.js                  # 前端主逻辑与 CSRF 请求适配
 │   │   │   ├── i18n.js                       # 中英文国际化（~320 行）
 │   │   │   └── share-card.js                 # Canvas 分享卡生成（~260 行）
 │   │   ├── icons/                            # PWA 图标（192/512）
@@ -165,15 +171,20 @@ OtakuLog/
 │   │   ├── V2__add_indexes_and_audit.sql     # 索引 + 审计字段
 │   │   ├── V3__add_watch_tracking.sql        # 观看追踪字段
 │   │   ├── V4__add_anime_group.sql           # 番剧分组表
-│   │   └── V5__add_episode_record.sql        # 每集观看记录表
+│   │   ├── V5__add_episode_record.sql        # 每集观看记录表
+│   │   ├── V6__add_tag_system.sql            # 标签表与关联表
+│   │   └── V7__add_watch_season.sql          # 观看季度字段
 │   └── application.properties                # 应用配置
 ├── src/test/java/com/otakulog/
+│   ├── config/
+│   │   └── SecurityConfigTest.java           # 认证、CSRF 与登录退出测试
 │   ├── controller/
 │   │   └── AnimeControllerTest.java          # Controller 层测试（13 用例）
 │   ├── repository/
 │   │   └── AnimeRepositoryTest.java          # Repository 层测试（8 用例）
 │   └── service/
 │       └── AnimeServiceImplTest.java         # Service 层测试（23 用例）
+├── src/test/js/security.test.cjs               # 前端令牌与私人缓存测试
 ├── pom.xml
 └── README.md
 ```
@@ -182,10 +193,13 @@ OtakuLog/
 
 | 表 | 用途 |
 |----|------|
-| `anime` | 核心番剧表（19 列，含 bangumi_id/legacy/watch_start_date） |
+| `anime` | 核心番剧表，含 Bangumi 关联、历史标记与观看季度 |
 | `anime_group` | V4 新增，番剧分组 |
 | `group_anime` | V4 新增，分组-番剧多对多关联 |
 | `episode_record` | V5 新增，每集观看记录，驱动热力图 |
+| `tag` / `anime_tag` | V6 新增，标签与番剧关联 |
+
+V6.1 Java 迁移位于 `src/main/java/com/otakulog/V6_1__migrate_tags_and_drop_column.java`，负责迁移旧字符串标签。
 
 ## 快速开始
 
@@ -205,7 +219,7 @@ OtakuLog/
 
 2. **创建数据库**
    ```sql
-   CREATE DATABASE otakulog CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+   CREATE DATABASE otaku_log CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
    ```
 
 3. **配置数据库连接**
@@ -216,7 +230,7 @@ OtakuLog/
    spring.datasource.password=${DB_PASS:你的密码}
    ```
 
-   默认连接 `localhost:3306/otakulog`。
+   本地默认连接 `localhost:3306/otaku_log`。
 
 4. **编译并启动**
    ```bash
@@ -234,17 +248,29 @@ OtakuLog/
 
 ```bash
 mvn test
+node --test src/test/js/security.test.cjs
 ```
 
-测试使用 H2 内存数据库，无需 MySQL。44 个测试覆盖 Controller（13）/ Service（23）/ Repository（8）三层。
+Java 测试使用 H2 内存数据库，无需 MySQL。包括 44 个原有业务测试与 27 个安全行为用例；前端测试使用 Node.js 22 或更高版本，无需 npm 安装依赖。
+
+H2 测试禁用 Flyway，因此不能代替 MySQL 数据库迁移和 Docker 部署验证。
+
+### 认证与私人数据
+
+- 登录页和必要静态资源允许匿名访问；业务 API 和 API 文档需要登录。
+- 未登录或会话失效的 API 请求返回 JSON 和 HTTP `401`；普通页面跳转登录页。
+- `POST`、`PUT`、`PATCH`、`DELETE` 等写操作需要当前会话的 CSRF 令牌。主页面通过 `_csrf`、`_csrf_header` 元标签提供令牌和头名称，统一请求函数自动携带；登录和退出表单由 Thymeleaf 自动加入隐藏令牌。
+- 已登录但令牌缺失或无效时返回 JSON 和 HTTP `403`，刷新页面后重试。会话失效时前端引导重新登录。
+- 私人 API 响应不保存在 Service Worker 缓存；v5 激活时清理旧版 OtakuLog 缓存。离线 API 返回 HTTP `503`，不回退到旧私人数据。
+- 当前 PWA 提供静态资源缓存和安装能力，未提供完整离线启动或离线编辑。
 
 ### API 文档
 
-启动后访问 Swagger UI：http://localhost:8080/swagger-ui.html
+登录后访问 Swagger UI：http://localhost:8080/swagger-ui.html。写接口需携带当前会话 CSRF 令牌。
 
 ### Docker 部署
 
-使用 Docker Compose 一键启动（含 MySQL）：
+仓库提供 Docker Compose 配置（含 MySQL）。默认容器连接地址与数据库名尚待“可靠自用第一阶段”的部署小节统一并验证，不能直接视为已验证的一键部署；以下为配置修正后的标准操作命令：
 
 ```bash
 # 设置数据库密码（可选，默认 123456）
