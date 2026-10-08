@@ -10,6 +10,14 @@ public class AnnualReportDTO {
     private long totalEpisodes;
     private double averageRating;
     private double watchingHours;
+    private long watchedAnimeCount;
+    private long ratedAnimeCount;
+    private long legacyDatedEpisodes;
+    private long undatedEpisodeRecords;
+    private long missingEpisodeRecords;
+    private long undatedFinishedAnimeCount;
+    private int minutesPerEpisode;
+    private boolean watchingHoursEstimated;
     private List<Map<String, Object>> monthlyStats;
     private List<Map<String, Object>> topAnimes;
     private List<Map<String, Object>> tagDistribution;
@@ -54,6 +62,23 @@ public class AnnualReportDTO {
     public void setWatchingHours(double watchingHours) {
         this.watchingHours = watchingHours;
     }
+
+    public long getWatchedAnimeCount() { return watchedAnimeCount; }
+    public void setWatchedAnimeCount(long value) { this.watchedAnimeCount = value; }
+    public long getRatedAnimeCount() { return ratedAnimeCount; }
+    public void setRatedAnimeCount(long value) { this.ratedAnimeCount = value; }
+    public long getLegacyDatedEpisodes() { return legacyDatedEpisodes; }
+    public void setLegacyDatedEpisodes(long value) { this.legacyDatedEpisodes = value; }
+    public long getUndatedEpisodeRecords() { return undatedEpisodeRecords; }
+    public void setUndatedEpisodeRecords(long value) { this.undatedEpisodeRecords = value; }
+    public long getMissingEpisodeRecords() { return missingEpisodeRecords; }
+    public void setMissingEpisodeRecords(long value) { this.missingEpisodeRecords = value; }
+    public long getUndatedFinishedAnimeCount() { return undatedFinishedAnimeCount; }
+    public void setUndatedFinishedAnimeCount(long value) { this.undatedFinishedAnimeCount = value; }
+    public int getMinutesPerEpisode() { return minutesPerEpisode; }
+    public void setMinutesPerEpisode(int value) { this.minutesPerEpisode = value; }
+    public boolean isWatchingHoursEstimated() { return watchingHoursEstimated; }
+    public void setWatchingHoursEstimated(boolean value) { this.watchingHoursEstimated = value; }
 
     public List<Map<String, Object>> getMonthlyStats() {
         return monthlyStats;

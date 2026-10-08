@@ -1445,16 +1445,31 @@
 
         /* 年度报告 */
         let _reportCharts = [];
+        function renderAnnualReportSummary(d) {
+            document.getElementById('reportTitle').textContent = d.year + ' 年度追番报告';
+            document.getElementById('reportTotalWatched').textContent = d.totalWatched;
+            document.getElementById('reportTotalEpisodes').textContent = d.totalEpisodes;
+            document.getElementById('reportEpisodeBasis').textContent = `覆盖 ${d.watchedAnimeCount} 部作品，包含追中与搁置`;
+            document.getElementById('reportAvgRating').textContent = d.ratedAnimeCount > 0 ? d.averageRating : '未评分';
+            document.getElementById('reportRatingBasis').textContent = `当年完成且已评分 ${d.ratedAnimeCount} 部`;
+            document.getElementById('reportWatchingHours').textContent = d.watchingHours;
+            document.getElementById('reportWatchingHoursBasis').textContent = `小时 · 每集按 ${d.minutesPerEpisode} 分钟估算`;
+            const basis = [
+                '完成数按完成日期统计；观看集数按明确的逐集日期统计，不使用完成作品总集数推算。',
+                `当年历史来源不明 ${d.legacyDatedEpisodes} 集，可能含旧估算，未并入观看集数。`,
+                '评分、榜单和标签以当年完成作品为范围，均分排除未评分作品。'
+            ];
+            if (d.undatedEpisodeRecords > 0) basis.push(`全库 ${d.undatedEpisodeRecords} 条记录日期未知，无法归入年度。`);
+            if (d.missingEpisodeRecords > 0) basis.push(`全库 ${d.missingEpisodeRecords} 集进度缺少逐集记录，不推算观看年份。`);
+            if (d.undatedFinishedAnimeCount > 0) basis.push(`全库 ${d.undatedFinishedAnimeCount} 部已完成作品缺少完成日期，未归入年度完成数。`);
+            document.getElementById('reportBasis').textContent = basis.join(' ');
+        }
         async function showAnnualReport(year) {
             const url = year ? `/api/report/annual/${year}` : '/api/report/annual/latest';
             const r = await fetchApi(url);
             if (!r || r.code !== 200) { toast('获取年度报告失败', 'error'); return; }
             const d = r.data;
-            document.getElementById('reportTitle').textContent = d.year + ' 年度追番报告';
-            document.getElementById('reportTotalWatched').textContent = d.totalWatched;
-            document.getElementById('reportTotalEpisodes').textContent = d.totalEpisodes;
-            document.getElementById('reportAvgRating').textContent = d.averageRating;
-            document.getElementById('reportWatchingHours').textContent = d.watchingHours;
+            renderAnnualReportSummary(d);
 
             // 销毁旧图表
             _reportCharts.forEach(c => c.destroy());
@@ -1463,10 +1478,10 @@
             // 月度趋势
             const monthlyCtx = document.getElementById('reportMonthlyChart').getContext('2d');
             const monthlyLabels = d.monthlyStats.map(m => m.month + '月');
-            const monthlyData = d.monthlyStats.map(m => m.count);
+            const monthlyData = d.monthlyStats.map(m => m.episodes);
             _reportCharts.push(new Chart(monthlyCtx, {
                 type: 'bar',
-                data: { labels: monthlyLabels, datasets: [{ label: '完成番剧', data: monthlyData, backgroundColor: 'rgba(26,86,219,0.6)', borderRadius: 4 }] },
+                data: { labels: monthlyLabels, datasets: [{ label: '有明确日期的观看集数', data: monthlyData, backgroundColor: 'rgba(26,86,219,0.6)', borderRadius: 4 }] },
                 options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } }
             }));
 
@@ -1494,7 +1509,7 @@
                     `<div class="report-top-item"><span class="report-rank">#${i + 1}</span><span class="report-name">${esc(a.name)}</span><span class="report-score">${a.score}</span></div>`
                 ).join('');
             } else {
-                topEl.innerHTML = '<div class="report-empty">本年度暂无完成番剧</div>';
+                topEl.innerHTML = '<div class="report-empty">本年度暂无已评分的完成作品</div>';
             }
 
             document.getElementById('annualReportModal').classList.remove('is-hidden');

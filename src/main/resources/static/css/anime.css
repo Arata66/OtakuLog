@@ -690,6 +690,7 @@
         .report-stat-label { font-size: 0.8em; color: var(--text-dim); margin-bottom: 8px; }
         .report-stat-value { font-size: 2em; font-weight: 700; color: var(--primary); }
         .report-stat-sub { font-size: 0.75em; color: var(--text-dim); margin-top: 4px; }
+        .report-basis { margin: 0 0 24px; padding: 16px; border: 1px solid var(--border); border-radius: 12px; color: var(--text-dim); font-size: 0.85em; line-height: 1.7; }
         .report-charts { display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px; }
         .report-chart-card { background: var(--bg); border-radius: 12px; padding: 20px; }
         .report-chart-card h4 { font-size: 0.95em; color: var(--text); margin-bottom: 16px; font-weight: 500; }

@@ -45,6 +45,51 @@ function createBackupApp(preview, accepted = true) {
     return app;
 }
 
+function createReportApp(overrides = {}) {
+    const app = createApp();
+    const elements = new Map(), charts = [];
+    app.context.document.getElementById = id => {
+        if (!elements.has(id)) elements.set(id, { textContent: '', innerHTML: '', getContext() { return {}; }, classList: { remove() {} } });
+        return elements.get(id);
+    };
+    app.context.Chart = function(canvas, config) { charts.push(config); this.destroy = () => {}; };
+    const report = {
+        year: 2026, totalWatched: 3, totalEpisodes: 4, averageRating: 0, ratedAnimeCount: 0, watchingHours: 1.6,
+        minutesPerEpisode: 24, watchingHoursEstimated: true, watchedAnimeCount: 2, legacyDatedEpisodes: 5,
+        undatedEpisodeRecords: 6, missingEpisodeRecords: 7, undatedFinishedAnimeCount: 1,
+        monthlyStats: [{ month: '1', count: 3, episodes: 4, legacyEpisodes: 5, avgScore: 0, ratedCount: 0 }],
+        ratingDistribution: [], tagDistribution: [], topAnimes: [], ...overrides
+    };
+    app.context.fetchApi = async () => ({ code: 200, data: report });
+    return { ...app, elements, charts };
+}
+
+test('当年报没有已评分作品时应该显示未评分而非零分', async () => {
+    const app = createReportApp();
+    await app.context.showAnnualReport(2026);
+    assert.equal(app.elements.get('reportAvgRating').textContent, '未评分');
+    assert.ok(app.elements.get('reportTopAnimes').innerHTML.includes('暂无已评分'));
+});
+
+test('当年报存在历史与缺失记录时应该说明来源及全库覆盖范围', async () => {
+    const app = createReportApp();
+    await app.context.showAnnualReport(2026);
+    const basis = app.elements.get('reportBasis')?.textContent || '';
+    assert.ok(basis.includes('历史来源不明 5 集'));
+    assert.ok(basis.includes('全库 6 条记录日期未知'));
+    assert.ok(basis.includes('7 集进度缺少逐集记录'));
+    assert.ok(basis.includes('1 部已完成作品缺少完成日期'));
+    assert.ok(app.elements.get('reportWatchingHoursBasis')?.textContent.includes('24 分钟估算'));
+});
+
+test('当绘制年报月度趋势时应该使用观看集数而非完成作品数', async () => {
+    const app = createReportApp({ averageRating: 8.5, ratedAnimeCount: 1 });
+    await app.context.showAnnualReport(2026);
+    assert.equal(app.charts[0].data.datasets[0].data[0], 4);
+    assert.equal(app.elements.get('reportAvgRating').textContent, 8.5);
+    assert.ok(app.elements.get('reportRatingBasis')?.textContent.includes('1 部'));
+});
+
 test('当恢复预览存在冲突时应该展示原因且不提交', async () => {
     const app = createBackupApp({ valid: false, conflicts: ['日期冲突'] });
     await app.context.importBackupJson('备份内容');

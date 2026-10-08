@@ -7,6 +7,7 @@ import com.otakulog.repository.AnimeRepository;
 import com.otakulog.dto.AnimeDTO;
 import com.otakulog.service.AnimeService;
 import com.otakulog.service.BackupService;
+import com.otakulog.service.AnnualReportService;
 import org.flywaydb.core.Flyway;
 import org.flywaydb.core.api.FlywayException;
 import org.junit.jupiter.api.Test;
@@ -93,6 +94,35 @@ class MySqlDeploymentTest {
                 "--spring.jpa.hibernate.ddl-auto=validate", "--spring.flyway.enabled=true",
                 "--spring.flyway.locations=classpath:db/migration,classpath:com/otakulog",
                 "--spring.flyway.out-of-order=true");
+    }
+
+    @Test
+    void 当MySQL读取跨年观看与历史来源时应该分开年度口径并排除未评分() throws Exception {
+        withDatabase(database -> {
+            try (ConfigurableApplicationContext application = startApplication(database)) {
+                execute(database, "INSERT INTO anime (name,current_episode,total_episodes,status,end_date,score,legacy) VALUES "
+                        + "('跨年完成',12,12,'FINISHED','2026-02-01',8,0),"
+                        + "('尚未评分',12,12,'FINISHED','2026-02-02',0,0),"
+                        + "('仍在追中',3,12,'WATCHING',NULL,9,0)");
+                execute(database, "INSERT INTO episode_record (anime_id,episode_number,watched_date,record_source) VALUES "
+                        + "(1,1,'2025-12-31','WATCHED'),(1,2,'2026-01-01','WATCHED'),"
+                        + "(3,1,'2026-03-01','WATCHED'),(3,2,'2026-03-02','LEGACY'),(3,3,NULL,'IMPORT')");
+                var report = application.getBean(AnnualReportService.class).getAnnualReport(2026);
+                assertEquals(2, report.getTotalWatched()); assertEquals(2, report.getTotalEpisodes());
+                assertEquals(2, report.getWatchedAnimeCount()); assertEquals(1, report.getLegacyDatedEpisodes());
+                assertEquals(1, report.getUndatedEpisodeRecords()); assertEquals(22, report.getMissingEpisodeRecords());
+                assertEquals(8.0, report.getAverageRating()); assertEquals(1, report.getRatedAnimeCount());
+                assertEquals(8.0, report.getMonthlyStats().get(1).get("avgScore"));
+                assertEquals(1, report.getMonthlyStats().get(1).get("ratedCount"));
+                assertEquals(1L, report.getMonthlyStats().get(0).get("episodes"));
+                assertEquals(0.8, report.getWatchingHours());
+                var json = application.getBean(com.fasterxml.jackson.databind.ObjectMapper.class).valueToTree(report);
+                assertEquals(24, json.path("minutesPerEpisode").asInt());
+                assertEquals(true, json.path("watchingHoursEstimated").asBoolean());
+                assertEquals("5", query(database, "SELECT COUNT(*) FROM episode_record"));
+                assertEquals("1", query(database, "SELECT COUNT(*) FROM episode_record WHERE record_source='LEGACY'"));
+            }
+        });
     }
 
     @Test

@@ -4,170 +4,131 @@ import com.otakulog.dto.AnnualReportDTO;
 import com.otakulog.entity.Anime;
 import com.otakulog.entity.Tag;
 import com.otakulog.enums.AnimeStatus;
+import com.otakulog.enums.EpisodeRecordSource;
 import com.otakulog.repository.AnimeRepository;
-import com.otakulog.repository.TagRepository;
+import com.otakulog.repository.EpisodeRecordRepository;
 import com.otakulog.service.AnnualReportService;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
+@Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
 public class AnnualReportServiceImpl implements AnnualReportService {
-
+    private static final int MINUTES_PER_EPISODE = 24;
+    private static final Set<EpisodeRecordSource> DATED_SOURCES = EnumSet.of(
+            EpisodeRecordSource.WATCHED, EpisodeRecordSource.MANUAL, EpisodeRecordSource.IMPORT);
     private final AnimeRepository animeRepository;
-    private final TagRepository tagRepository;
+    private final EpisodeRecordRepository episodeRepository;
 
-    public AnnualReportServiceImpl(AnimeRepository animeRepository, TagRepository tagRepository) {
+    public AnnualReportServiceImpl(AnimeRepository animeRepository, EpisodeRecordRepository episodeRepository) {
         this.animeRepository = animeRepository;
-        this.tagRepository = tagRepository;
+        this.episodeRepository = episodeRepository;
     }
 
     @Override
     public AnnualReportDTO getAnnualReport(int year) {
+        if (year < 1000 || year > 9999) throw new IllegalArgumentException("年份必须在 1000 到 9999 之间");
         AnnualReportDTO report = new AnnualReportDTO();
         report.setYear(year);
+        List<Anime> allAnime = animeRepository.findAll();
+        Map<Long, Anime> animeById = allAnime.stream().collect(Collectors.toMap(Anime::getId, a -> a));
+        List<Anime> finished = allAnime.stream()
+                .filter(a -> a.getStatus() == AnimeStatus.FINISHED && inYear(a.getEndDate(), year)).toList();
+        List<Anime> rated = finished.stream().filter(this::hasValidRating).toList();
+        report.setTotalWatched(finished.size());
+        report.setRatedAnimeCount(rated.size());
+        report.setAverageRating(round(rated.stream().mapToDouble(Anime::getScore).average().orElse(0)));
+        report.setUndatedFinishedAnimeCount(allAnime.stream()
+                .filter(a -> a.getStatus() == AnimeStatus.FINISHED && a.getEndDate() == null).count());
 
-        LocalDate yearStart = LocalDate.of(year, 1, 1);
-        LocalDate yearEnd = LocalDate.of(year, 12, 31);
-
-        // 查询该年度完成的番剧
-        List<Anime> finishedAnimes = animeRepository.findAll().stream()
-                .filter(a -> a.getStatus() == AnimeStatus.FINISHED && a.getEndDate() != null)
-                .filter(a -> {
-                    LocalDate endDate = a.getEndDate();
-                    return !endDate.isBefore(yearStart) && !endDate.isAfter(yearEnd);
-                })
-                .collect(Collectors.toList());
-
-        // 总观看数
-        report.setTotalWatched(finishedAnimes.size());
-
-        // 总集数
-        long totalEpisodes = finishedAnimes.stream()
-                .mapToLong(a -> a.getTotalEpisodes() != null ? a.getTotalEpisodes() : 0)
-                .sum();
-        report.setTotalEpisodes(totalEpisodes);
-
-        // 平均评分
-        double avgRating = finishedAnimes.stream()
-                .filter(a -> a.getScore() != null && a.getScore() > 0)
-                .mapToDouble(Anime::getScore)
-                .average()
-                .orElse(0.0);
-        report.setAverageRating(Math.round(avgRating * 10.0) / 10.0);
-
-        // 观看时长（假设每集 24 分钟）
-        double watchingHours = totalEpisodes * 24.0 / 60.0;
-        report.setWatchingHours(Math.round(watchingHours * 10.0) / 10.0);
-
-        // 月度统计
-        Map<String, Map<String, Object>> monthlyStats = new LinkedHashMap<>();
-        for (int month = 1; month <= 12; month++) {
-            monthlyStats.put(String.valueOf(month), new HashMap<>());
+        int[] completedByMonth = new int[12], ratedByMonth = new int[12];
+        double[] scoreByMonth = new double[12];
+        long[] episodesByMonth = new long[12], legacyByMonth = new long[12];
+        for (Anime a : finished) {
+            int month = a.getEndDate().getMonthValue() - 1;
+            completedByMonth[month]++;
+            if (hasValidRating(a)) { ratedByMonth[month]++; scoreByMonth[month] += a.getScore(); }
         }
 
-        for (Anime anime : finishedAnimes) {
-            if (anime.getEndDate() != null) {
-                String month = String.valueOf(anime.getEndDate().getMonthValue());
-                Map<String, Object> stats = monthlyStats.get(month);
-                stats.put("count", (int) stats.getOrDefault("count", 0) + 1);
-                if (anime.getScore() != null && anime.getScore() > 0) {
-                    double totalScore = (double) stats.getOrDefault("totalScore", 0.0);
-                    stats.put("totalScore", totalScore + anime.getScore());
-                }
+        long datedEpisodes = 0, legacyEpisodes = 0, undatedRecords = 0;
+        Set<Long> watchedAnime = new HashSet<>();
+        Map<Long, Long> progressRecords = new HashMap<>();
+        for (var record : episodeRepository.findAll()) {
+            Anime a = animeById.get(record.getAnimeId());
+            if (a == null) continue;
+            if (record.getEpisodeNumber() > 0 && record.getEpisodeNumber() <= progress(a))
+                progressRecords.merge(a.getId(), 1L, Long::sum);
+            LocalDate date = record.getWatchedDate();
+            if (date == null) { undatedRecords++; continue; }
+            if (!inYear(date, year)) continue;
+            int month = date.getMonthValue() - 1;
+            // V5 的历史日期可能来自估算，不能在年报中升级为确定观看事实。
+            if (record.getSource() == EpisodeRecordSource.LEGACY) {
+                legacyEpisodes++; legacyByMonth[month]++;
+            } else if (DATED_SOURCES.contains(record.getSource())) {
+                datedEpisodes++; episodesByMonth[month]++; watchedAnime.add(a.getId());
             }
         }
+        report.setTotalEpisodes(datedEpisodes);
+        report.setWatchedAnimeCount(watchedAnime.size());
+        report.setLegacyDatedEpisodes(legacyEpisodes);
+        report.setUndatedEpisodeRecords(undatedRecords);
+        report.setMissingEpisodeRecords(allAnime.stream()
+                .mapToLong(a -> Math.max(0, progress(a) - progressRecords.getOrDefault(a.getId(), 0L))).sum());
+        report.setMinutesPerEpisode(MINUTES_PER_EPISODE);
+        report.setWatchingHoursEstimated(true);
+        report.setWatchingHours(round(datedEpisodes * MINUTES_PER_EPISODE / 60.0));
 
-        List<Map<String, Object>> monthlyList = new ArrayList<>();
-        for (Map.Entry<String, Map<String, Object>> entry : monthlyStats.entrySet()) {
-            Map<String, Object> stats = entry.getValue();
-            int count = (int) stats.getOrDefault("count", 0);
-            double totalScore = (double) stats.getOrDefault("totalScore", 0.0);
-            double avgScore = count > 0 ? totalScore / count : 0.0;
-
-            Map<String, Object> monthData = new HashMap<>();
-            monthData.put("month", entry.getKey());
-            monthData.put("count", count);
-            monthData.put("avgScore", Math.round(avgScore * 10.0) / 10.0);
-            monthlyList.add(monthData);
+        List<Map<String, Object>> monthly = new ArrayList<>();
+        for (int month = 0; month < 12; month++) {
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("month", String.valueOf(month + 1)); row.put("count", completedByMonth[month]);
+            row.put("ratedCount", ratedByMonth[month]);
+            row.put("avgScore", ratedByMonth[month] == 0 ? 0.0 : round(scoreByMonth[month] / ratedByMonth[month]));
+            row.put("episodes", episodesByMonth[month]); row.put("legacyEpisodes", legacyByMonth[month]);
+            monthly.add(row);
         }
-        report.setMonthlyStats(monthlyList);
+        report.setMonthlyStats(monthly);
+        report.setTopAnimes(rated.stream().sorted(Comparator.comparing(Anime::getScore).reversed()
+                .thenComparing(Anime::getName).thenComparing(Anime::getId)).limit(10).map(a -> {
+                    Map<String, Object> row = new LinkedHashMap<>();
+                    row.put("name", a.getName()); row.put("score", a.getScore());
+                    row.put("episodes", a.getTotalEpisodes()); row.put("season", a.getSeason());
+                    return row;
+                }).toList());
 
-        // TOP 番剧（按评分排序）
-        List<Map<String, Object>> topAnimes = finishedAnimes.stream()
-                .filter(a -> a.getScore() != null && a.getScore() > 0)
-                .sorted((a1, a2) -> Double.compare(a2.getScore(), a1.getScore()))
-                .limit(10)
-                .map(a -> {
-                    Map<String, Object> map = new HashMap<>();
-                    map.put("name", a.getName());
-                    map.put("score", a.getScore());
-                    map.put("episodes", a.getTotalEpisodes());
-                    map.put("season", a.getSeason());
-                    return map;
-                })
-                .collect(Collectors.toList());
-        report.setTopAnimes(topAnimes);
-
-        // 标签分布
         Map<String, Integer> tagCounts = new HashMap<>();
-        for (Anime anime : finishedAnimes) {
-            if (anime.getTags() != null) {
-                for (Tag tag : anime.getTags()) {
-                    tagCounts.merge(tag.getName(), 1, Integer::sum);
-                }
-            }
+        for (Anime a : finished) for (Tag tag : a.getTags()) tagCounts.merge(tag.getName(), 1, Integer::sum);
+        report.setTagDistribution(tagCounts.entrySet().stream()
+                .sorted(Map.Entry.<String, Integer>comparingByValue().reversed().thenComparing(Map.Entry.comparingByKey()))
+                .limit(15).map(e -> {
+                    Map<String, Object> row = new LinkedHashMap<>(); row.put("tag", e.getKey()); row.put("count", e.getValue()); return row;
+                }).toList());
+        Map<String, Integer> buckets = new LinkedHashMap<>();
+        for (String range : List.of("0-2", "2-4", "4-6", "6-8", "8-10")) buckets.put(range, 0);
+        for (Anime a : rated) {
+            double score = a.getScore();
+            String range = score < 2 ? "0-2" : score < 4 ? "2-4" : score < 6 ? "4-6" : score < 8 ? "6-8" : "8-10";
+            buckets.merge(range, 1, Integer::sum);
         }
-
-        List<Map<String, Object>> tagDistribution = tagCounts.entrySet().stream()
-                .sorted(Map.Entry.<String, Integer>comparingByValue().reversed())
-                .limit(15)
-                .map(e -> {
-                    Map<String, Object> map = new HashMap<>();
-                    map.put("tag", e.getKey());
-                    map.put("count", e.getValue());
-                    return map;
-                })
-                .collect(Collectors.toList());
-        report.setTagDistribution(tagDistribution);
-
-        // 评分分布
-        Map<String, Integer> ratingBuckets = new LinkedHashMap<>();
-        ratingBuckets.put("0-2", 0);
-        ratingBuckets.put("2-4", 0);
-        ratingBuckets.put("4-6", 0);
-        ratingBuckets.put("6-8", 0);
-        ratingBuckets.put("8-10", 0);
-
-        for (Anime anime : finishedAnimes) {
-            if (anime.getScore() != null && anime.getScore() > 0) {
-                double score = anime.getScore();
-                if (score < 2) ratingBuckets.merge("0-2", 1, Integer::sum);
-                else if (score < 4) ratingBuckets.merge("2-4", 1, Integer::sum);
-                else if (score < 6) ratingBuckets.merge("4-6", 1, Integer::sum);
-                else if (score < 8) ratingBuckets.merge("6-8", 1, Integer::sum);
-                else ratingBuckets.merge("8-10", 1, Integer::sum);
-            }
-        }
-
-        List<Map<String, Object>> ratingDistribution = ratingBuckets.entrySet().stream()
-                .map(e -> {
-                    Map<String, Object> map = new HashMap<>();
-                    map.put("range", e.getKey());
-                    map.put("count", e.getValue());
-                    return map;
-                })
-                .collect(Collectors.toList());
-        report.setRatingDistribution(ratingDistribution);
-
+        report.setRatingDistribution(buckets.entrySet().stream().map(e -> {
+            Map<String, Object> row = new LinkedHashMap<>(); row.put("range", e.getKey()); row.put("count", e.getValue()); return row;
+        }).toList());
         return report;
     }
 
     @Override
-    public AnnualReportDTO getLatestAnnualReport() {
-        int currentYear = LocalDate.now().getYear();
-        return getAnnualReport(currentYear);
+    public AnnualReportDTO getLatestAnnualReport() { return getAnnualReport(LocalDate.now().getYear()); }
+
+    private boolean hasValidRating(Anime a) {
+        return a.getScore() != null && Double.isFinite(a.getScore()) && a.getScore() > 0 && a.getScore() <= 10;
     }
+    private static boolean inYear(LocalDate date, int year) { return date != null && date.getYear() == year; }
+    private static int progress(Anime a) { return a.getCurrentEpisode() == null ? 0 : Math.max(0, a.getCurrentEpisode()); }
+    private static double round(double value) { return Math.round(value * 10.0) / 10.0; }
 }
