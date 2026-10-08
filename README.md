@@ -167,6 +167,7 @@ OtakuLog/
 │   │   ├── manifest.json                     # PWA 清单
 │   │   └── sw.js                             # Service Worker
 │   ├── db/migration/
+│   │   ├── V0__initial_schema.sql            # 空库兼容初始化
 │   │   ├── V1__baseline.sql                  # 初始表结构（anime 表）
 │   │   ├── V2__add_indexes_and_audit.sql     # 索引 + 审计字段
 │   │   ├── V3__add_watch_tracking.sql        # 观看追踪字段
@@ -180,6 +181,8 @@ OtakuLog/
 │   │   └── SecurityConfigTest.java           # 认证、CSRF 与登录退出测试
 │   ├── controller/
 │   │   └── AnimeControllerTest.java          # Controller 层测试（13 用例）
+│   ├── deployment/
+│   │   └── MySqlDeploymentTest.java          # 显式启用的真实 MySQL 验收
 │   ├── repository/
 │   │   └── AnimeRepositoryTest.java          # Repository 层测试（8 用例）
 │   └── service/
@@ -195,11 +198,11 @@ OtakuLog/
 |----|------|
 | `anime` | 核心番剧表，含 Bangumi 关联、历史标记与观看季度 |
 | `anime_group` | V4 新增，番剧分组 |
-| `group_anime` | V4 新增，分组-番剧多对多关联 |
+| `anime_group_relation` | V4 新增，分组-番剧多对多关联 |
 | `episode_record` | V5 新增，每集观看记录，驱动热力图 |
 | `tag` / `anime_tag` | V6 新增，标签与番剧关联 |
 
-V6.1 Java 迁移位于 `src/main/java/com/otakulog/V6_1__migrate_tags_and_drop_column.java`，负责迁移旧字符串标签。
+V6.1 Java 迁移负责迁移旧字符串标签；V8 Java 迁移负责对齐状态列类型，两者位于 `src/main/java/com/otakulog/`。V0 补齐空库初始化，历史迁移文件保持不变。
 
 ## 快速开始
 
@@ -251,7 +254,7 @@ mvn test
 node --test src/test/js/security.test.cjs
 ```
 
-Java 测试使用 H2 内存数据库，无需 MySQL。包括 44 个原有业务测试与 27 个安全行为用例；前端测试使用 Node.js 22 或更高版本，无需 npm 安装依赖。
+默认 Java 测试使用 H2 内存数据库，无需 MySQL。包括 44 个原有业务测试与 27 个安全行为用例；另有 4 个需要显式启用的 MySQL 部署用例。前端测试使用 Node.js 22 或更高版本，无需 npm 安装依赖。
 
 H2 测试禁用 Flyway，因此不能代替 MySQL 数据库迁移和 Docker 部署验证。
 
@@ -270,25 +273,53 @@ H2 测试禁用 Flyway，因此不能代替 MySQL 数据库迁移和 Docker 部�
 
 ### Docker 部署
 
-仓库提供 Docker Compose 配置（含 MySQL）。默认容器连接地址与数据库名尚待“可靠自用第一阶段”的部署小节统一并验证，不能直接视为已验证的一键部署；以下为配置修正后的标准操作命令：
+需要 Docker 引擎和 Docker Compose v2 或更新版本。容器应用连接 `mysql:3306/otakulog`；MySQL 通过 SQL 健康检查后应用才启动。数据库不映射宿主端口，因此可以和本地 MySQL 共存。
 
 ```bash
-# 设置数据库密码（可选，默认 123456）
+# 首次启动前设置凭据；也可在 PowerShell 使用 $env:变量名='值'
 export DB_PASS=your_password
+export ADMIN_USER=admin
+export ADMIN_PASS=your_admin_password
 
 # 构建并启动
-docker-compose up -d
+docker compose up -d --build
 
 # 查看日志
-docker-compose logs -f otakulog
+docker compose ps
+docker compose logs -f otakulog
 
 # 停止
-docker-compose down
+docker compose down
 ```
 
-启动后访问 http://localhost:8080，默认登录凭据：`admin` / `admin`。
+启动后访问 http://localhost:8080，使用设置的管理员凭据。未设置时仍为 `admin` / `admin`。若本地预览占用 8080，启动前设置 `APP_PORT=18080`，再访问对应端口。
 
-数据持久化在 Docker volume `mysql_data` 中，容器重启不会丢失。
+数据写入 Compose 项目对应的 `mysql_data` 卷。重启或 `docker compose down` 保留该卷；不要用 `down -v` 停止日常服务，它会删除数据库。升级前备份数据库，再运行 `docker compose up -d --build`，Flyway 自动迁移，JPA 仅校验结构。
+
+`DB_PASS` 同时用于首次初始化 MySQL 和应用连接。已有卷不会随环境变量变化自动修改数据库密码；修改时需先在 MySQL 内变更密码并同步配置。管理员凭据由应用每次启动读取。
+
+| 变量 | 默认值 | 用途 |
+|---|---|---|
+| `DB_PASS` | `123456` | 容器数据库 root 密码与应用连接密码 |
+| `ADMIN_USER` / `ADMIN_PASS` | `admin` / `admin` | 应用登录凭据 |
+| `APP_PORT` | `8080` | 应用宿主端口 |
+| `SPRING_DATASOURCE_URL` | 本地 `localhost:3306/otaku_log` | 本地启动时覆盖 JDBC；Compose 固定为内部服务地址 |
+
+2026-10-08：Compose 配置可解析；真实 MySQL 的空库启动、重启保留数据、V5 升级和 V1 基线升级已加入隔离测试。当前验证环境的 Docker Desktop 安装注册信息缺失，无法连接引擎，尚未验证容器构建、健康检查运行及容器重启。详见[部署验收记录](docs/superpowers/plans/2026-10-08-可复现部署.md)。
+
+### MySQL 部署回归测试
+
+测试默认跳过；显式启用后需要能创建和删除数据库的测试账号。每次随机创建 `otakulog_verify_` 前缀的隔离库，结束后仅删除自己创建的库，不连接业务库。
+
+```powershell
+$env:OTAKULOG_MYSQL_TEST='true'
+$env:OTAKULOG_MYSQL_SERVER='127.0.0.1:3306'
+$env:DB_USER='root'
+$env:DB_PASS='测试数据库密码'
+mvn -q '-Dtest=MySqlDeploymentTest' test
+```
+
+迁移保留历史文件：V0 为新库提供 V2 之前的初始结构，避免 V1 快照与 V2/V3 重复建列；已有 V1 基线库忽略 V0。V8 将旧 VARCHAR 状态列对齐为 Hibernate 要求的 ENUM，已有相同 ENUM 不改表；遇到未知状态会拒绝迁移并保留原值，应先备份并修正数据再处理失败的 Flyway 记录。
 
 ## 配置说明
 

@@ -39,7 +39,7 @@ src/main/java/com/otakulog/
 src/main/resources/
 ├── templates/       # Thymeleaf 模板（anime.html, login.html）
 ├── static/          # 前端资源（js/, css/, manifest.json, sw.js）
-└── db/migration/    # Flyway 迁移（V1-V5）
+└── db/migration/    # Flyway SQL 迁移（V0-V7）；V6.1、V8 为 Java 迁移
 ```
 
 ## 关键约束
@@ -75,6 +75,5 @@ src/main/resources/
 | `README.md` | 功能清单、技术栈、安装步骤 |
 | `Codex.local.md` | 个人本地环境配置（不入 git） |
 | `docs/superpowers/` | 历史功能设计文档 |
-| `~/.Codex/plans/greedy-greeting-river.md` | 热力图事件驱动优化方案 |
-| `~/.Codex/plans/cheerful-leaping-pearl.md` | emoji-bridge GUI 计划（无关项目） |
-| `~/.Codex/plans/wiggly-doodling-graham.md` | 阶段六 DOM 缓存优化方案 |
+| `docs/superpowers/plans/2026-10-08-可复现部署.md` | 部署方案、隔离测试与容器验证边界 |
+| `~/.Codex/plans/OtakuLog-可靠自用第一阶段.md` | 当前实施工作区与阶段入口 |

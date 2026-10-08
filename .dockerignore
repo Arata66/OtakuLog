@@ -6,3 +6,6 @@ target/
 *.iml
 .DS_Store
 CLAUDE.local.md
+*.log
+.env
+.env.*
