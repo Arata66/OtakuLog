@@ -31,6 +31,54 @@ function createApp(response = new Response('{"code":200}'), token = 'page-token'
     return { context, requests, messages, redirects };
 }
 
+function createBackupApp(preview, accepted = true) {
+    const app = createApp();
+    app.context.confirm = () => accepted;
+    app.context.alert = message => app.messages.push({ message });
+    app.context.document.getElementById = () => ({ classList: { add() {} } });
+    app.context.performSearch = () => {};
+    app.context.updateStats = () => {};
+    app.context.fetchApi = async (url, options) => {
+        app.requests.push({ url, options });
+        return { code: 200, data: url.endsWith('/preview') ? preview : {}, message: '恢复完成' };
+    };
+    return app;
+}
+
+test('当恢复预览存在冲突时应该展示原因且不提交', async () => {
+    const app = createBackupApp({ valid: false, conflicts: ['日期冲突'] });
+    await app.context.importBackupJson('备份内容');
+    assert.deepEqual(app.requests.map(r => r.url), ['/api/anime/import/preview']);
+    assert.ok(app.messages.some(m => m.message.includes('日期冲突')));
+});
+
+test('当用户取消恢复确认时应该不提交', async () => {
+    const app = createBackupApp({ valid: true, created: 1, updated: 0, warnings: [] }, false);
+    await app.context.importBackupJson('备份内容');
+    assert.equal(app.requests.length, 1);
+});
+
+test('当用户确认本地恢复时应该提交原始文件且只提交一次', async () => {
+    const app = createBackupApp({ valid: true, created: 1, updated: 0, warnings: [] });
+    await app.context.importBackupJson('备份内容');
+    assert.deepEqual(app.requests.map(r => r.url), ['/api/anime/import/preview', '/api/anime/import']);
+    assert.equal(app.requests[1].options.body, '备份内容');
+});
+
+test('当确认WebDAV恢复时应该带上预览摘要', async () => {
+    const app = createBackupApp({ valid: true, created: 1, updated: 0, warnings: [], fingerprint: '摘要' });
+    await app.context.syncPull();
+    assert.deepEqual(app.requests.map(r => r.url), ['/api/sync/pull/preview', '/api/sync/pull']);
+    assert.deepEqual(JSON.parse(app.requests[1].options.body), { fingerprint: '摘要' });
+});
+
+test('当预览请求失败时应该不继续恢复', async () => {
+    const app = createBackupApp({});
+    app.context.fetchApi = async (url, options) => { app.requests.push({ url, options }); return null; };
+    await app.context.importBackupJson('备份内容');
+    assert.equal(app.requests.length, 1);
+});
+
 for (const method of ['POST', 'PUT', 'PATCH', 'DELETE']) {
     test(`当使用${method}写入时应该携带页面令牌并保留原请求头`, async () => {
         const { context, requests } = createApp();

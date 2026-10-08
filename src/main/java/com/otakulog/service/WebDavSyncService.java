@@ -8,5 +8,9 @@ public interface WebDavSyncService {
 
     Map<String, Object> pull();
 
+    Map<String, Object> previewPull();
+
+    Map<String, Object> pull(String fingerprint);
+
     Map<String, Object> getStatus();
 }

@@ -302,6 +302,13 @@ public class AnimeController {
                 .body(animeService.exportJson());
     }
 
+    @Operation(summary = "预览JSON恢复")
+    @PostMapping("/api/anime/import/preview")
+    @ResponseBody
+    public ResponseEntity<ApiResponse<Map<String, Object>>> previewImportJson(@RequestBody String json) {
+        return ResponseEntity.ok(ApiResponse.success(animeService.previewImportJson(json)));
+    }
+
     @Operation(summary = "导入JSON")
     @PostMapping("/api/anime/import")
     @ResponseBody
@@ -310,7 +317,7 @@ public class AnimeController {
             Map<String, Object> result = animeService.importJson(json);
             int created = (int) result.get("created");
             int updated = (int) result.get("updated");
-            return ResponseEntity.ok(ApiResponse.success("已导入 " + created + " 条新记录，更新 " + updated + " 条", result));
+            return ResponseEntity.ok(ApiResponse.success("已新增 " + created + " 部作品，合并 " + updated + " 部已有作品", result));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(ApiResponse.error(400, e.getMessage()));
         }

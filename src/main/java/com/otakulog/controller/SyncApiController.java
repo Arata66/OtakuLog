@@ -27,8 +27,14 @@ public class SyncApiController {
 
     @Operation(summary = "WebDAV拉取")
     @PostMapping("/api/sync/pull")
-    public ResponseEntity<ApiResponse<Map<String, Object>>> syncPull() {
-        return ResponseEntity.ok(ApiResponse.success(webDavSyncService.pull()));
+    public ResponseEntity<ApiResponse<Map<String, Object>>> syncPull(@RequestBody(required = false) Map<String, String> body) {
+        return ResponseEntity.ok(ApiResponse.success(webDavSyncService.pull(body == null ? null : body.get("fingerprint"))));
+    }
+
+    @Operation(summary = "预览WebDAV恢复")
+    @PostMapping("/api/sync/pull/preview")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> previewPull() {
+        return ResponseEntity.ok(ApiResponse.success(webDavSyncService.previewPull()));
     }
 
     @Operation(summary = "WebDAV状态")

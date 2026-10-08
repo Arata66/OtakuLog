@@ -49,7 +49,8 @@ src/main/resources/
 - **CORS**：允许 `http://localhost:5173`（前端开发跨域）
 - **前端**：单页应用（anime.html），原生 JS + Chart.js，无构建工具
 - **热力图**：V5 起使用 `episode_record` 表事件驱动聚合，优先查表，fallback 旧估算逻辑
-- **观看写入**：统一调用 `WatchProgressService`，必须处于服务事务内；未知逐集日期存 NULL，来源单独记录，不能根据进度猜日期；已有记录时热力图不回退估算
+- **日常观看写入**：统一调用 `WatchProgressService`，必须处于服务事务内；未知逐集日期存 NULL，来源单独记录，不能根据进度猜日期；已有记录时热力图不回退估算
+- **备份恢复**：统一调用 `BackupService`，本地与 WebDAV 复用同一校验；备份 key 只作文件内引用，恢复事务与真实写入前校验不可绕过
 
 ## 数据库表
 
@@ -78,4 +79,5 @@ src/main/resources/
 | `docs/superpowers/` | 历史功能设计文档 |
 | `docs/superpowers/plans/2026-10-08-可复现部署.md` | 部署方案、隔离测试与容器验证边界 |
 | `docs/superpowers/plans/2026-10-08-观看写入一致性.md` | 观看事务、状态规则、日期来源与回滚验收 |
+| `docs/备份与恢复.md` | 完整备份格式、合并规则、操作与 API |
 | `~/.Codex/plans/OtakuLog-可靠自用第一阶段.md` | 当前实施工作区与阶段入口 |

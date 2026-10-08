@@ -6,6 +6,7 @@ import com.otakulog.enums.AnimeStatus;
 import com.otakulog.repository.AnimeRepository;
 import com.otakulog.dto.AnimeDTO;
 import com.otakulog.service.AnimeService;
+import com.otakulog.service.BackupService;
 import org.flywaydb.core.Flyway;
 import org.flywaydb.core.api.FlywayException;
 import org.junit.jupiter.api.Test;
@@ -92,6 +93,33 @@ class MySqlDeploymentTest {
                 "--spring.jpa.hibernate.ddl-auto=validate", "--spring.flyway.enabled=true",
                 "--spring.flyway.locations=classpath:db/migration,classpath:com/otakulog",
                 "--spring.flyway.out-of-order=true");
+    }
+
+    @Test
+    void 当MySQL空库恢复完整备份时应该保留关联日期来源并支持重复恢复() throws Exception {
+        withDatabase(database -> {
+            try (ConfigurableApplicationContext application = startApplication(database)) {
+                execute(database, "INSERT INTO anime (name,current_episode,total_episodes,status,remark,legacy,created_at,updated_at) "
+                        + "VALUES ('备份往返验收',2,12,'WATCHING','保留备注',0,'2025-01-01 12:00:00','2025-02-01 12:00:00')");
+                execute(database, "INSERT INTO tag (name,created_at) VALUES ('剧情','2025-01-01 12:00:00')");
+                execute(database, "INSERT INTO anime_tag (anime_id,tag_id) VALUES (1,1)");
+                execute(database, "INSERT INTO anime_group (name,description,color,sort_order,created_at,updated_at) VALUES ('收藏','分组说明','#123456',1,NULL,NULL)");
+                execute(database, "INSERT INTO anime_group_relation (anime_id,group_id) VALUES (1,1)");
+                execute(database, "INSERT INTO episode_record (anime_id,episode_number,watched_date,record_source) VALUES (1,1,'2026-10-02','WATCHED'),(1,2,NULL,'IMPORT')");
+                BackupService backup = application.getBean(BackupService.class);
+                String json = backup.exportJson();
+                execute(database, "DELETE FROM anime"); execute(database, "DELETE FROM tag"); execute(database, "DELETE FROM anime_group");
+                assertEquals(1, backup.importJson(json).get("created")); backup.importJson(json);
+                assertEquals("1", query(database, "SELECT COUNT(*) FROM anime"));
+                assertEquals("1", query(database, "SELECT COUNT(*) FROM anime_tag"));
+                assertEquals("1", query(database, "SELECT COUNT(*) FROM anime_group_relation"));
+                assertEquals("2", query(database, "SELECT COUNT(*) FROM episode_record"));
+                assertEquals("2026-10-02", query(database, "SELECT watched_date FROM episode_record WHERE episode_number=1"));
+                assertEquals("1", query(database, "SELECT COUNT(*) FROM episode_record WHERE watched_date IS NULL AND record_source='IMPORT'"));
+                assertEquals("2025-02-01 12:00:00", query(database, "SELECT updated_at FROM anime"));
+                assertEquals("0", query(database, "SELECT COUNT(*) FROM anime_group WHERE created_at IS NOT NULL OR updated_at IS NOT NULL"));
+            }
+        });
     }
 
     private Flyway flyway(String database, String target) {

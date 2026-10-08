@@ -1349,7 +1349,33 @@
 
         /* Export / Import */
         async function exportData() { const r = await fetchApi('/api/anime/export', { responseType: 'blob' }); if (!r || !r.ok) { toast('导出失败', 'error'); return; } const b = await r.blob(); const u = URL.createObjectURL(b), a = document.createElement('a'); a.href = u; a.download = 'otakulog_export.json'; a.click(); URL.revokeObjectURL(u); toast('导出成功', 'success'); }
-        async function importData(e) { const f = e.target.files[0]; if (!f) return; const rd = new FileReader(); rd.onload = async function(ev) { const r = await fetchApi('/api/anime/import', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: ev.target.result }); if (r && r.code === 200) { toast(r.message || '导入成功', 'success'); performSearch(); updateStats(); } else if (r) toast(r.message || '导入失败', 'error'); }; rd.readAsText(f); e.target.value = ''; }
+        function confirmBackupImport(preview, label) {
+            if (!preview || preview.valid !== true) {
+                alert('无法恢复：\n' + (preview?.conflicts || ['预览失败']).join('\n'));
+                return false;
+            }
+            const counts = `新增 ${preview.created || 0} 部作品，合并 ${preview.updated || 0} 部已有作品\n`
+                + `标签 ${preview.tags || 0} 个，分组 ${preview.groups || 0} 个，分组关联 ${preview.memberships || 0} 条\n`
+                + `逐集记录 ${preview.episodes || 0} 条，其中新增 ${preview.newEpisodes || 0} 条，补齐日期 ${preview.filledDates || 0} 条`;
+            return confirm(`${label}\n\n${counts}\n\n${(preview.warnings || []).join('\n')}\n\n确认恢复？`);
+        }
+
+        async function importBackupJson(json) {
+            const options = { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: json };
+            const preview = await fetchApi('/api/anime/import/preview', options);
+            if (!preview || preview.code !== 200 || !confirmBackupImport(preview.data, '本地备份预览')) return;
+            const result = await fetchApi('/api/anime/import', options);
+            if (result && result.code === 200) {
+                toast(result.message || '恢复成功', 'success'); performSearch(); updateStats();
+            } else if (result) toast(result.message || '恢复失败', 'error');
+        }
+
+        async function importData(e) {
+            const file = e.target.files[0]; e.target.value = '';
+            if (!file) return;
+            try { await importBackupJson(await file.text()); }
+            catch (error) { toast('读取或恢复备份失败：' + error.message, 'error'); }
+        }
 
         /* Sync */
         function toggleSyncMenu() { const m = document.getElementById('syncMenu'); const b = document.getElementById('syncBtn'); if (m) { m.classList.toggle('is-hidden'); if (b) b.setAttribute('aria-expanded', m.classList.contains('is-hidden') ? 'false' : 'true'); } }
@@ -1369,9 +1395,10 @@
         }
         async function syncPull() {
             document.getElementById('syncMenu').classList.add('is-hidden');
-            if (!confirm('从 WebDAV 拉取会合并数据，确定继续？')) return;
+            const preview = await fetchApi('/api/sync/pull/preview', { method: 'POST' });
+            if (!preview || preview.code !== 200 || !confirmBackupImport(preview.data, 'WebDAV 备份预览')) return;
             toast('正在从 WebDAV 拉取...', 'info');
-            const r = await fetchApi('/api/sync/pull', { method: 'POST' });
+            const r = await fetchApi('/api/sync/pull', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ fingerprint: preview.data.fingerprint }) });
             if (r && r.code === 200) { toast(r.data?.message || '拉取成功', 'success'); performSearch(); updateStats(); } else if (r) { toast(r.message || '拉取失败', 'error'); }
         }
         async function syncStatus() {

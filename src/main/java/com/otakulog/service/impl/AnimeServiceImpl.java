@@ -17,8 +17,8 @@ import com.otakulog.service.AnimeService;
 import com.otakulog.service.BangumiService;
 import com.otakulog.service.WatchProgressService;
 import com.otakulog.util.SortUtil;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.otakulog.service.BackupService;
+
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
@@ -38,15 +38,17 @@ public class AnimeServiceImpl implements AnimeService {
     private final EpisodeRecordRepository episodeRecordRepository;
     private final TagRepository tagRepository;
     private final WatchProgressService watchProgress;
+    private final BackupService backup;
 
     public AnimeServiceImpl(AnimeRepository animeRepository, BangumiService bangumiService,
                             EpisodeRecordRepository episodeRecordRepository, TagRepository tagRepository,
-                            WatchProgressService watchProgress) {
+                            WatchProgressService watchProgress, BackupService backup) {
         this.animeRepository = animeRepository;
         this.bangumiService = bangumiService;
         this.episodeRecordRepository = episodeRecordRepository;
         this.tagRepository = tagRepository;
         this.watchProgress = watchProgress;
+        this.backup = backup;
     }
 
     @Override
@@ -332,105 +334,13 @@ public class AnimeServiceImpl implements AnimeService {
     }
 
     @Override
-    public String exportJson() {
-        try {
-            List<Anime> all = animeRepository.findAll();
-            ObjectMapper mapper = new ObjectMapper();
-            mapper.registerModule(new com.fasterxml.jackson.datatype.jsr310.JavaTimeModule());
-            mapper.addMixIn(Anime.class, ExportMixIn.class);
-            mapper.disable(com.fasterxml.jackson.databind.SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
-            return mapper.writerWithDefaultPrettyPrinter().writeValueAsString(all);
-        } catch (Exception e) {
-            throw new RuntimeException("导出失败", e);
-        }
-    }
-
-    // 导出时忽略的字段
-    abstract static class ExportMixIn {
-        @com.fasterxml.jackson.annotation.JsonIgnore abstract Long getId();
-        @com.fasterxml.jackson.annotation.JsonIgnore abstract java.time.LocalDateTime getCreatedAt();
-        @com.fasterxml.jackson.annotation.JsonIgnore abstract java.time.LocalDateTime getUpdatedAt();
-    }
+    public String exportJson() { return backup.exportJson(); }
 
     @Override
-    @Transactional
-    public Map<String, Object> importJson(String json) {
-        try {
-            ObjectMapper mapper = new ObjectMapper();
-            List<Map<String, Object>> list = mapper.readValue(json, new TypeReference<>() {});
+    public Map<String, Object> importJson(String json) { return backup.importJson(json); }
 
-            int created = 0, updated = 0;
-            List<AnimeVO> result = new ArrayList<>();
-            for (Map<String, Object> map : list) {
-                String name = (String) map.get("name");
-                if (name == null || name.isBlank()) throw new IllegalArgumentException("番剧名称不能为空");
-                List<Long> existingIds = animeRepository.findIdsByName(name);
-                Anime anime = existingIds.isEmpty() ? new Anime()
-                        : animeRepository.findByIdForUpdate(existingIds.get(0))
-                                .orElseThrow(() -> new ResourceNotFoundException("未找到该番剧"));
-
-                boolean isNew = anime.getId() == null;
-                anime.setName(name);
-                anime.setTotalEpisodes(toInt(map.get("totalEpisodes")));
-                int importedProgress = toInt(map.get("currentEpisode"));
-                anime.setScore(toDouble(map.get("score")));
-                anime.setSeason((String) map.get("season"));
-                anime.setRemark((String) map.getOrDefault("remark", ""));
-                anime.setCoverUrl((String) map.get("coverUrl"));
-                anime.setStartDate(parseDate((String) map.get("startDate")));
-                LocalDate importedEndDate = parseDate((String) map.get("endDate"));
-                String status = (String) map.getOrDefault("status", "watching");
-                anime.setStatus(AnimeStatus.valueOf(status.toUpperCase()));
-                // 兼容旧版字符串格式和新版数组格式
-                Object tagsObj = map.get("tags");
-                if (tagsObj instanceof String tagsStr) {
-                    anime.setTags(parseTags(tagsStr));
-                } else if (tagsObj instanceof List<?> tagsList) {
-                    Set<Tag> tags = new HashSet<>();
-                    for (Object item : tagsList) {
-                        if (item instanceof Map<?, ?> tagMap) {
-                            String tagName = (String) tagMap.get("name");
-                            if (tagName != null && !tagName.trim().isEmpty()) {
-                                Tag tag = tagRepository.findByName(tagName.trim())
-                                        .orElseGet(() -> tagRepository.save(new Tag(tagName.trim())));
-                                tags.add(tag);
-                            }
-                        } else if (item instanceof String tagName) {
-                            Tag tag = tagRepository.findByName(tagName.trim())
-                                    .orElseGet(() -> tagRepository.save(new Tag(tagName.trim())));
-                            tags.add(tag);
-                        }
-                    }
-                    anime.setTags(tags);
-                }
-                anime.setBroadcastDay(toIntOrNull(map.get("broadcastDay")));
-                anime.setBangumiId(toIntOrNull(map.get("bangumiId")));
-                anime.setSortOrder(toIntOrNull(map.get("sortOrder")));
-                LocalDate importedStartDate = parseDate((String) map.get("watchStartDate"));
-                if (importedStartDate != null) anime.setWatchStartDate(importedStartDate);
-                Object legacyObj = map.get("legacy");
-                anime.setLegacy(legacyObj != null && Boolean.TRUE.equals(legacyObj));
-                anime.setWatchSeason((String) map.get("watchSeason"));
-
-                Anime saved = animeRepository.save(anime);
-                watchProgress.restore(saved, importedProgress, anime.getStatus(), importedEndDate);
-                result.add(toVO(saved));
-
-                if (isNew) created++; else updated++;
-            }
-
-            Map<String, Object> res = new HashMap<>();
-            res.put("created", created);
-            res.put("updated", updated);
-            res.put("list", result);
-            return res;
-        } catch (IllegalArgumentException e) {
-            throw new IllegalArgumentException("导入数据无效: " + e.getMessage(), e);
-        } catch (Exception e) {
-            throw new RuntimeException("导入失败: JSON 格式错误", e);
-        }
-    }
-
+    @Override
+    public Map<String, Object> previewImportJson(String json) { return backup.previewJson(json); }
     @Override
     public Map<String, Object> getEnhancedStats() {
         Map<String, Object> stats = new HashMap<>();
@@ -844,20 +754,6 @@ public class AnimeServiceImpl implements AnimeService {
         } catch (Exception e) {
             throw new IllegalArgumentException("日期格式必须为 yyyy-MM-dd", e);
         }
-    }
-
-    private Integer toInt(Object obj) {
-        if (obj == null) return 0;
-        if (obj instanceof Integer i) return i;
-        if (obj instanceof Number n) return n.intValue();
-        return Integer.parseInt(obj.toString());
-    }
-
-    private Integer toIntOrNull(Object obj) {
-        if (obj == null) return null;
-        if (obj instanceof Integer i) return i;
-        if (obj instanceof Number n) return n.intValue();
-        try { return Integer.parseInt(obj.toString()); } catch (Exception e) { return null; }
     }
 
     private long toLong(Object obj) {

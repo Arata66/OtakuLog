@@ -37,8 +37,8 @@
 - 基于用户标签频率自动推荐 Bangumi 相似作品
 
 ### 数据同步
-- JSON 导入/导出（支持名称匹配 + 增量导入）
-- WebDAV 多设备同步（推送/拉取/状态检查）
+- 完整 JSON 备份恢复（逐集日期与来源、标签、分组及关联，支持预览、冲突拒绝与原子合并）
+- WebDAV 手动备份与合并恢复（推送/拉取预览/摘要确认/状态检查）
 
 ### 分享功能
 - 番剧分享卡（单部，带封面 + 评分 + 进度，HiDPI 画质）
@@ -97,7 +97,7 @@
 | Mockito | Mock 框架 |
 | Spring Security Test | 认证测试 |
 | H2 | 测试内存数据库 |
-| Node.js 内置测试运行器 | 前端请求令牌与 Service Worker 缓存行为测试 |
+| Node.js 内置测试运行器 | 前端请求令牌、恢复确认与 Service Worker 缓存行为测试 |
 
 ## 项目结构
 
@@ -137,6 +137,8 @@ OtakuLog/
 │   │   ├── TagRepository.java                # 标签数据访问
 │   │   └── EpisodeRecordRepository.java      # 观看记录数据访问
 │   ├── service/
+│   │   ├── BackupService.java                # 完整备份、预览与原子恢复
+│   │   ├── WatchProgressService.java         # 统一观看写入规则
 │   │   ├── AnimeService.java                 # 番剧服务接口
 │   │   ├── BangumiService.java               # Bangumi 服务接口
 │   │   ├── AiringScheduleService.java        # 放送时间表接口
@@ -188,7 +190,9 @@ OtakuLog/
 │   │   └── AnimeRepositoryTest.java          # Repository 层测试（8 用例）
 │   └── service/
 │       ├── AnimeServiceImplTest.java         # 原有 Service 层测试（23 用例）
-│       └── WatchConsistencyTest.java         # 无测试外层事务的观看一致性验收
+│       ├── WatchConsistencyTest.java         # 无测试外层事务的观看一致性验收
+│       ├── BackupServiceTest.java            # 完整恢复、预览、冲突与回滚
+│       └── WebDavBackupTest.java             # 模拟远程文件与摘要确认
 ├── src/test/js/security.test.cjs               # 前端令牌与私人缓存测试
 ├── pom.xml
 └── README.md
@@ -218,7 +222,7 @@ V6.1 Java 迁移负责迁移旧字符串标签；V8 Java 迁移负责对齐状�
 
 V9 允许 `episode_record.watched_date` 为空，并新增 `record_source`：`WATCHED` 为本次观看，`MANUAL` 为手动补录，`IMPORT` 为导入，`LEGACY` 为来源不可考的已有记录。迁移不修改旧日期，也不把旧估算自动升级为真实观看。热力图只聚合已知日期；有逐集记录时不再回退伪造日期，无记录的历史库仍保留估算兼容。
 
-当前 JSON/WebDAV 仍仅备份番剧信息，尚不能完整恢复逐集记录、分组与来源；下一小节将处理完整备份格式。详细规则与验收见[观看写入一致性](docs/superpowers/plans/2026-10-08-观看写入一致性.md)。
+JSON 与 WebDAV 使用相同的版本化完整备份，包含作品、逐集日期与来源、标签、分组、关联及审计时间。导入先预览，确认后合并恢复；身份、分组或已知日期冲突会拒绝，写入异常整批回滚。已有资料和更高进度保留，不删除本地额外数据；兼容旧版数组。WebDAV 确认时检查文件摘要，远程内容变化则重新预览。操作与 API 见[备份与恢复](docs/备份与恢复.md)，观看规则见[观看写入一致性](docs/superpowers/plans/2026-10-08-观看写入一致性.md)。
 
 ## 快速开始
 
@@ -270,7 +274,7 @@ mvn test
 node --test src/test/js/security.test.cjs
 ```
 
-默认 Java 测试使用 H2 内存数据库，无需 MySQL。包括 44 个原有业务测试、27 个安全用例、27 个观看一致性用例；另有 5 个需要显式启用的 MySQL 用例，包含真实行锁并发验证。前端测试使用 Node.js 22 或更高版本，无需 npm 安装依赖。
+默认 Java 测试使用 H2 内存数据库，无需 MySQL。包括 44 个原有业务测试、29 个安全用例、27 个观看一致性用例、20 个完整恢复用例与 4 个模拟 WebDAV HTTP 用例；另有 6 个需要显式启用的 MySQL 用例，包含真实行锁并发与完整恢复验证。前端测试使用 Node.js 22 或更高版本，无需 npm 安装依赖。
 
 H2 测试禁用 Flyway，因此不能代替 MySQL 数据库迁移和 Docker 部署验证。
 
@@ -280,7 +284,7 @@ H2 测试禁用 Flyway，因此不能代替 MySQL 数据库迁移和 Docker 部�
 - 未登录或会话失效的 API 请求返回 JSON 和 HTTP `401`；普通页面跳转登录页。
 - `POST`、`PUT`、`PATCH`、`DELETE` 等写操作需要当前会话的 CSRF 令牌。主页面通过 `_csrf`、`_csrf_header` 元标签提供令牌和头名称，统一请求函数自动携带；登录和退出表单由 Thymeleaf 自动加入隐藏令牌。
 - 已登录但令牌缺失或无效时返回 JSON 和 HTTP `403`，刷新页面后重试。会话失效时前端引导重新登录。
-- 私人 API 响应不保存在 Service Worker 缓存；v5 激活时清理旧版 OtakuLog 缓存。离线 API 返回 HTTP `503`，不回退到旧私人数据。
+- 私人 API 响应不保存在 Service Worker 缓存；当前 v7 激活时清理旧版 OtakuLog 缓存。离线 API 返回 HTTP `503`，不回退到旧私人数据。
 - 当前 PWA 提供静态资源缓存和安装能力，未提供完整离线启动或离线编辑。
 
 ### API 文档

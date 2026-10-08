@@ -1,7 +1,7 @@
 package com.otakulog.service.impl;
 
 import com.otakulog.common.ExternalApiException;
-import com.otakulog.service.AnimeService;
+import com.otakulog.service.BackupService;
 import com.otakulog.service.WebDavSyncService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpMethod;
@@ -14,14 +14,17 @@ import java.time.format.DateTimeFormatter;
 import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.util.HexFormat;
 
 @Service
 public class WebDavSyncServiceImpl implements WebDavSyncService {
 
-    private final AnimeService animeService;
+    private final BackupService backup;
 
-    public WebDavSyncServiceImpl(AnimeService animeService) {
-        this.animeService = animeService;
+    public WebDavSyncServiceImpl(BackupService backup) {
+        this.backup = backup;
     }
 
     @Value("${otakulog.webdav.url:}")
@@ -60,7 +63,7 @@ public class WebDavSyncServiceImpl implements WebDavSyncService {
     @Override
     public Map<String, Object> push() {
         validateConfig();
-        String json = animeService.exportJson();
+        String json = backup.exportJson();
         String fullUrl = webdavUrl.endsWith("/") ? webdavUrl + filename : webdavUrl + "/" + filename;
 
         buildClient().put()
@@ -82,6 +85,18 @@ public class WebDavSyncServiceImpl implements WebDavSyncService {
 
     @Override
     public Map<String, Object> pull() {
+        return pull(null);
+    }
+
+    @Override
+    public Map<String, Object> previewPull() {
+        String json = download();
+        Map<String, Object> result = new LinkedHashMap<>(backup.previewJson(json));
+        result.put("fingerprint", fingerprint(json));
+        return result;
+    }
+
+    private String download() {
         validateConfig();
         String fullUrl = webdavUrl.endsWith("/") ? webdavUrl + filename : webdavUrl + "/" + filename;
 
@@ -94,7 +109,21 @@ public class WebDavSyncServiceImpl implements WebDavSyncService {
             throw new ExternalApiException("WebDAV 文件为空或不存在");
         }
 
-        Map<String, Object> importResult = animeService.importJson(json);
+        return json;
+    }
+
+    private String fingerprint(String json) {
+        try {
+            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(json.getBytes(StandardCharsets.UTF_8)));
+        } catch (java.security.NoSuchAlgorithmException e) { throw new IllegalStateException("无法计算备份摘要", e); }
+    }
+
+    @Override
+    public Map<String, Object> pull(String fingerprint) {
+        String json = download();
+        if (fingerprint != null && !fingerprint(json).equals(fingerprint))
+            throw new IllegalArgumentException("远程备份已变化，请重新预览后再恢复");
+        Map<String, Object> importResult = backup.importJson(json);
 
         lastSyncTime = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
         lastSyncType = "pull";

@@ -60,7 +60,8 @@ class SecurityConfigTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"/api/anime/1/next-episode", "/api/anime/import", "/api/sync/push"})
+    @ValueSource(strings = {"/api/anime/1/next-episode", "/api/anime/import", "/api/sync/push",
+            "/api/anime/import/preview", "/api/sync/pull/preview"})
     void 当未登录写入API时应该拒绝且不执行业务(String path) throws Exception {
         mvc.perform(post(path).contentType("application/json").content("[]"))
                 .andExpect(status().isUnauthorized())
