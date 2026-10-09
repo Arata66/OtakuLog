@@ -203,8 +203,8 @@
         .ff input, .ff select { height: 44px; }
         .ff textarea { resize: vertical; min-height: 72px; line-height: 1.65; }
         .ff input:focus, .ff select:focus, .ff textarea:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-soft); background: var(--card); }
-        .ff input[type="date"] { color-scheme: light; }
-        :root[data-theme="dark"] .ff input[type="date"] { color-scheme: dark; }
+        input[type="date"] { color-scheme: light; }
+        :root[data-theme="dark"] input[type="date"] { color-scheme: dark; }
         .add-form input::placeholder, .add-form textarea::placeholder { color: var(--text-dim); opacity: 1; }
         .add-form-actions { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: 16px; border-top: 1px solid var(--border-light); padding-top: 12px; }
         .add-legacy-option { display: flex; align-items: center; gap: 10px; min-height: 44px; }
@@ -597,7 +597,7 @@
         .episode-history-row { display: grid; grid-template-columns: minmax(120px, 1fr) 146px auto; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border-light); }
         .episode-history-label { font-size: 0.85em; }
         .episode-history-label small { display: block; color: var(--text-dim); font-size: 0.85em; margin-top: 4px; }
-        .episode-history-row .app-input { width: 100%; min-width: 0; padding: 7px; }
+        .episode-history-row .app-input { width: 100%; min-width: 0; min-height: 44px; font-size: 16px; padding: 7px; }
         .episode-history-pages { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 0.8em; margin-top: 14px; }
         @media (max-width: 520px) {
             .episode-history-row { grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
@@ -623,14 +623,20 @@
         .detail-progress-bar.finished { background: var(--purple); }
         .detail-progress-bar.planning { background: var(--amber); }
         .detail-progress-bar.dropped { background: var(--rose); }
-        .detail-remark { font-size: 0.88em; color: var(--text-dim); line-height: 1.5; margin-bottom: 20px; padding: 12px 16px; background: var(--bg); border-radius: var(--radius-sm); border: 1px solid var(--border-light); }
+        .detail-remark { min-width: 0; overflow-wrap: anywhere; font-size: 0.88em; color: var(--text-dim); line-height: 1.5; margin-bottom: 20px; padding: 12px 16px; background: var(--bg); border-radius: var(--radius-sm); border: 1px solid var(--border-light); }
         .detail-remark p { margin: 0 0 8px; }
         .detail-remark p:last-child { margin-bottom: 0; }
         .detail-remark ul, .detail-remark ol { margin: 4px 0 8px 20px; }
         .detail-remark li { margin-bottom: 2px; }
         .detail-remark code { background: var(--border-light); padding: 2px 6px; border-radius: 4px; font-size: 0.9em; }
         .detail-remark pre { background: var(--bg); padding: 12px; border-radius: 8px; overflow-x: auto; margin: 8px 0; border: 1px solid var(--border-light); }
-        .detail-remark pre code { background: none; padding: 0; }
+        .detail-remark pre code { background: none; padding: 0; overflow-wrap: normal; }
+        .detail-remark img { max-width: 100%; height: auto; }
+        .tag-pill { max-width: 100%; overflow-wrap: anywhere; }
+        .search-feedback { display: flex; align-items: center; gap: 12px; padding: 12px 16px; margin-bottom: 16px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--card); }
+        .search-feedback .state-inline { flex: 1; min-width: 0; padding: 0; text-align: left; }
+        .search-feedback .btn-sm, #emptySearch .btn-sm { min-height: 44px; }
+        #emptySearch .state-block { padding: 16px; }
         .detail-remark blockquote { border-left: 3px solid var(--amber); padding-left: 12px; margin: 8px 0; color: var(--text-mid); }
         .detail-remark a { color: var(--coral); text-decoration: underline; }
         .dt-remark p { margin: 0; }
@@ -971,6 +977,7 @@
         .g-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); opacity: 1; }
         .g-card:focus-within .g-actions { opacity: 1; }
         .table-card { overflow-x: auto; }
+        .table-card td:nth-child(5) { min-width: 200px; max-width: 320px; }
         .remark-cell { display: block; }
         .detail-toolbar { position: sticky; top: 0; z-index: 1; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 20px; background: var(--card); border-bottom: 1px solid var(--border-light); color: var(--text-mid); font-size: 0.85rem; font-weight: 500; }
         .detail-header { padding: 20px; }

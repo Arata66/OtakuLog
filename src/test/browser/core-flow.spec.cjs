@@ -1,5 +1,20 @@
 const { test, expect, openAnime, readEpisodes, handleDialog } = require('./fixtures.cjs');
 
+for (const width of [1440, 360]) {
+    test.describe(width === 360 ? '手机深色逐集流程' : '桌面逐集流程', () => {
+        test.beforeEach(async ({ page }) => {
+            await page.setViewportSize({ width, height: 1000 });
+            if (width === 360) await page.locator('#themeToggle').click();
+        });
+        test.afterEach(async ({ page }, testInfo) => {
+            if (width !== 360 || !await page.locator('#detailModal').count()) return;
+            const dialog = page.locator('#detailModal .detail-card');
+            await dialog.screenshot({ path: testInfo.outputPath('手机逐集.png'), animations: 'disabled' });
+            expect(await dialog.evaluate(el => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
+            for (const input of await dialog.locator('input[type="date"]').all())
+                expect(await input.evaluate(el => Math.round(el.getBoundingClientRect().height * 100) / 100)).toBeGreaterThanOrEqual(44);
+        });
+
 test('当取消历史日期核对时应该保留历史来源且不发出写请求', async ({ page, demo }) => {
     const id = await openAnime(page, '演示·雨巷来信');
     const before = await readEpisodes(page, id);
@@ -55,6 +70,8 @@ test('当最后一集记看后退集时应该同步详情和首页且移除本�
 
 test('当两个窗口保存同一集时应该拒绝过期快照并保留草稿直到确认重载', async ({ page, secondPage: other }) => {
     const id = await openAnime(page, '演示·星港巡游');
+    await other.setViewportSize({ width, height: 1000 });
+    if (width === 360) await other.locator('#themeToggle').click();
     await openAnime(other, '演示·星港巡游');
     await page.getByLabel('第 2 集观看日期', { exact: true }).fill('2024-03-02');
     await other.getByLabel('第 2 集观看日期', { exact: true }).fill('2024-03-03');
@@ -79,3 +96,6 @@ test('当两个窗口保存同一集时应该拒绝过期快照并保留草稿�
     await expect(other.getByLabel('第 2 集观看日期', { exact: true })).toHaveValue('2024-03-02');
     await expect(other.locator('.episode-history-row').nth(1).getByRole('button', { name: '保存', exact: true })).toBeEnabled();
 });
+
+    });
+}

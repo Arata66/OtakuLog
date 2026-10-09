@@ -3,6 +3,7 @@
         let currentPage = 0, isLoading = false, hasMore = true;
         let totalElements = 0, loadedCount = 0;
         let displayedAnime = [];
+        let searchRequestId = 0, searchState = 'idle', failedSearchReset = true;
         const PAGE_SIZE = 12;
         // === DOM 缓存（init() 中填充）===
         let $tbody, $tableCard, $emptySearch;
@@ -34,34 +35,6 @@
         function restoreFocus() { if (_lastFocusedBeforeModal && typeof _lastFocusedBeforeModal.focus === 'function' && document.contains(_lastFocusedBeforeModal)) { _lastFocusedBeforeModal.focus(); } _lastFocusedBeforeModal = null; }
         function debounce(fn, ms) { let t; return function(...a) { clearTimeout(t); t = setTimeout(() => fn.apply(this, a), ms); }; }
         function esc(s) { if (s == null) return ''; const d = document.createElement('div'); d.appendChild(document.createTextNode(s)); return d.innerHTML.replace(/"/g, '&quot;'); }
-        function showTableSkeleton(rows) {
-            const tb = $tbody; if (!tb) return;
-            tb.innerHTML = '';
-            for (let i = 0; i < (rows || 5); i++) {
-                const r = document.createElement('tr');
-                r.innerHTML = '<td></td><td></td><td><div class="skeleton skeleton-cover"></div></td><td><div class="skeleton skeleton-text short" style="width:24px;"></div></td><td><div class="skeleton skeleton-text long"></div></td><td><div class="skeleton skeleton-text short" style="width:60px;"></div></td><td><div class="skeleton skeleton-text short" style="width:60px;"></div></td><td><div class="skeleton skeleton-text short" style="width:40px;"></div></td><td><div class="skeleton skeleton-text short" style="width:60px;"></div></td><td><div class="skeleton skeleton-text medium" style="width:100px;"></div></td><td><div class="skeleton skeleton-text medium" style="width:140px;"></div></td>';
-                tb.appendChild(r);
-            }
-        }
-        function showGallerySkeleton(count) {
-            const g = $galleryGrid; if (!g) return;
-            g.innerHTML = '';
-            for (let i = 0; i < (count || 6); i++) {
-                const card = document.createElement('div'); card.className = 'skeleton-card';
-                card.innerHTML = '<div class="skeleton skeleton-card-cover"></div><div class="skeleton-card-body"><div class="skeleton skeleton-text long"></div><div class="skeleton skeleton-text medium"></div><div class="skeleton skeleton-text short"></div></div>';
-                g.appendChild(card);
-            }
-        }
-        function showDetailSkeleton(count) {
-            const g = $detailGrid; if (!g) return;
-            g.innerHTML = '';
-            for (let i = 0; i < (count || 6); i++) {
-                const card = document.createElement('div'); card.className = 'skeleton-card';
-                card.innerHTML = '<div class="skeleton skeleton-wide"></div><div class="skeleton-card-body"><div class="skeleton skeleton-text long"></div><div class="skeleton skeleton-text medium"></div><div class="skeleton skeleton-text short"></div><div class="skeleton skeleton-text medium"></div></div>';
-                g.appendChild(card);
-            }
-        }
-
         async function fetchApi(url, options = {}) {
             try {
                 const requestOptions = { ...options, headers: new Headers(options.headers) };
@@ -771,20 +744,53 @@
         async function deleteAnime(id) { if (!confirm('确定删除这个番剧吗？')) return; const r = await fetchApi(`/api/anime/${id}`, { method: 'DELETE' }); if (r && r.code === 200) { toast('已删除', 'success'); performSearch(); updateStats(); } else if (r) toast(r.message || '删除失败', 'error'); }
         async function changeStatus(id) { const v = document.getElementById('ss-' + id).value; if (!v) return; const r = await fetchApi(`/api/anime/${id}/status?status=${encodeURIComponent(v)}`, { method: 'POST' }); if (r && r.code === 200) { toast('状态已更新', 'success'); performSearch(); updateStats(); } else if (r) toast(r.message || '修改失败', 'error'); }
 
-        /* Search with pagination */
+        function showSearchFeedback(type, reset = true) {
+            const el = document.getElementById('searchFeedback');
+            if (!el) return;
+            el.classList.toggle('is-hidden', !type);
+            if (!type) { el.innerHTML = ''; return; }
+            const title = type === 'error' ? '列表加载失败' : '正在加载列表';
+            const desc = displayedAnime.length ? '暂时显示上次结果。' : '请稍候，或稍后重试。';
+            el.innerHTML = inlineStateHtml(type, title, desc);
+            if (type === 'error') {
+                failedSearchReset = reset;
+                const retry = document.createElement('button');
+                retry.className = 'btn-sm'; retry.textContent = '重试';
+                retry.addEventListener('click', () => { hasMore = true; performSearch(failedSearchReset); });
+                el.appendChild(retry);
+            }
+        }
+
+        // 新筛选可以越过旧请求，迟到的旧响应不能覆盖当前结果。
         async function performSearch(reset) {
-            if (reset !== false) { currentPage = 0; hasMore = true; clearSelection(); showTableSkeleton(); showDetailSkeleton(); showGallerySkeleton(); }
-            if (isLoading || !hasMore) return;
+            const fresh = reset !== false;
+            if (!fresh && (isLoading || !hasMore)) return;
+            const requestId = fresh ? ++searchRequestId : searchRequestId;
+            if (fresh) { currentPage = 0; hasMore = true; clearSelection(); }
             isLoading = true;
+            searchState = 'loading';
+            document.getElementById('emptySearch')?.classList.add('is-hidden');
+            showSearchFeedback('loading');
+            if (!displayedAnime.length) renderView([]);
             const n = document.getElementById('searchName').value.trim(), s = document.getElementById('filterStatus').value, sb = document.getElementById('sortBy').value, tg = document.getElementById('filterTag').value.trim();
             let u = `/api/anime/page?page=${currentPage}&size=${PAGE_SIZE}&sortBy=${encodeURIComponent(sb)}`;
             if (n) u += '&name=' + encodeURIComponent(n);
             if (s) u += '&status=' + encodeURIComponent(s);
             if (tg) u += '&tag=' + encodeURIComponent(tg);
-            const r = await fetchApi(u);
+            const r = await fetchApi(u, { returnError: true });
+            if (requestId !== searchRequestId) return;
             isLoading = false;
-            if (!r) return;
-            if (r.code !== 200) { toast(r.message || '搜索出错', 'error'); return; }
+            if (!r || r.code !== 200) {
+                searchState = 'error';
+                // 暂停自动分页，失败页由用户重试，避免持续发出失败请求。
+                hasMore = false;
+                renderView(displayedAnime);
+                document.getElementById('paginationIndicator')?.classList.add('is-hidden');
+                showSearchFeedback('error', fresh);
+                return;
+            }
+            searchState = 'ready';
+            showSearchFeedback(null);
             const pg = r.data;
             hasMore = !pg.last;
             totalElements = pg.totalElements || 0;
@@ -803,12 +809,27 @@
             if (!tb) return;
             if (!list || list.length === 0) {
                 tb.innerHTML = '';
-                if (tc) tc.style.display = 'none'; if (dc) dc.style.display = 'none'; if (gc) gc.style.display = 'none'; if (em) em.classList.remove('is-hidden'); return;
+                if (dc) document.getElementById('detailGrid').innerHTML = '';
+                if (gc) document.getElementById('galleryGrid').innerHTML = '';
+                if (tc) tc.style.display = 'none'; if (dc) dc.style.display = 'none'; if (gc) gc.style.display = 'none';
+                if (em) {
+                    const filtered = kw || document.getElementById('filterStatus').value || document.getElementById('filterTag').value.trim();
+                    em.innerHTML = stateHtml('empty', filtered ? '没有匹配的作品' : '还没有追番记录', filtered ? '调整搜索词、状态或标签，再试一次。' : '添加一部番剧后，这里会显示你的观看进度和评分。');
+                    const action = document.createElement('button');
+                    action.className = 'btn-sm'; action.textContent = filtered ? '清除筛选' : '添加第一部作品';
+                    action.addEventListener('click', filtered ? resetSearch : () => {
+                        const name = document.getElementById('animeName');
+                        name.scrollIntoView({ block: 'center', behavior: 'smooth' }); name.focus({ preventScroll: true });
+                    });
+                    em.appendChild(action);
+                    em.classList.toggle('is-hidden', searchState !== 'ready');
+                }
+                return;
             }
             if (em) em.classList.add('is-hidden');
             if (tc) tc.style.display = viewMode === 'table' ? '' : 'none';
-            if (dc) dc.classList.toggle('active', viewMode === 'detail');
-            if (gc) gc.classList.toggle('active', viewMode === 'gallery');
+            if (dc) { dc.style.display = ''; dc.classList.toggle('active', viewMode === 'detail'); }
+            if (gc) { gc.style.display = ''; gc.classList.toggle('active', viewMode === 'gallery'); }
             list.forEach(a => _cache[a.id] = a);
             if (viewMode === 'table') {
                 tb.innerHTML = '';
