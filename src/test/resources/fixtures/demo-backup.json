@@ -1,0 +1,201 @@
+{
+  "format": "otakulog-backup",
+  "version": 1,
+  "exportedAt": "2024-03-01T12:00:00",
+  "anime": [
+    {
+      "key": "a:star",
+      "data": {
+        "name": "演示·星港巡游",
+        "currentEpisode": 2,
+        "totalEpisodes": 3,
+        "status": "WATCHING",
+        "score": 8.5,
+        "season": "2024春",
+        "remark": "虚构演示数据，可放心测试。",
+        "coverUrl": null,
+        "startDate": "2024-01-01",
+        "endDate": null,
+        "sortOrder": 1,
+        "broadcastDay": 1,
+        "bangumiId": null,
+        "watchStartDate": "2024-01-15",
+        "legacy": false,
+        "watchSeason": "2024春",
+        "createdAt": "2024-03-01T12:00:00",
+        "updatedAt": "2024-03-01T12:00:00"
+      },
+      "tagKeys": [
+        "t:demo"
+      ]
+    },
+    {
+      "key": "a:rain",
+      "data": {
+        "name": "演示·雨巷来信",
+        "currentEpisode": 2,
+        "totalEpisodes": 12,
+        "status": "WATCHING",
+        "score": 0,
+        "season": "2024春",
+        "remark": "虚构演示数据，可放心测试。",
+        "coverUrl": null,
+        "startDate": "2024-01-01",
+        "endDate": null,
+        "sortOrder": 2,
+        "broadcastDay": 4,
+        "bangumiId": null,
+        "watchStartDate": "2024-01-15",
+        "legacy": false,
+        "watchSeason": "2024春",
+        "createdAt": "2024-03-01T12:00:00",
+        "updatedAt": "2024-03-01T12:00:00"
+      },
+      "tagKeys": [
+        "t:demo"
+      ]
+    },
+    {
+      "key": "a:sea",
+      "data": {
+        "name": "演示·海边放映室",
+        "currentEpisode": 3,
+        "totalEpisodes": 3,
+        "status": "FINISHED",
+        "score": 9,
+        "season": "2024春",
+        "remark": "虚构演示数据，可放心测试。",
+        "coverUrl": null,
+        "startDate": "2024-01-01",
+        "endDate": "2024-01-17",
+        "sortOrder": 3,
+        "broadcastDay": null,
+        "bangumiId": null,
+        "watchStartDate": "2024-01-15",
+        "legacy": false,
+        "watchSeason": "2024春",
+        "createdAt": "2024-03-01T12:00:00",
+        "updatedAt": "2024-03-01T12:00:00"
+      },
+      "tagKeys": [
+        "t:demo"
+      ]
+    },
+    {
+      "key": "a:plan",
+      "data": {
+        "name": "演示·下一站山城",
+        "currentEpisode": 0,
+        "totalEpisodes": 12,
+        "status": "PLANNING",
+        "score": 0,
+        "season": "2024春",
+        "remark": "虚构演示数据，可放心测试。",
+        "coverUrl": null,
+        "startDate": "2024-01-01",
+        "endDate": null,
+        "sortOrder": 4,
+        "broadcastDay": null,
+        "bangumiId": null,
+        "watchStartDate": null,
+        "legacy": false,
+        "watchSeason": null,
+        "createdAt": "2024-03-01T12:00:00",
+        "updatedAt": "2024-03-01T12:00:00"
+      },
+      "tagKeys": [
+        "t:demo"
+      ]
+    }
+  ],
+  "tags": [
+    {
+      "key": "t:demo",
+      "name": "虚构演示",
+      "createdAt": "2024-03-01T12:00:00"
+    }
+  ],
+  "groups": [
+    {
+      "key": "g:demo",
+      "name": "演示收藏",
+      "description": "仅用于隔离验收",
+      "color": "#122e8a",
+      "sortOrder": 1,
+      "createdAt": "2024-03-01T12:00:00",
+      "updatedAt": "2024-03-01T12:00:00"
+    }
+  ],
+  "memberships": [
+    {
+      "groupKey": "g:demo",
+      "animeKey": "a:star"
+    },
+    {
+      "groupKey": "g:demo",
+      "animeKey": "a:rain"
+    },
+    {
+      "groupKey": "g:demo",
+      "animeKey": "a:sea"
+    }
+  ],
+  "episodes": [
+    {
+      "animeKey": "a:star",
+      "episodeNumber": 1,
+      "watchedDate": "2024-03-01",
+      "source": "WATCHED",
+      "createdAt": "2024-03-01T12:00:00",
+      "updatedAt": "2024-03-01T12:00:00"
+    },
+    {
+      "animeKey": "a:star",
+      "episodeNumber": 2,
+      "watchedDate": null,
+      "source": "IMPORT",
+      "createdAt": "2024-03-01T12:00:00",
+      "updatedAt": "2024-03-01T12:00:00"
+    },
+    {
+      "animeKey": "a:rain",
+      "episodeNumber": 1,
+      "watchedDate": "2024-02-01",
+      "source": "LEGACY",
+      "createdAt": "2024-03-01T12:00:00",
+      "updatedAt": "2024-03-01T12:00:00"
+    },
+    {
+      "animeKey": "a:rain",
+      "episodeNumber": 2,
+      "watchedDate": "2024-02-02",
+      "source": "LEGACY",
+      "createdAt": "2024-03-01T12:00:00",
+      "updatedAt": "2024-03-01T12:00:00"
+    },
+    {
+      "animeKey": "a:sea",
+      "episodeNumber": 1,
+      "watchedDate": "2024-01-15",
+      "source": "WATCHED",
+      "createdAt": "2024-03-01T12:00:00",
+      "updatedAt": "2024-03-01T12:00:00"
+    },
+    {
+      "animeKey": "a:sea",
+      "episodeNumber": 2,
+      "watchedDate": "2024-01-16",
+      "source": "WATCHED",
+      "createdAt": "2024-03-01T12:00:00",
+      "updatedAt": "2024-03-01T12:00:00"
+    },
+    {
+      "animeKey": "a:sea",
+      "episodeNumber": 3,
+      "watchedDate": "2024-01-17",
+      "source": "WATCHED",
+      "createdAt": "2024-03-01T12:00:00",
+      "updatedAt": "2024-03-01T12:00:00"
+    }
+  ]
+}
