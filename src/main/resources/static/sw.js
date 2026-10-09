@@ -1,6 +1,8 @@
-const CACHE_NAME = 'otakulog-v10';
+const CACHE_NAME = 'otakulog-v11';
 const STATIC_ASSETS = [
     '/css/anime.css',
+    '/css/vendor/phosphor/regular.css',
+    '/css/vendor/phosphor/Phosphor.woff2',
     '/js/anime-app.js',
     '/js/episode-history.js',
     '/js/watch-actions.js',

@@ -12,7 +12,7 @@
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked@12/marked.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/dompurify@3/dist/purify.min.js"></script>
-    <script type="module" src="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.1/dist/index.umd.min.js"></script>
+    <link rel="stylesheet" th:href="@{/css/vendor/phosphor/regular.css}">
     <script th:src="@{/js/i18n.js}"></script>
     <link rel="stylesheet" th:href="@{/css/anime.css}">
 </head>
@@ -47,7 +47,7 @@
             </div>
             <div class="header-right">
                 <div class="menu-anchor">
-                    <button class="btn-h icon-only" id="accentBtn" onclick="toggleAccentPicker()" title="主题色" aria-label="打开主题色选择器" aria-haspopup="true" aria-expanded="false" aria-controls="accentPicker"><i class="ph ph-palette" aria-hidden="true"></i></button>
+                    <button class="btn-h" id="accentBtn" onclick="toggleAccentPicker()" title="主题色" data-i18n-title="btn.accent" aria-label="主题色" data-i18n-aria-label="btn.accent" aria-haspopup="true" aria-expanded="false" aria-controls="accentPicker"><span class="accent-indicator" aria-hidden="true"></span><span data-i18n="btn.accent">主题色</span></button>
                     <div class="accent-picker" id="accentPicker" role="group" aria-label="主题色选择">
                         <button type="button" class="accent-swatch accent-indigo active" data-accent="indigo" onclick="setAccent('indigo')" aria-label="靛蓝主题色" aria-pressed="true"></button>
                         <button type="button" class="accent-swatch accent-jade" data-accent="jade" onclick="setAccent('jade')" aria-label="翡翠主题色" aria-pressed="false"></button>
@@ -57,8 +57,8 @@
                         <button type="button" class="accent-swatch accent-rose" data-accent="rose" onclick="setAccent('rose')" aria-label="玫瑰主题色" aria-pressed="false"></button>
                     </div>
                 </div>
-                <button class="btn-h" id="langToggle" onclick="i18n.setLang(i18n.lang === 'zh' ? 'en' : 'zh')" aria-label="切换语言">EN</button>
-                <button class="btn-h icon-only" id="themeToggle" onclick="toggleTheme()" title="切换主题" aria-label="切换主题"><i class="ph ph-moon" aria-hidden="true"></i></button>
+                <button class="btn-h" id="langToggle" onclick="i18n.setLang(i18n.lang === 'zh' ? 'en' : 'zh')" title="Switch to English" aria-label="Switch to English" data-i18n-title="lang.target" data-i18n-aria-label="lang.target">EN</button>
+                <button class="btn-h" id="themeToggle" onclick="toggleTheme()" title="切换为深色" aria-label="切换为深色" data-i18n-title="btn.toDark" data-i18n-aria-label="btn.toDark"><i class="ph ph-moon" aria-hidden="true"></i><span id="themeLabel" data-i18n="btn.dark">深色</span></button>
                 <div class="menu-anchor">
                     <button class="btn-h" onclick="toggleSyncMenu()" id="syncBtn" aria-haspopup="menu" aria-expanded="false" aria-controls="syncMenu"><i class="ph ph-cloud" aria-hidden="true"></i>同步</button>
                     <div id="syncMenu" class="dropdown-menu is-hidden" role="menu" aria-label="同步菜单">
@@ -124,30 +124,55 @@
 
             <!-- Add -->
             <div class="add-form">
-                <h3 data-i18n="form.add">添加新番</h3>
+                <div class="add-form-heading">
+                    <h3 data-i18n="form.add">添加新番</h3>
+                    <p data-i18n="form.intro">先填写作品信息，再记录你的观看安排。</p>
+                </div>
                 <form id="animeForm" onsubmit="addAnime(event)">
                     <input type="hidden" id="animeBangumiId" value="">
-                    <div class="form-grid">
-                        <div class="form-row">
-                            <div class="ff"><label data-i18n="form.name">番剧名</label><input type="text" id="animeName" data-i18n-placeholder="form.namePlaceholder" placeholder="输入名称后搜索" required></div>
-                            <button type="button" class="btn-bangumi" id="btnBangumi" onclick="searchBangumi()" data-i18n="bangumi.search">Bangumi 搜索</button>
-                            <button type="button" class="btn-bangumi" onclick="document.getElementById('traceMoeInput').click()" title="以图搜番" aria-label="以图搜番"><i class="ph ph-camera" aria-hidden="true"></i>搜图</button>
+                    <fieldset class="add-section">
+                        <legend data-i18n="form.work">作品与检索</legend>
+                        <div class="add-search-row">
+                            <div class="ff"><label for="animeName" data-i18n="form.name">番剧名</label><input type="text" id="animeName" data-i18n-placeholder="form.namePlaceholder" placeholder="输入名称后搜索" required></div>
+                            <div class="add-search-actions">
+                                <button type="button" class="btn-bangumi" id="btnBangumi" onclick="searchBangumi()" data-i18n="bangumi.search">Bangumi 搜索</button>
+                                <button type="button" class="btn-bangumi" onclick="document.getElementById('traceMoeInput').click()" title="以图搜番" aria-label="以图搜番" data-i18n-title="form.imageSearch" data-i18n-aria-label="form.imageSearch"><i class="ph ph-camera" aria-hidden="true"></i><span data-i18n="form.imageSearch">以图搜番</span></button>
+                            </div>
                             <input type="file" id="traceMoeInput" class="hidden-input" accept="image/*" onchange="searchTraceMoe(this)">
                         </div>
-                        <div class="ff"><label data-i18n="form.totalEpisodes">总集数</label><input type="number" id="totalEpisodes" placeholder="12" min="1" required></div>
-                        <div class="ff"><label data-i18n="form.season">季度</label><input type="text" id="animeSeason" placeholder="2024冬" required></div>
-                        <div class="ff"><label data-i18n="form.score">评分</label><input type="number" id="animeScore" placeholder="8.5" min="0" max="10" step="0.1" required></div>
-                        <div class="ff"><label data-i18n="form.cover">封面URL</label><input type="text" id="animeCover" data-i18n-placeholder="form.coverPlaceholder" placeholder="可选"></div>
-                        <div class="ff"><label data-i18n="form.startDate">开播日期</label><input type="date" id="animeStartDate"></div>
-                        <div class="ff"><label data-i18n="form.endDate">完结日期</label><input type="date" id="animeEndDate"></div>
-                        <div class="ff"><label data-i18n="form.remark">备注 (Markdown)</label><textarea id="animeRemark" rows="2" data-i18n-placeholder="form.remarkPlaceholder" placeholder="支持 **Markdown**"></textarea></div>
-                        <div class="ff"><label data-i18n="form.broadcastDay">放送日</label><select id="animeBroadcastDay"><option value="" data-i18n="form.broadcastDayUnset">未设置</option><option value="1" data-i18n="day.mon">周一</option><option value="2" data-i18n="day.tue">周二</option><option value="3" data-i18n="day.wed">周三</option><option value="4" data-i18n="day.thu">周四</option><option value="5" data-i18n="day.fri">周五</option><option value="6" data-i18n="day.sat">周六</option><option value="7" data-i18n="day.sun">周日</option></select></div>
-                        <div class="ff"><label data-i18n="form.tags">标签</label><input type="text" id="animeTags" data-i18n-placeholder="form.tagsPlaceholder" placeholder="热血,奇幻"></div>
-                        <div class="ff"><label>观看季度</label><input type="text" id="animeWatchSeason" placeholder="2024-冬"></div>
-                        <div class="ff"><label>状态</label><select id="animeStatus"><option value="watching">追中</option><option value="planning">计划</option></select></div>
-                        <div class="ff check-row">
+                    </fieldset>
+                    <fieldset class="add-section">
+                        <legend data-i18n="form.basics">基本信息</legend>
+                        <p class="add-section-note" data-i18n="form.requiredHint">番剧名、总集数、季度与评分为必填，其余可留空。</p>
+                        <div class="add-fields">
+                            <div class="ff"><label for="totalEpisodes" data-i18n="form.totalEpisodes">总集数</label><input type="number" id="totalEpisodes" placeholder="12" min="1" required></div>
+                            <div class="ff"><label for="animeSeason" data-i18n="form.season">季度</label><input type="text" id="animeSeason" placeholder="2026秋" required></div>
+                            <div class="ff"><label for="animeScore" data-i18n="form.score">评分</label><input type="number" id="animeScore" placeholder="8.5" min="0" max="10" step="0.1" required></div>
+                            <div class="ff"><label for="animeCover" data-i18n="form.cover">封面 URL</label><input type="text" id="animeCover" data-i18n-placeholder="form.coverPlaceholder" placeholder="可选"></div>
+                        </div>
+                    </fieldset>
+                    <fieldset class="add-section">
+                        <legend data-i18n="form.watching">观看与日期</legend>
+                        <p class="add-section-note" data-i18n="form.dateHint">日期未知可留空；观看季度与作品播出季度分别记录。</p>
+                        <div class="add-fields">
+                            <div class="ff"><label for="animeStatus" data-i18n="search.status">状态</label><select id="animeStatus"><option value="watching" data-i18n="status.watching">追中</option><option value="planning" data-i18n="status.planning">计划</option></select></div>
+                            <div class="ff"><label for="animeBroadcastDay" data-i18n="form.broadcastDay">放送日</label><select id="animeBroadcastDay"><option value="" data-i18n="form.broadcastDayUnset">未设置</option><option value="1" data-i18n="day.mon">周一</option><option value="2" data-i18n="day.tue">周二</option><option value="3" data-i18n="day.wed">周三</option><option value="4" data-i18n="day.thu">周四</option><option value="5" data-i18n="day.fri">周五</option><option value="6" data-i18n="day.sat">周六</option><option value="7" data-i18n="day.sun">周日</option></select></div>
+                            <div class="ff add-span-2"><label for="animeWatchSeason" data-i18n="form.watchSeason">观看季度</label><input type="text" id="animeWatchSeason" placeholder="2026-秋"></div>
+                            <div class="ff add-span-2"><label for="animeStartDate" data-i18n="form.startDate">开播日期</label><input type="date" id="animeStartDate"></div>
+                            <div class="ff add-span-2"><label for="animeEndDate" data-i18n="form.endDate">完结日期</label><input type="date" id="animeEndDate"></div>
+                        </div>
+                    </fieldset>
+                    <fieldset class="add-section">
+                        <legend data-i18n="form.notes">备注与标签</legend>
+                        <div class="add-fields">
+                            <div class="ff add-span-3"><label for="animeRemark" data-i18n="form.remark">备注 (Markdown)</label><textarea id="animeRemark" rows="3" data-i18n-placeholder="form.remarkPlaceholder" placeholder="支持 **Markdown**"></textarea></div>
+                            <div class="ff"><label for="animeTags" data-i18n="form.tags">标签</label><input type="text" id="animeTags" data-i18n-placeholder="form.tagsPlaceholder" placeholder="热血,奇幻"><p class="add-field-note" data-i18n="form.tagsHint">多个标签用逗号分隔。</p></div>
+                        </div>
+                    </fieldset>
+                    <div class="add-form-actions">
+                        <div class="add-legacy-option">
                             <input type="checkbox" id="animeLegacy" class="compact-check">
-                            <label for="animeLegacy" class="check-label">旧番（不计入追番统计）</label>
+                            <label for="animeLegacy" data-i18n="form.legacy">旧番（不计入追番统计）</label>
                         </div>
                         <button type="submit" class="btn-add" data-i18n="form.submit"><i class="ph ph-plus" aria-hidden="true"></i>添加</button>
                     </div>

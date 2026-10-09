@@ -264,8 +264,22 @@
             const root = document.documentElement, dark = root.getAttribute('data-theme') === 'dark';
             root.setAttribute('data-theme', dark ? '' : 'dark');
             localStorage.setItem('otakulog-theme', dark ? 'light' : 'dark');
-            $themeToggle.innerHTML = dark ? '<i class="ph ph-moon" aria-hidden="true"></i>' : '<i class="ph ph-sun" aria-hidden="true"></i>';
+            updateThemeButton();
             updateChartColors();
+        }
+        function updateThemeButton() {
+            const dark = document.documentElement.getAttribute('data-theme') === 'dark';
+            const label = document.getElementById('themeLabel');
+            const labelKey = dark ? 'btn.light' : 'btn.dark';
+            const targetKey = dark ? 'btn.toLight' : 'btn.toDark';
+            // 按钮说明切换后的目标，刷新和语言切换也保留同一含义。
+            label.dataset.i18n = labelKey;
+            label.textContent = i18n.t(labelKey);
+            $themeToggle.querySelector('.ph').className = dark ? 'ph ph-sun' : 'ph ph-moon';
+            $themeToggle.dataset.i18nTitle = targetKey;
+            $themeToggle.dataset.i18nAriaLabel = targetKey;
+            $themeToggle.title = i18n.t(targetKey);
+            $themeToggle.setAttribute('aria-label', i18n.t(targetKey));
         }
         function updateChartColors() {
             const dark = document.documentElement.getAttribute('data-theme') === 'dark';
@@ -1601,8 +1615,8 @@
             const savedTheme = localStorage.getItem('otakulog-theme');
             if (savedTheme === 'dark' || (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
                 document.documentElement.setAttribute('data-theme', 'dark');
-                $themeToggle.innerHTML = '<i class="ph ph-sun" aria-hidden="true"></i>';
             }
+            updateThemeButton();
             if (typeof i18n !== 'undefined') i18n.translatePage();
             if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
             updateStats(); performSearch();

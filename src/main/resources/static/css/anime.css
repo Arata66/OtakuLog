@@ -34,7 +34,7 @@
             --radius-sm: 10px;
             --display: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
             --serif: var(--display);
-            --sans: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
+            --sans: 'Outfit', -apple-system, BlinkMacSystemFont, 'Microsoft YaHei', 'PingFang SC', 'Noto Sans CJK SC', sans-serif;
         }
         :root[data-theme="dark"] {
             --bg: #0b1120;
@@ -68,17 +68,18 @@
 
         /* === Header === */
         .header {
-            display: flex; align-items: flex-end; justify-content: space-between;
+            display: flex; align-items: center; justify-content: space-between; gap: 24px;
             padding-bottom: 32px; margin-bottom: 36px;
             border-bottom: 1px solid var(--border);
         }
         .logo { font-family: var(--display); font-size: 2em; color: var(--text); letter-spacing: -0.6px; line-height: 1; font-weight: 700; }
         .logo-sub { font-size: 0.78em; color: var(--text-dim); letter-spacing: 0.6px; margin-top: 4px; font-weight: 500; }
-        .header-right { display: flex; gap: 8px; align-items: center; }
+        .header > :first-child { flex-shrink: 0; }
+        .header-right { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: flex-end; min-width: 0; }
         .btn-h {
             display: inline-flex; align-items: center; justify-content: center; gap: 6px;
             background: var(--card); border: 1px solid var(--border);
-            color: var(--text-mid); padding: 8px 18px; border-radius: 10px;
+            color: var(--text-mid); padding: 8px 14px; border-radius: 10px; min-height: 44px; white-space: nowrap;
             cursor: pointer; font-size: 0.8em; font-weight: 500;
             transition: all 0.25s; font-family: inherit;
         }
@@ -91,6 +92,7 @@
         .btn-h.accent:hover { background: var(--primary-mid); }
         .btn-h.ghost { background: transparent; border-color: transparent; color: var(--text-dim); }
         .btn-h.ghost:hover { color: var(--primary); }
+        .accent-indicator { width: 12px; height: 12px; flex-shrink: 0; border-radius: 50%; background: var(--primary); }
 
         /* === Tabs === */
         .tabs {
@@ -163,34 +165,63 @@
         .btn-sm { background: var(--card); border: 1.5px solid var(--border); color: var(--text-dim); padding: 10px 16px; border-radius: 10px; cursor: pointer; font-size: 0.82em; font-weight: 500; transition: all 0.25s; font-family: inherit; }
         .btn-sm:hover { border-color: #d4cfc6; color: var(--text-mid); }
 
-        /* === Add Form === */
+        /* 按录入顺序分组，避免不同尺寸的字段被底部对齐挤成零散横排。 */
         .add-form {
             background: var(--card); border-radius: var(--radius);
-            padding: 28px; margin-bottom: 28px;
-            box-shadow: var(--shadow); position: relative;
+            padding: 28px; margin-bottom: 28px; border: 1px solid var(--border-light);
+            box-shadow: var(--shadow);
         }
-        .add-form::before {
-            content: ''; position: absolute; top: 0; left: 28px; right: 28px; height: 1px;
-            background: linear-gradient(90deg, transparent, var(--primary), var(--primary-light), var(--sage), transparent);
-            opacity: 0.4;
-        }
+        .add-form-heading { margin-bottom: 24px; }
         .add-form h3 {
             font-family: var(--display); font-size: 1.15em; color: var(--text);
-            margin-bottom: 20px; font-weight: 400;
+            margin-bottom: 6px; font-weight: 600;
         }
-        .form-grid { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; }
-        .form-row { display: flex; gap: 8px; align-items: flex-end; flex: 1; min-width: 280px; }
-        .form-row .ff { flex: 1; }
-        .form-row .ff input { width: 100%; }
-        .ff { display: flex; flex-direction: column; gap: 5px; }
-        .ff label { font-size: 0.76em; color: var(--text-dim); letter-spacing: 0.3px; font-weight: 600; }
+        .add-form-heading p, .add-section-note, .add-field-note { color: var(--text-dim); font-size: 0.8rem; line-height: 1.65; }
+        .add-section { min-width: 0; border: 0; padding: 0; margin-bottom: 24px; }
+        .add-section legend { width: 100%; border-top: 1px solid var(--border-light); padding: 20px 0 10px; color: var(--text-mid); font-size: 0.88rem; font-weight: 600; }
+        .add-section:first-of-type legend { border-top: 0; padding-top: 0; }
+        .add-section-note { margin: -2px 0 14px; }
+        .add-search-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; align-items: end; }
+        .add-search-actions { display: flex; gap: 8px; }
+        .add-fields { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; align-items: start; }
+        .add-span-2 { grid-column: span 2; }
+        .add-span-3 { grid-column: span 3; }
+        .ff { display: flex; flex-direction: column; gap: 7px; min-width: 0; }
+        .ff label { font-size: 0.8rem; color: var(--text-mid); font-weight: 500; }
         .ff input, .ff textarea {
             background: var(--bg); border: 1.5px solid var(--border);
             color: var(--text); padding: 10px 14px; border-radius: 10px;
-            font-size: 0.85em; width: 150px; font-family: inherit; transition: all 0.25s;
+            font-size: 0.88rem; width: 100%; min-width: 0; min-height: 44px; font-family: inherit; transition: border-color 0.2s, box-shadow 0.2s;
         }
-        .ff textarea { resize: vertical; min-height: 40px; }
-        .ff input:focus, .ff textarea:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-soft); background: var(--card); }
+        .ff select { width: 100%; min-width: 0; min-height: 44px; padding: 10px 14px; border: 1.5px solid var(--border); border-radius: 10px; background: var(--bg); color: var(--text); font: inherit; font-size: 0.88rem; cursor: pointer; }
+        .ff input, .ff select { height: 44px; }
+        .ff textarea { resize: vertical; min-height: 96px; line-height: 1.65; }
+        .ff input:focus, .ff select:focus, .ff textarea:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-soft); background: var(--card); }
+        .ff input[type="date"] { color-scheme: light; }
+        :root[data-theme="dark"] .ff input[type="date"] { color-scheme: dark; }
+        .add-form input::placeholder, .add-form textarea::placeholder { color: var(--text-dim); opacity: 1; }
+        .add-form-actions { display: flex; align-items: center; justify-content: space-between; gap: 16px; border-top: 1px solid var(--border-light); padding-top: 20px; }
+        .add-legacy-option { display: flex; align-items: center; gap: 10px; min-height: 44px; }
+        .add-legacy-option label { font-size: 0.82rem; line-height: 1.6; color: var(--text-mid); cursor: pointer; }
+        .add-legacy-option input { width: 16px; height: 16px; accent-color: var(--primary); flex-shrink: 0; }
+        .add-legacy-option input:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; }
+        .add-form .btn-bangumi, .add-form .btn-add { min-height: 44px; flex-shrink: 0; }
+        .header-right .btn-h:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; }
+        @media (max-width: 960px) {
+            .header { flex-direction: column; align-items: flex-start; gap: 16px; }
+            .header-right { justify-content: flex-start; }
+            .add-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .add-span-3 { grid-column: span 2; }
+        }
+        @media (max-width: 600px) {
+            .add-search-row, .add-fields { grid-template-columns: minmax(0, 1fr); }
+            .add-span-2, .add-span-3 { grid-column: auto; }
+            .add-search-actions { flex-wrap: wrap; }
+            .add-search-actions .btn-bangumi { flex: 1; }
+            .add-form-actions { flex-direction: column; align-items: stretch; gap: 12px; }
+            .add-form input, .add-form select, .add-form textarea { font-size: 1rem; }
+            .header-right #accentPicker { left: 0; right: auto; }
+        }
         .btn-add {
             display: inline-flex; align-items: center; justify-content: center; gap: 6px;
             background: var(--primary); color: white; border: none;
@@ -765,8 +796,6 @@
             .app { padding: 14px 10px 80px; }
             .stats-row { grid-template-columns: repeat(2, 1fr); }
             .detail-row { grid-template-columns: repeat(2, 1fr); }
-            .form-grid { flex-direction: column; }
-            .form-row { flex-direction: column; min-width: unset; }
             .ff input, .ff textarea { width: 100%; }
             .search-strip { gap: 8px; }
             .tabs { gap: 4px; overflow-x: auto; }
