@@ -14,7 +14,7 @@ concurrency:
 
 jobs:
   verify:
-    name: Java、前端与真实 MySQL
+    name: Java、前端、浏览器与真实 MySQL
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     services:
@@ -54,11 +54,16 @@ jobs:
           node-version: '22'
       - name: 检查 MySQL 客户端
         run: mysql --version
+      - name: 安装锁定的浏览器测试依赖
+        run: npm ci
+      - name: 安装 Chromium 与系统依赖
+        run: npx playwright install --with-deps chromium
       - name: 检查 JavaScript 语法与提交空白
         shell: bash
         run: |
           set -euo pipefail
-          while IFS= read -r -d '' file; do node --check "$file"; done < <(find src/main/resources/static scripts -type f \( -name '*.js' -o -name '*.cjs' \) -print0)
+          while IFS= read -r -d '' file; do node --check "$file"; done < <(find src/main/resources/static scripts src/test/browser -type f \( -name '*.js' -o -name '*.cjs' \) -print0)
+          node --check playwright.config.cjs
           git show --format= --check HEAD
           git diff --check
       - name: 干净构建与全部 Java 测试
@@ -68,6 +73,11 @@ jobs:
         run: |
           set -euo pipefail
           node --test src/test/js/*.test.cjs | tee node-tests.log
+      - name: 真实浏览器核心操作回归
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run test:e2e | tee browser-tests.log
       - name: 保存测试报告
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
@@ -76,6 +86,9 @@ jobs:
           path: |
             target/surefire-reports/
             node-tests.log
+            browser-tests.log
+            playwright-report/
+            test-results/
             .demo/*.log
           retention-days: 7
           if-no-files-found: warn

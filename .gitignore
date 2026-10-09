@@ -28,6 +28,11 @@ Thumbs.db
 .project
 .settings/
 
+# 浏览器回归开发依赖与诊断
+node_modules/
+playwright-report/
+test-results/
+
 # Claude Code
 .claude/
 CLAUDE.md

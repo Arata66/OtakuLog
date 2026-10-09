@@ -101,6 +101,7 @@
 | Spring Security Test | 认证测试 |
 | H2 | 测试内存数据库 |
 | Node.js 内置测试运行器 | 请求令牌、恢复确认、逐集补录与 Service Worker 缓存行为测试 |
+| Playwright + Chromium | 原生确认弹窗、双窗口冲突与日常进度联动回归 |
 
 ## 项目结构
 
@@ -301,9 +302,19 @@ H2 测试禁用 Flyway，因此不能代替 MySQL 数据库迁移和 Docker 部�
 
 ### 自动检查与隔离演示
 
-推送和 PR 自动触发 `.github/workflows/ci.yml`，执行 Java 17、Node 22 和真实 MySQL 8 回归并保存报告。构建 JAR 后运行 `node scripts/demo.cjs`，在 `http://127.0.0.1:18080` 使用打印的临时凭据测试虚构作品；每次随机创建独立库，正常退出时清理，不使用自用数据。
+推送和 PR 自动触发 `.github/workflows/ci.yml`，执行 Java 17、Node 22、Chromium 和真实 MySQL 8 回归并保存报告。构建 JAR 后运行 `node scripts/demo.cjs`，在 `http://127.0.0.1:18080` 使用打印的临时凭据测试虚构作品；每次随机创建独立库，正常退出时清理，不使用自用数据。
 
 真实演示冒烟需先打包，并设置 `OTAKULOG_DEMO_TEST=true` 后运行 Node 测试。详细启动、CI 与强制退出清理边界见[持续集成与演示](docs/持续集成与演示.md)。
+
+另有5个真实浏览器用例，每个使用独立演示库与临时账号，覆盖取消核对、取消清空、草稿重载、完成/退集及两个登录窗口的409冲突。浏览器测试需安装开发依赖，应用日常运行无需npm：
+
+```bash
+npm ci
+npx playwright install chromium
+npm run test:e2e
+```
+
+先构建JAR并配置本地MySQL；Linux需给浏览器安装命令加`--with-deps`。浏览器测试不使用自用数据和现有登录会话，详细步骤与覆盖边界见[浏览器核心回归](docs/浏览器核心回归.md)。
 
 ### 认证与私人数据
 

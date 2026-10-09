@@ -1,0 +1,19 @@
+{
+  "name": "otakulog-browser-checks",
+  "private": true,
+  "version": "1.0.0",
+  "description": "OtakuLog浏览器回归开发工具，不参与应用构建",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "test:e2e": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.64.0",
+    "chart.js": "4.4.1",
+    "dompurify": "3.4.16",
+    "marked": "12.0.2",
+    "sortablejs": "1.15.0"
+  }
+}
