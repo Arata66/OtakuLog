@@ -2,6 +2,7 @@
         let viewMode = localStorage.getItem('otakulog-view') || 'table';
         let currentPage = 0, isLoading = false, hasMore = true;
         let totalElements = 0, loadedCount = 0;
+        let displayedAnime = [];
         const PAGE_SIZE = 12;
         // === DOM 缓存（init() 中填充）===
         let $tbody, $tableCard, $emptySearch;
@@ -167,18 +168,18 @@
         }
         function actionHtml(anime, type) {
             if (type === 'gallery') {
-                return `<div class="g-actions"><button class="g-btn" onclick="openEditModal(${anime.id})">编辑</button><button class="g-btn ep" data-watch-id="${anime.id}" onclick="prevEpisode(${anime.id})">-</button><button class="g-btn ep" data-watch-id="${anime.id}" onclick="nextEpisode(${anime.id})">+</button><button class="g-btn del" onclick="deleteAnime(${anime.id})">删</button></div>`;
+                return `<div class="g-actions"><button class="g-btn" onclick="openEditModal(${anime.id})">编辑</button><button class="g-btn ep" data-watch-id="${anime.id}" aria-label="上一集" title="上一集" onclick="prevEpisode(${anime.id})">-</button><button class="g-btn ep" data-watch-id="${anime.id}" aria-label="下一集" title="下一集" onclick="nextEpisode(${anime.id})">+</button><button class="g-btn del" onclick="deleteAnime(${anime.id})">删</button></div>`;
             }
-            return `<div class="acts"><button class="a-btn" onclick="openEditModal(${anime.id})">编辑</button><button class="a-btn ep-btn" data-watch-id="${anime.id}" onclick="prevEpisode(${anime.id})">-</button><button class="a-btn ep-btn" data-watch-id="${anime.id}" onclick="nextEpisode(${anime.id})">+</button></div>`;
+            return `<div class="acts"><button class="a-btn" onclick="openEditModal(${anime.id})">编辑</button><button class="a-btn ep-btn" data-watch-id="${anime.id}" aria-label="上一集" title="上一集" onclick="prevEpisode(${anime.id})">-</button><button class="a-btn ep-btn" data-watch-id="${anime.id}" aria-label="下一集" title="下一集" onclick="nextEpisode(${anime.id})">+</button></div>`;
         }
         function detailActionHtml(anime) {
-            return `<div class="dt-actions"><button class="dt-btn" onclick="openEditModal(${anime.id})">编辑</button><button class="dt-btn ep" data-watch-id="${anime.id}" onclick="prevEpisode(${anime.id})">-</button><button class="dt-btn ep" data-watch-id="${anime.id}" onclick="nextEpisode(${anime.id})">+</button><button class="dt-btn del" onclick="deleteAnime(${anime.id})">删除</button></div>`;
+            return `<div class="dt-actions"><button class="dt-btn" onclick="openEditModal(${anime.id})">编辑</button><button class="dt-btn ep" data-watch-id="${anime.id}" aria-label="上一集" title="上一集" onclick="prevEpisode(${anime.id})">-</button><button class="dt-btn ep" data-watch-id="${anime.id}" aria-label="下一集" title="下一集" onclick="nextEpisode(${anime.id})">+</button><button class="dt-btn del" onclick="deleteAnime(${anime.id})">删除</button></div>`;
         }
         function renderAnimeRow(anime, index, keyword) {
             const r = document.createElement('tr');
             r.id = 'r-' + anime.id;
             r.innerHTML = `<td class="drag-handle">⠿</td><td class="table-col-select"><input type="checkbox" class="batch-cb" data-id="${anime.id}" onchange="toggleRowSelect(${anime.id}, this.checked)"></td><td>${coverHtml(anime, 'cover-img lazy-cover', 'cover-empty', 'N/A')}</td><td class="row-index">${index + 1}</td>
-                <td><span class="clickable-name" onclick="openDetailModal(${anime.id})">${highlightText(anime.name, keyword)}</span>${anime.tags ? '<div class="tag-row">' + renderTags(anime.tags) + '</div>' : ''}</td>
+                <td><button type="button" class="clickable-name" onclick="openDetailModal(${anime.id})">${highlightText(anime.name, keyword)}</button>${anime.tags ? '<div class="tag-row">' + renderTags(anime.tags) + '</div>' : ''}</td>
                 <td><span class="season-tag">${esc(anime.season)}</span></td>
                 <td>${statusSelectHtml(anime)}</td>
                 <td>${scoreBadgeHtml(anime.score)}</td>
@@ -193,7 +194,7 @@
             card.className = 'dt-card';
             card.innerHTML = `<div class="dt-cover-wrap">${coverHtml(anime, 'dt-cover lazy-cover', 'dt-cover-empty')}</div>${statusBadgeHtml(anime.status)}
                 <div class="dt-body">
-                    <div class="dt-name clickable-name" onclick="openDetailModal(${anime.id})">${highlightText(anime.name, keyword)}</div>
+                    <button type="button" class="dt-name clickable-name" onclick="openDetailModal(${anime.id})">${highlightText(anime.name, keyword)}</button>
                     <div class="dt-meta"><span class="dt-tag dt-season">${esc(anime.season)}</span>${scoreBadgeHtml(anime.score, 'dt-tag dt-score')}${anime.tags ? renderTags(anime.tags) : ''}</div>
                     <div class="dt-progress-wrap"><div class="dt-progress-label"><span>${anime.currentEpisode} / ${anime.totalEpisodes} ep</span><span>${pct}%</span></div><div class="dt-progress"><div class="dt-progress-bar ${anime.status}" style="--progress:${pct}%"></div></div></div>
                     ${anime.remark ? `<div class="dt-remark">${renderRemark(anime.remark)}</div>` : '<div class="dt-remark placeholder-hidden">-</div>'}
@@ -208,11 +209,11 @@
             card.id = 'gc-' + anime.id;
             card.innerHTML = `${coverHtml(anime, 'g-cover lazy-cover', 'g-cover-empty')}
                 <div class="g-body">
-                    <div class="g-name clickable-name" onclick="openDetailModal(${anime.id})">${highlightText(anime.name, keyword)}</div>
+                    <button type="button" class="g-name clickable-name" onclick="openDetailModal(${anime.id})">${highlightText(anime.name, keyword)}</button>
                     <div class="g-meta"><span class="g-tag g-season">${esc(anime.season)}</span>${scoreBadgeHtml(anime.score, 'g-tag g-score')}${anime.tags ? renderTags(anime.tags) : ''}</div>
                     <div class="g-progress"><div class="g-progress-bar ${anime.status}" style="--progress:${pct}%"></div></div>
                     <div class="g-ep">${anime.currentEpisode} / ${anime.totalEpisodes} ep / ${SM[anime.status] || anime.status}</div>
-                    <div class="g-actions"><button class="g-btn" onclick="openEditModal(${anime.id})">编辑</button><button class="g-btn ep" data-watch-id="${anime.id}" onclick="prevEpisode(${anime.id})">-</button><button class="g-btn ep" data-watch-id="${anime.id}" onclick="nextEpisode(${anime.id})">+</button><button class="g-btn del" onclick="deleteAnime(${anime.id})">删</button></div>
+                    <div class="g-actions"><button class="g-btn" onclick="openEditModal(${anime.id})">编辑</button><button class="g-btn ep" data-watch-id="${anime.id}" aria-label="上一集" title="上一集" onclick="prevEpisode(${anime.id})">-</button><button class="g-btn ep" data-watch-id="${anime.id}" aria-label="下一集" title="下一集" onclick="nextEpisode(${anime.id})">+</button><button class="g-btn del" onclick="deleteAnime(${anime.id})">删</button></div>
                 </div>`;
             return card;
         }
@@ -281,10 +282,27 @@
             $themeToggle.title = i18n.t(targetKey);
             $themeToggle.setAttribute('aria-label', i18n.t(targetKey));
         }
+        function chartThemePalette() {
+            const style = getComputedStyle(document.documentElement);
+            return { text: style.getPropertyValue('--text-mid').trim(), grid: style.getPropertyValue('--border-light').trim() };
+        }
         function updateChartColors() {
-            const dark = document.documentElement.getAttribute('data-theme') === 'dark';
-            Chart.defaults.color = dark ? '#706a60' : '#a89f94';
-            Chart.defaults.borderColor = dark ? '#302c24' : '#ede8e0';
+            const palette = chartThemePalette();
+            Chart.defaults.font.family = getComputedStyle(document.documentElement).getPropertyValue('--sans').trim();
+            Chart.defaults.color = palette.text;
+            Chart.defaults.borderColor = palette.grid;
+            // 已绘制的图表也要更新，避免切换主题后继续保留旧文字和网格。
+            Object.values(Chart.instances).forEach(chart => {
+                chart.options.color = palette.text;
+                chart.options.plugins.legend.labels.color = palette.text;
+                Object.values(chart.options.scales || {}).forEach(scale => {
+                    scale.ticks.color = palette.text;
+                    scale.title.color = palette.text;
+                    scale.grid.color = palette.grid;
+                    scale.border.color = palette.grid;
+                });
+                chart.update('none');
+            });
         }
 
         /* 主题色切换 */
@@ -373,6 +391,8 @@
             $tableCard.classList.toggle('hidden', mode !== 'table');
             $detailView.classList.toggle('active', mode === 'detail');
             $galleryView.classList.toggle('active', mode === 'gallery');
+            // 视图切换复用当前筛选与分页结果，避免空容器或显示旧作品。
+            renderView(displayedAnime);
         }
 
         /* Add anime */
@@ -506,7 +526,7 @@
             const bangumiLink = a.bangumiId ? `<a href="https://bgm.tv/subject/${a.bangumiId}" target="_blank" rel="noopener" class="detail-bangumi-link">在 Bangumi 查看 ↗</a>` : '';
             const overlay = document.createElement('div'); overlay.className = 'detail-overlay'; overlay.id = 'detailModal'; overlay.dataset.animeId = String(id); overlay.onclick = function(e) { if (e.target === overlay) closeDetailModal(); };
             const card = document.createElement('div'); card.className = 'detail-card'; card.setAttribute('role', 'dialog'); card.setAttribute('aria-modal', 'true'); card.setAttribute('aria-label', '番剧详情');
-            card.innerHTML = `<div class="detail-header">
+            card.innerHTML = `<div class="detail-toolbar"><span>作品详情</span><button type="button" class="a-btn" onclick="closeDetailModal()">关闭</button></div><div class="detail-header">
                     <div class="detail-cover-wrap">${cover}<span id="detailBadge" class="detail-badge ${a.status}">${SM[a.status] || a.status}</span></div>
                     <div class="detail-info-col">
                         <div class="detail-title">${esc(a.name)}</div>
@@ -522,10 +542,11 @@
                 </div>
                 <div class="detail-body">
                     <div class="detail-progress-wrap"><div class="detail-progress-label"><span>进度</span><span id="detailProgressPercent">${pct}%</span></div><div class="detail-progress"><div id="detailProgressBar" class="detail-progress-bar ${a.status}" style="--progress:${pct}%"></div></div></div>
+                    <div class="detail-actions"><button class="a-btn" onclick="shareAnimeCard(${a.id})">分享</button><button class="a-btn" onclick="closeDetailModal();openEditModal(${a.id})">编辑</button><button class="a-btn ep-btn" data-watch-id="${a.id}" onclick="prevEpisode(${a.id})">上一集</button><button class="a-btn ep-btn" data-watch-id="${a.id}" onclick="nextEpisode(${a.id})">下一集</button><button class="a-btn" onclick="showAddToGroup(${a.id})">分组</button><button class="a-btn del" onclick="deleteAnime(${a.id});closeDetailModal()">删除</button></div>
                     ${a.remark ? `<div class="detail-remark">${renderRemark(a.remark)}</div>` : ''}
                     <section id="episodeHistorySection" class="episode-history" data-anime-id="${a.id}" aria-label="逐集观看记录"></section>
                     <div id="bangumiDetailSection"></div>
-                    <div class="detail-actions"><button class="a-btn" onclick="shareAnimeCard(${a.id})">分享</button><button class="a-btn" onclick="closeDetailModal();openEditModal(${a.id})">编辑</button><button class="a-btn ep-btn" data-watch-id="${a.id}" onclick="prevEpisode(${a.id})">上一集</button><button class="a-btn ep-btn" data-watch-id="${a.id}" onclick="nextEpisode(${a.id})">下一集</button><button class="a-btn" onclick="showAddToGroup(${a.id})">分组</button><button class="a-btn del" onclick="deleteAnime(${a.id});closeDetailModal()">删除</button></div>
+
                 </div>`;
             overlay.appendChild(card); document.body.appendChild(overlay);
             trapFocus(overlay);
@@ -775,6 +796,7 @@
 
         /* Render only the active view */
         function renderView(list) {
+            displayedAnime = list || [];
             const tb = document.querySelector('tbody'), tc = document.querySelector('.table-card'), em = document.getElementById('emptySearch');
             const dc = document.getElementById('detailView'), gc = document.getElementById('galleryView');
             const kw = document.getElementById('searchName').value.trim();
@@ -811,6 +833,7 @@
         /* Append results for infinite scroll */
         function appendResults(list) {
             if (!list || list.length === 0) return;
+            displayedAnime = displayedAnime.concat(list);
             list.forEach(a => _cache[a.id] = a);
             const kw = document.getElementById('searchName').value.trim();
             const tb = document.querySelector('tbody'), dg = document.getElementById('detailGrid'), gg = document.getElementById('galleryGrid');
@@ -861,6 +884,7 @@
         Chart.defaults.color = '#a89f94';
         Chart.defaults.borderColor = '#ede8e0';
         async function loadCharts() {
+            updateChartColors();
             const r1 = await fetchApi('/api/anime/stats/detailed');
             if (r1 && r1.code === 200) {
                 const d = r1.data;
@@ -874,8 +898,9 @@
             const r3 = await fetchApi('/api/anime/stats/enhanced');
             if (r3 && r3.code === 200) {
                 const d = r3.data;
-                const gridColor = document.documentElement.getAttribute('data-theme') === 'dark' ? '#3a3630' : '#f0ece5';
-                const tickColor = document.documentElement.getAttribute('data-theme') === 'dark' ? '#a09888' : '#8a8278';
+                const palette = chartThemePalette();
+                const gridColor = palette.grid;
+                const tickColor = palette.text;
                 if (d.yearly && d.yearly.length) {
                     const labels = d.yearly.map(y => y.year + '年');
                     if (ch3) ch3.destroy();
@@ -966,6 +991,7 @@
                 const epDaySub = document.getElementById('stat-ep-day')?.closest('.d-card')?.querySelector('.d-sub');
                 if (epDaySub) epDaySub.textContent = lc > 0 ? `排除 ${lc} 部旧番` : '观看习惯';
             }
+            updateChartColors();
         }
 
         /* Recommendations */
@@ -1618,6 +1644,7 @@
             }
             updateThemeButton();
             if (typeof i18n !== 'undefined') i18n.translatePage();
+            updateChartColors();
             if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
             updateStats(); performSearch();
             const savedTab = localStorage.getItem('otakulog-tab');

@@ -88,6 +88,7 @@
         <div id="tab-list" class="tab-content active">
             <section id="dailyWatch" class="daily-watch" aria-label="日常追番入口"></section>
             <!-- Stats -->
+            <section class="overview" aria-label="追番概览">
             <div class="stats-row">
                 <div class="s-card s-total"><div class="s-label" data-i18n="stat.total">总计</div><div class="s-num" id="stat-total">0</div></div>
                 <div class="s-card s-watching"><div class="s-label" data-i18n="stat.watching">追中</div><div class="s-num" id="stat-watching">0</div></div>
@@ -104,23 +105,8 @@
                 <div class="d-card"><div class="d-label" data-i18n="stat.lowScore">低分</div><div class="d-val" id="stat-low-score">0</div><div class="d-sub" data-i18n="stat.lowScoreSub">< 6.0</div></div>
             </div>
 
-            <!-- Search -->
-            <div class="search-strip">
-                <label data-i18n="search.label">搜索</label>
-                <input type="text" id="searchName" data-i18n-placeholder="search.name" placeholder="输入番剧名称...">
-                <label data-i18n="search.status">状态</label>
-                <select id="filterStatus"><option value="" data-i18n="search.all">全部</option><option value="watching" data-i18n="status.watching">追中</option><option value="finished" data-i18n="status.finished">已完成</option><option value="planning" data-i18n="status.planning">计划</option><option value="dropped" data-i18n="status.dropped">放弃</option></select>
-                <label data-i18n="search.sort">排序</label>
-                <select id="sortBy"><option value="id-desc" data-i18n="search.sortNewest">最新添加</option><option value="score-desc" data-i18n="search.sortScoreHigh">评分高到低</option><option value="score-asc" data-i18n="search.sortScoreLow">评分低到高</option><option value="progress-desc" data-i18n="search.sortProgressHigh">进度高到低</option><option value="progress-asc" data-i18n="search.sortProgressLow">进度低到高</option><option value="name-asc" data-i18n="search.sortName">名称序</option><option value="sortOrder-asc" data-i18n="search.sortCustom">自定义排序</option></select>
-                <label data-i18n="search.tag">标签</label>
-                <input type="text" id="filterTag" class="filter-tag-input" data-i18n-placeholder="search.tagPlaceholder" placeholder="标签筛选">
-                <div class="view-toggle">
-                    <button class="view-btn active" id="viewTable" onclick="toggleView('table')" title="列表视图" aria-label="列表视图" aria-pressed="true"><i class="ph ph-list" aria-hidden="true"></i></button>
-                    <button class="view-btn" id="viewDetail" onclick="toggleView('detail')" title="详情视图" aria-label="详情视图" aria-pressed="false"><i class="ph ph-squares-four" aria-hidden="true"></i></button>
-                    <button class="view-btn" id="viewGallery" onclick="toggleView('gallery')" title="封面墙" aria-label="封面墙视图" aria-pressed="false"><i class="ph ph-image" aria-hidden="true"></i></button>
-                </div>
-                <button class="btn-sm" data-i18n="search.reset" onclick="resetSearch()">重置</button>
-            </div>
+            </section>
+
 
             <!-- Add -->
             <div class="add-form">
@@ -182,6 +168,23 @@
             </div>
 
             <!-- Table (JS-rendered) -->
+            <div class="search-strip">
+                <div class="search-field"><label for="searchName" data-i18n="search.label">搜索</label>
+                <input type="text" id="searchName" data-i18n-placeholder="search.name" placeholder="输入番剧名称..."></div>
+                <div class="search-field"><label for="filterStatus" data-i18n="search.status">状态</label>
+                <select id="filterStatus"><option value="" data-i18n="search.all">全部</option><option value="watching" data-i18n="status.watching">追中</option><option value="finished" data-i18n="status.finished">已完成</option><option value="planning" data-i18n="status.planning">计划</option><option value="dropped" data-i18n="status.dropped">放弃</option></select></div>
+                <div class="search-field"><label for="sortBy" data-i18n="search.sort">排序</label>
+                <select id="sortBy"><option value="id-desc" data-i18n="search.sortNewest">最新添加</option><option value="score-desc" data-i18n="search.sortScoreHigh">评分高到低</option><option value="score-asc" data-i18n="search.sortScoreLow">评分低到高</option><option value="progress-desc" data-i18n="search.sortProgressHigh">进度高到低</option><option value="progress-asc" data-i18n="search.sortProgressLow">进度低到高</option><option value="name-asc" data-i18n="search.sortName">名称序</option><option value="sortOrder-asc" data-i18n="search.sortCustom">自定义排序</option></select></div>
+                <div class="search-field"><label for="filterTag" data-i18n="search.tag">标签</label>
+                <input type="text" id="filterTag" class="filter-tag-input" data-i18n-placeholder="search.tagPlaceholder" placeholder="标签筛选"></div>
+                <div class="search-tools"><div class="view-toggle" role="group" aria-label="作品视图">
+                    <button class="view-btn active" id="viewTable" onclick="toggleView('table')" title="列表视图" aria-label="列表视图" aria-pressed="true"><i class="ph ph-list" aria-hidden="true"></i></button>
+                    <button class="view-btn" id="viewDetail" onclick="toggleView('detail')" title="详情视图" aria-label="详情视图" aria-pressed="false"><i class="ph ph-squares-four" aria-hidden="true"></i></button>
+                    <button class="view-btn" id="viewGallery" onclick="toggleView('gallery')" title="封面墙" aria-label="封面墙视图" aria-pressed="false"><i class="ph ph-image" aria-hidden="true"></i></button>
+                </div>
+                <button class="btn-sm" data-i18n="search.reset" onclick="resetSearch()">重置</button></div>
+            </div>
+
             <div class="table-card"><table><thead><tr><th class="table-col-drag"></th><th class="table-col-select"><input type="checkbox" class="batch-cb" id="selectAll" onclick="toggleSelectAll(this)" aria-label="选择全部番剧"></th><th class="table-col-cover"></th><th class="table-col-index">#</th><th>作品名</th><th class="table-col-season">季度</th><th class="table-col-status">状态</th><th class="table-col-score">评分</th><th class="table-col-episode">集数</th><th class="table-col-remark">备注</th><th class="table-col-actions"></th></tr></thead><tbody></tbody></table></div>
             <div class="empty is-hidden" id="emptySearch"><div class="e-icon"><i class="ph ph-book-open" aria-hidden="true"></i></div><p>还没有追番记录</p><span>添加一部番剧后，这里会显示你的观看进度和评分。</span></div>
 
