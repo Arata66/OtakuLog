@@ -44,12 +44,14 @@ test('当桌面平板手机切换深浅主题时应该完整显示表单且页�
                 const rect = form.getBoundingClientRect();
                 const controls = [...form.querySelectorAll('input:not([type="hidden"]):not([type="file"]):not([type="checkbox"]), select, textarea, button')];
                 return { width: innerWidth, scrollWidth: document.documentElement.scrollWidth,
+                    height: form.closest('.add-form').getBoundingClientRect().height,
                     fits: controls.every(control => { const box = control.getBoundingClientRect(); return box.left >= rect.left - 1 && box.right <= rect.right + 1; }),
                     smallest: Math.min(...controls.map(control => control.getBoundingClientRect().height)) };
             });
             expect(layout.scrollWidth).toBeLessThanOrEqual(layout.width);
             expect(layout.fits).toBe(true);
             expect(layout.smallest).toBeGreaterThanOrEqual(44);
+            if (width >= 1200) expect(layout.height, '桌面添加区应留出更多空间给番剧列表').toBeLessThanOrEqual(650);
             await page.locator('.header').screenshot({ path: testInfo.outputPath(`顶部-${width}-${theme}.png`), animations: 'disabled' });
             await page.locator('.add-form').screenshot({ path: testInfo.outputPath(`添加-${width}-${theme}.png`), animations: 'disabled', style: '.mobile-nav { visibility: hidden; }' });
         }

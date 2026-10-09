@@ -126,7 +126,7 @@
             <div class="add-form">
                 <div class="add-form-heading">
                     <h3 data-i18n="form.add">添加新番</h3>
-                    <p data-i18n="form.intro">先填写作品信息，再记录你的观看安排。</p>
+                    <p data-i18n="form.requiredHint">番剧名、总集数、季度与评分为必填，其余可留空。</p>
                 </div>
                 <form id="animeForm" onsubmit="addAnime(event)">
                     <input type="hidden" id="animeBangumiId" value="">
@@ -141,9 +141,8 @@
                             <input type="file" id="traceMoeInput" class="hidden-input" accept="image/*" onchange="searchTraceMoe(this)">
                         </div>
                     </fieldset>
-                    <fieldset class="add-section">
+                    <fieldset class="add-section add-basics">
                         <legend data-i18n="form.basics">基本信息</legend>
-                        <p class="add-section-note" data-i18n="form.requiredHint">番剧名、总集数、季度与评分为必填，其余可留空。</p>
                         <div class="add-fields">
                             <div class="ff"><label for="totalEpisodes" data-i18n="form.totalEpisodes">总集数</label><input type="number" id="totalEpisodes" placeholder="12" min="1" required></div>
                             <div class="ff"><label for="animeSeason" data-i18n="form.season">季度</label><input type="text" id="animeSeason" placeholder="2026秋" required></div>
@@ -151,21 +150,20 @@
                             <div class="ff"><label for="animeCover" data-i18n="form.cover">封面 URL</label><input type="text" id="animeCover" data-i18n-placeholder="form.coverPlaceholder" placeholder="可选"></div>
                         </div>
                     </fieldset>
-                    <fieldset class="add-section">
+                    <fieldset class="add-section add-watching">
                         <legend data-i18n="form.watching">观看与日期</legend>
-                        <p class="add-section-note" data-i18n="form.dateHint">日期未知可留空；观看季度与作品播出季度分别记录。</p>
                         <div class="add-fields">
                             <div class="ff"><label for="animeStatus" data-i18n="search.status">状态</label><select id="animeStatus"><option value="watching" data-i18n="status.watching">追中</option><option value="planning" data-i18n="status.planning">计划</option></select></div>
                             <div class="ff"><label for="animeBroadcastDay" data-i18n="form.broadcastDay">放送日</label><select id="animeBroadcastDay"><option value="" data-i18n="form.broadcastDayUnset">未设置</option><option value="1" data-i18n="day.mon">周一</option><option value="2" data-i18n="day.tue">周二</option><option value="3" data-i18n="day.wed">周三</option><option value="4" data-i18n="day.thu">周四</option><option value="5" data-i18n="day.fri">周五</option><option value="6" data-i18n="day.sat">周六</option><option value="7" data-i18n="day.sun">周日</option></select></div>
-                            <div class="ff add-span-2"><label for="animeWatchSeason" data-i18n="form.watchSeason">观看季度</label><input type="text" id="animeWatchSeason" placeholder="2026-秋"></div>
-                            <div class="ff add-span-2"><label for="animeStartDate" data-i18n="form.startDate">开播日期</label><input type="date" id="animeStartDate"></div>
-                            <div class="ff add-span-2"><label for="animeEndDate" data-i18n="form.endDate">完结日期</label><input type="date" id="animeEndDate"></div>
+                            <div class="ff add-watch-season"><label for="animeWatchSeason" data-i18n="form.watchSeason">观看季度</label><input type="text" id="animeWatchSeason" placeholder="2026-秋"></div>
+                            <div class="ff add-date-field"><label for="animeStartDate" data-i18n="form.startDate">开播日期</label><input type="date" id="animeStartDate"></div>
+                            <div class="ff add-date-field"><label for="animeEndDate" data-i18n="form.endDate">完结日期</label><input type="date" id="animeEndDate"></div>
                         </div>
                     </fieldset>
                     <fieldset class="add-section">
                         <legend data-i18n="form.notes">备注与标签</legend>
                         <div class="add-fields">
-                            <div class="ff add-span-3"><label for="animeRemark" data-i18n="form.remark">备注 (Markdown)</label><textarea id="animeRemark" rows="3" data-i18n-placeholder="form.remarkPlaceholder" placeholder="支持 **Markdown**"></textarea></div>
+                            <div class="ff add-span-3"><label for="animeRemark" data-i18n="form.remark">备注 (Markdown)</label><textarea id="animeRemark" rows="2" data-i18n-placeholder="form.remarkPlaceholder" placeholder="支持 **Markdown**"></textarea></div>
                             <div class="ff"><label for="animeTags" data-i18n="form.tags">标签</label><input type="text" id="animeTags" data-i18n-placeholder="form.tagsPlaceholder" placeholder="热血,奇幻"><p class="add-field-note" data-i18n="form.tagsHint">多个标签用逗号分隔。</p></div>
                         </div>
                     </fieldset>

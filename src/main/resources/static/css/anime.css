@@ -168,25 +168,31 @@
         /* 按录入顺序分组，避免不同尺寸的字段被底部对齐挤成零散横排。 */
         .add-form {
             background: var(--card); border-radius: var(--radius);
-            padding: 28px; margin-bottom: 28px; border: 1px solid var(--border-light);
+            padding: 20px; margin-bottom: 24px; border: 1px solid var(--border-light);
             box-shadow: var(--shadow);
         }
-        .add-form-heading { margin-bottom: 24px; }
+        .add-form-heading { margin-bottom: 16px; }
+        #animeForm { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 16px 24px; }
         .add-form h3 {
             font-family: var(--display); font-size: 1.15em; color: var(--text);
             margin-bottom: 6px; font-weight: 600;
         }
-        .add-form-heading p, .add-section-note, .add-field-note { color: var(--text-dim); font-size: 0.8rem; line-height: 1.65; }
-        .add-section { min-width: 0; border: 0; padding: 0; margin-bottom: 24px; }
-        .add-section legend { width: 100%; border-top: 1px solid var(--border-light); padding: 20px 0 10px; color: var(--text-mid); font-size: 0.88rem; font-weight: 600; }
+        .add-form-heading p, .add-field-note { color: var(--text-dim); font-size: 0.8rem; line-height: 1.65; }
+        .add-section { grid-column: 1 / -1; min-width: 0; border: 0; padding: 0; margin: 0; }
+        .add-section legend { width: 100%; border-top: 1px solid var(--border-light); padding: 12px 0 8px; color: var(--text-mid); font-size: 0.88rem; font-weight: 600; }
         .add-section:first-of-type legend { border-top: 0; padding-top: 0; }
-        .add-section-note { margin: -2px 0 14px; }
         .add-search-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; align-items: end; }
         .add-search-actions { display: flex; gap: 8px; }
         .add-fields { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; align-items: start; }
+        .add-basics { grid-column: span 5; }
+        .add-basics .add-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        .add-watching { grid-column: span 7; }
+        .add-watching .add-fields { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+        .add-watching .ff { grid-column: span 2; }
+        .add-watching .add-date-field { grid-column: span 3; }
         .add-span-2 { grid-column: span 2; }
         .add-span-3 { grid-column: span 3; }
-        .ff { display: flex; flex-direction: column; gap: 7px; min-width: 0; }
+        .ff { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
         .ff label { font-size: 0.8rem; color: var(--text-mid); font-weight: 500; }
         .ff input, .ff textarea {
             background: var(--bg); border: 1.5px solid var(--border);
@@ -195,12 +201,12 @@
         }
         .ff select { width: 100%; min-width: 0; min-height: 44px; padding: 10px 14px; border: 1.5px solid var(--border); border-radius: 10px; background: var(--bg); color: var(--text); font: inherit; font-size: 0.88rem; cursor: pointer; }
         .ff input, .ff select { height: 44px; }
-        .ff textarea { resize: vertical; min-height: 96px; line-height: 1.65; }
+        .ff textarea { resize: vertical; min-height: 72px; line-height: 1.65; }
         .ff input:focus, .ff select:focus, .ff textarea:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-soft); background: var(--card); }
         .ff input[type="date"] { color-scheme: light; }
         :root[data-theme="dark"] .ff input[type="date"] { color-scheme: dark; }
         .add-form input::placeholder, .add-form textarea::placeholder { color: var(--text-dim); opacity: 1; }
-        .add-form-actions { display: flex; align-items: center; justify-content: space-between; gap: 16px; border-top: 1px solid var(--border-light); padding-top: 20px; }
+        .add-form-actions { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: 16px; border-top: 1px solid var(--border-light); padding-top: 12px; }
         .add-legacy-option { display: flex; align-items: center; gap: 10px; min-height: 44px; }
         .add-legacy-option label { font-size: 0.82rem; line-height: 1.6; color: var(--text-mid); cursor: pointer; }
         .add-legacy-option input { width: 16px; height: 16px; accent-color: var(--primary); flex-shrink: 0; }
@@ -210,11 +216,17 @@
         @media (max-width: 960px) {
             .header { flex-direction: column; align-items: flex-start; gap: 16px; }
             .header-right { justify-content: flex-start; }
+            .add-basics, .add-watching { grid-column: 1 / -1; }
             .add-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .add-watching .add-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .add-watching .ff { grid-column: auto; }
+            .add-watching .add-watch-season { grid-column: span 2; }
             .add-span-3 { grid-column: span 2; }
         }
         @media (max-width: 600px) {
             .add-search-row, .add-fields { grid-template-columns: minmax(0, 1fr); }
+            .add-basics .add-fields, .add-watching .add-fields { grid-template-columns: minmax(0, 1fr); }
+            .add-watching .add-watch-season { grid-column: auto; }
             .add-span-2, .add-span-3 { grid-column: auto; }
             .add-search-actions { flex-wrap: wrap; }
             .add-search-actions .btn-bangumi { flex: 1; }
