@@ -28,19 +28,41 @@ async function runDemo(config, signal, onReady = () => {}) {
         let child;
         try { child = spawn(config.java, javaArguments(config), { cwd: config.root, env: javaEnvironment(config), windowsHide: true, stdio: ['ignore', log, log] }); }
         finally { fs.closeSync(log); }
-        let stopped = false;
+        let stopped = false, spawned = false, launchError = null, lastProbe = '尚未探测';
+        child.once('spawn', () => { spawned = true; });
         const exited = new Promise(resolve => {
-            child.once('error', () => { stopped = true; resolve({ code: 1 }); });
+            child.once('error', error => { launchError = error.code || error.name; stopped = true; resolve({ code: 1 }); });
             child.once('exit', code => { stopped = true; resolve({ code }); });
         });
+        const startupFailure = message => {
+            let alive = false;
+            try { if (child.pid) { process.kill(child.pid, 0); alive = true; } } catch {}
+            const detail = { pid: child.pid || null, spawned, alive, exitCode: child.exitCode, signal: child.signalCode,
+                launchError, lastProbe, logBytes: fs.statSync(logPath).size };
+            if (process.platform === 'linux' && alive) {
+                try {
+                    detail.processState = fs.readFileSync(`/proc/${child.pid}/status`, 'utf8').match(/^State:\s*(.+)$/m)?.[1];
+                    detail.stdout = fs.readlinkSync(`/proc/${child.pid}/fd/1`);
+                    detail.stderr = fs.readlinkSync(`/proc/${child.pid}/fd/2`);
+                } catch {}
+            }
+            return new Error(message + '，日志：' + logPath + '；启动诊断：' + JSON.stringify(detail));
+        };
         const client = createHttpSession(config.url);
         try {
             const deadline = Date.now() + 90000;
             while (true) {
                 signal.throwIfAborted();
-                if (stopped) throw new Error('演示应用启动失败，日志：' + logPath);
-                try { if ((await client.request('/login', { signal: AbortSignal.any([signal, AbortSignal.timeout(1000)]) })).status === 200) break; } catch (error) { if (signal.aborted) throw error; }
-                if (Date.now() > deadline) throw new Error('演示启动超时，日志：' + logPath);
+                if (stopped) throw startupFailure('演示应用启动失败');
+                try {
+                    const response = await client.request('/login', { signal: AbortSignal.any([signal, AbortSignal.timeout(1000)]) });
+                    lastProbe = 'HTTP ' + response.status;
+                    if (response.status === 200) break;
+                } catch (error) {
+                    if (signal.aborted) throw error;
+                    lastProbe = error.cause?.code || error.code || error.name;
+                }
+                if (Date.now() > deadline) throw startupFailure('演示启动超时');
                 await delay(250, undefined, { signal });
             }
             // 只有本次随机凭据能登录的应用才可接收样例，避免端口竞争误导入。
