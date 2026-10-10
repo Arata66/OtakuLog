@@ -32,7 +32,8 @@ function javaEnvironment(config) {
     // 命令行和日志不放密码，且不继承可能指向自用库的 Spring JSON 配置。
     return { ...config.env, SPRING_APPLICATION_JSON: JSON.stringify({
         'spring.datasource.password': config.password,
-        'app.admin.username': config.loginUser, 'app.admin.password': config.loginPassword
+        'app.admin.username': config.loginUser, 'app.admin.password': config.loginPassword,
+        'otakulog.bangumi.base-url': config.env.OTAKULOG_BANGUMI_BASE_URL || 'https://api.bgm.tv'
     }) };
 }
 

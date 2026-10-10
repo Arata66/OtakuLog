@@ -1,6 +1,9 @@
 package com.otakulog.service.impl;
 
 import com.otakulog.dto.BangumiEpisode;
+import com.otakulog.common.ExternalApiException;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import com.otakulog.dto.BangumiResult;
 import com.otakulog.dto.BangumiSubjectDetail;
 import com.otakulog.service.BangumiService;
@@ -19,12 +22,15 @@ public class BangumiServiceImpl implements BangumiService {
 
     private final RestClient client;
 
-    public BangumiServiceImpl() {
+    public BangumiServiceImpl() { this("https://api.bgm.tv"); }
+
+    @Autowired
+    public BangumiServiceImpl(@Value("${otakulog.bangumi.base-url:https://api.bgm.tv}") String baseUrl) {
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
         factory.setConnectTimeout(10_000);
         factory.setReadTimeout(30_000);
         this.client = RestClient.builder()
-                .baseUrl("https://api.bgm.tv")
+                .baseUrl(baseUrl)
                 .defaultHeader("User-Agent", "OtakuLog/1.0")
                 .requestFactory(factory)
                 .build();
@@ -265,12 +271,13 @@ public class BangumiServiceImpl implements BangumiService {
                     .retrieve()
                     .body(new ParameterizedTypeReference<>() {});
 
-            if (response == null || !response.containsKey("data")) break;
+            if (response == null || !(response.get("data") instanceof List<?> data))
+                throw new ExternalApiException("Bangumi 收藏响应格式异常，请稍后重试");
+            if (data.isEmpty()) break;
 
-            List<Map<String, Object>> data = (List<Map<String, Object>>) response.get("data");
-            if (data == null || data.isEmpty()) break;
-
-            for (Map<String, Object> item : data) {
+            for (Object row : data) {
+                if (!(row instanceof Map<?, ?> item))
+                    throw new ExternalApiException("Bangumi 收藏条目格式异常，请稍后重试");
                 Map<String, Object> entry = new LinkedHashMap<>();
                 Object subject = item.get("subject");
                 if (subject instanceof Map s) {

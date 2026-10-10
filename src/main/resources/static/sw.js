@@ -1,4 +1,4 @@
-const CACHE_NAME = 'otakulog-v15';
+const CACHE_NAME = 'otakulog-v16';
 const STATIC_ASSETS = [
     '/css/anime.css',
     '/css/vendor/phosphor/regular.css',

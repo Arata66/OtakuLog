@@ -32,12 +32,13 @@ async function login(page, demo) {
 }
 
 const test = base.extend({
-    demo: async ({}, use, testInfo) => {
+    bangumiBaseUrl: ['', { option: true }],
+    demo: async ({ bangumiBaseUrl }, use, testInfo) => {
         const server = net.createServer();
         await new Promise((resolve, reject) => { server.once('error', reject); server.listen(0, '127.0.0.1', resolve); });
         const port = server.address().port;
         await new Promise(resolve => server.close(resolve));
-        const config = createDemoConfig({ port });
+        const config = createDemoConfig({ port, env: { ...process.env, OTAKULOG_BANGUMI_BASE_URL: bangumiBaseUrl } });
         const controller = new AbortController();
         let readyResolve, readyReject;
         const ready = new Promise((resolve, reject) => { readyResolve = resolve; readyReject = reject; });

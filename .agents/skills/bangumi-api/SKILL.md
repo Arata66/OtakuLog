@@ -39,8 +39,11 @@ description: Bangumi API 集成参考 — 搜索、详情、剧集、日历、�
 2. **图片字段两种格式**：`/v0/subjects` 返回 images 对象，`/v0/search/subjects` 可能返回 image 字符串，`mapResult()` 兼容两种
 3. **图片协议**：返回的 URL 可能以 `//` 开头，需补 `https:`
 4. **收藏导入状态映射**：`1=wish→PLANNING, 2=watched→FINISHED, 3=watching→WATCHING, 5=dropped→DROPPED`
+   `4=on_hold` 无本地对应，不映射为追中；未知/零集数、非法进度或未知状态跳过并计入 `needsReview`（包含于 `skipped`）。`BangumiImportService` 先在事务外完整读取最多200条，再整批事务写入；去重不覆盖本地资料，未知日期为 IMPORT/NULL，逐集补录上限100000。缺失/错误 data 与后续分页失败不能伪装为空收藏。
 5. **以图搜番**：本地 multipart 图片转发为 POST 原始字节，媒体类型沿用上传文件；缺少类型时使用 `application/octet-stream`。不要把图片编码放进查询参数；协议与验证见 `docs/以图搜番与外部服务.md`
 6. **首页放送参考**：`/api/watch/daily` 只读本地快照，`/api/watch/airing` 由 `DailyAiringService` 在事务外核对当前日历并复用缓存。ID 优先、无 ID 唯一完整名称；上游失败显示未核实，不能回退历史星期或以个人看完日期推测放送结束。规则见 `docs/日常追番入口.md`
+
+测试可用 `otakulog.bangumi.base-url` 替换官方地址，演示工具对应 `OTAKULOG_BANGUMI_BASE_URL`；默认官方地址不变。
 
 ## 修改指南
 
