@@ -40,6 +40,7 @@ description: Bangumi API 集成参考 — 搜索、详情、剧集、日历、�
 3. **图片协议**：返回的 URL 可能以 `//` 开头，需补 `https:`
 4. **收藏导入状态映射**：`1=wish→PLANNING, 2=watched→FINISHED, 3=watching→WATCHING, 5=dropped→DROPPED`
 5. **以图搜番**：本地 multipart 图片转发为 POST 原始字节，媒体类型沿用上传文件；缺少类型时使用 `application/octet-stream`。不要把图片编码放进查询参数；协议与验证见 `docs/以图搜番与外部服务.md`
+6. **首页放送参考**：`/api/watch/daily` 只读本地快照，`/api/watch/airing` 由 `DailyAiringService` 在事务外核对当前日历并复用缓存。ID 优先、无 ID 唯一完整名称；上游失败显示未核实，不能回退历史星期或以个人看完日期推测放送结束。规则见 `docs/日常追番入口.md`
 
 ## 修改指南
 

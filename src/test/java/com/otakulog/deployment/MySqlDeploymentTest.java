@@ -27,7 +27,9 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @EnabledIfEnvironmentVariable(named = "OTAKULOG_MYSQL_TEST", matches = "true")
 class MySqlDeploymentTest {
@@ -108,7 +110,8 @@ class MySqlDeploymentTest {
                 var daily = application.getBean(com.otakulog.service.DailyWatchService.class);
                 String before = query(database, "SELECT CONCAT(current_episode,'/',status,'/',COALESCE(updated_at,'')) FROM anime WHERE id=1");
                 var read = daily.getDaily();
-                assertEquals(1, read.ongoingCount()); assertEquals(1, read.todayAiringCount());
+                assertEquals(1, read.ongoingCount()); assertNull(read.todayAiringCount());
+                assertEquals("UNVERIFIED", read.airingStatus()); assertTrue(read.todayAiring().isEmpty());
                 assertEquals(today.minusDays(2), read.continueWatching().get(0).lastWatchedDate());
                 assertEquals(before, query(database, "SELECT CONCAT(current_episode,'/',status,'/',COALESCE(updated_at,'')) FROM anime WHERE id=1"));
                 AnimeService service = application.getBean(AnimeService.class);

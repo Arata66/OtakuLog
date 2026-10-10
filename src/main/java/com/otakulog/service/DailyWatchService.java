@@ -24,6 +24,13 @@ public class DailyWatchService {
 
     @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
     public DailyWatchDTO getDaily() {
+        var snapshot = getContinuingSnapshot();
+        return new DailyWatchDTO(snapshot.date(), snapshot.weekday(), snapshot.ongoingCount(), null,
+                snapshot.continueWatching().stream().limit(6).toList(), List.of(), "UNVERIFIED");
+    }
+
+    @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
+    public DailyWatchDTO getContinuingSnapshot() {
         LocalDate today = LocalDate.now();
         int weekday = today.getDayOfWeek().getValue();
         List<Anime> eligible = anime.findByStatus(AnimeStatus.WATCHING).stream()
@@ -40,9 +47,7 @@ public class DailyWatchService {
                 .thenComparing(item -> item.anime().getName())
                 .thenComparing(item -> item.anime().getId());
         List<Item> continuing = eligible.stream().map(a -> new Item(AnimeVOMapper.toVO(a), dates.get(a.getId()))).sorted(order).toList();
-        // 放送参考只使用本地资料，不触发日历服务的外部查询和放送日写回。
-        List<Item> airing = continuing.stream().filter(item -> Integer.valueOf(weekday).equals(item.anime().getBroadcastDay())
-                && (item.anime().getStartDate() == null || !LocalDate.parse(item.anime().getStartDate()).isAfter(today))).toList();
-        return new DailyWatchDTO(today, weekday, continuing.size(), airing.size(), continuing.stream().limit(6).toList(), airing.stream().limit(6).toList());
+        // 历史放送星期不能证明仍在播，核对交给独立入口且不占用此读取事务。
+        return new DailyWatchDTO(today, weekday, continuing.size(), null, continuing, List.of(), "UNVERIFIED");
     }
 }

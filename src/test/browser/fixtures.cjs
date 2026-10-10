@@ -13,6 +13,9 @@ async function configureContext(context, demo) {
     };
     await context.route('**/*', async route => {
         const url = new URL(route.request().url());
+        // 浏览器验收使用虚构结果，上游匹配和故障分支由后端回归覆盖。
+        if (url.origin === demo.url && url.pathname === '/api/watch/airing')
+            return route.fulfill({ json: { code: 200, data: { airingStatus: 'UNAVAILABLE', todayAiringCount: null, todayAiring: [] } } });
         if (url.origin === demo.url) return route.continue();
         const asset = url.origin === 'https://cdn.jsdelivr.net' && assets[url.pathname];
         if (asset) return route.fulfill({ path: path.join(demo.config.root, 'node_modules', asset), contentType: 'application/javascript' });

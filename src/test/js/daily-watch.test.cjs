@@ -9,7 +9,8 @@ function app() {
     const panel = { innerHTML: '', dataset: {} }, buttons = [{ disabled: false }, { disabled: false }];
     const fields = new Map([['dailyWatch', panel]]);
     const item = { anime: { id: 7, name: '追番入口', status: 'watching', currentEpisode: 2, totalEpisodes: 12, season: '2026秋', score: 8 }, lastWatchedDate: null };
-    const daily = { date: '2026-10-08', weekday: 4, ongoingCount: 1, todayAiringCount: 1, continueWatching: [item], todayAiring: [item] };
+    const daily = { date: '2026-10-08', weekday: 4, ongoingCount: 1, todayAiringCount: null, continueWatching: [item], todayAiring: [], airingStatus: 'UNVERIFIED' };
+    const airing = { ...daily, todayAiringCount: 1, todayAiring: [item], airingStatus: 'VERIFIED' };
     const context = vm.createContext({
         document: { getElementById: id => fields.get(id), querySelectorAll: () => buttons },
         esc: value => String(value ?? '').replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('"', '&quot;'),
@@ -18,6 +19,7 @@ function app() {
         openDetailModal: id => opened.push(id), refreshDetailProgress: async () => refreshed.push('detail'),
         fetchApi: async (url, options) => {
             requests.push({ url, options });
+            if (url === '/api/watch/airing') return { code: 200, data: airing };
             if (options) item.anime = { ...item.anime, currentEpisode: 3 };
             return { code: 200, data: options ? item.anime : daily };
         }
@@ -27,18 +29,22 @@ function app() {
         const file = path.resolve(__dirname, '../../main/resources/static/js', name);
         if (fs.existsSync(file)) vm.runInContext(fs.readFileSync(file, 'utf8'), context);
     }
-    return { context, panel, fields, buttons, item, daily, requests, messages, opened, refreshed };
+    return { context, panel, fields, buttons, item, daily, airing, requests, messages, opened, refreshed };
 }
 
 test('当首页加载日常入口时应该只读并说明放送参考和日期未知', async () => {
     const a = app(); await a.context.loadDailyWatch();
-    assert.equal(a.requests.length, 1); assert.equal(a.requests[0].url, '/api/watch/daily');
-    assert.equal(a.requests[0].options, undefined); assert.match(a.panel.innerHTML, /未核实本周更新/);
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(a.requests.length, 2); assert.equal(a.requests[0].url, '/api/watch/daily');
+    assert.equal(a.requests[1].url, '/api/watch/airing');
+    assert.equal(a.requests[0].options, undefined); assert.match(a.panel.innerHTML, /当前 Bangumi 日历/);
+    assert.match(a.panel.innerHTML, /不代表本周一定更新/);
     assert.match(a.panel.innerHTML, /最近观看日期未知/); assert.match(a.panel.innerHTML, /记看第 3 集/);
 });
 
 test('当没有可继续作品时应该提供空状态而不渲染写入按钮', async () => {
     const a = app(); a.daily.continueWatching = []; a.daily.todayAiring = []; a.daily.ongoingCount = 0;
+    a.airing.todayAiring = []; a.airing.todayAiringCount = 0;
     await a.context.loadDailyWatch(); assert.match(a.panel.innerHTML, /暂无可继续/); assert.doesNotMatch(a.panel.innerHTML, /nextEpisode\(/);
 });
 
@@ -58,6 +64,7 @@ test('当早期请求较晚返回时应该保留较新日常入口', async () =>
     const a = app(); let finish;
     a.context.fetchApi = () => new Promise(resolve => { finish = resolve; }); const pending = a.context.loadDailyWatch();
     a.context.fetchApi = async () => ({ code: 200, data: { ...a.daily, ongoingCount: 5 } }); await a.context.loadDailyWatch();
+    await new Promise(resolve => setImmediate(resolve));
     const latest = a.panel.innerHTML; finish({ code: 200, data: a.daily }); await pending;
     assert.equal(a.panel.innerHTML, latest);
 });
@@ -112,4 +119,55 @@ test('当网络结果不明时应该提示核对且不假推进或自动重试',
 test('当操作前按钮本来禁用时应该在请求结束后保留禁用', async () => {
     const a = app(); a.buttons[1].disabled = true; a.context.fetchApi = async () => null;
     await a.context.nextEpisode(7); assert.equal(a.buttons[0].disabled, false); assert.equal(a.buttons[1].disabled, true);
+});
+
+test('当日历核对尚未完成时应该先显示可操作的继续观看且不猜放送数量', async () => {
+    const a = app(); let finish;
+    a.context.fetchApi = async url => url === '/api/watch/airing' ? new Promise(resolve => { finish = resolve; }) : { code: 200, data: a.daily };
+    await a.context.loadDailyWatch();
+    assert.match(a.panel.innerHTML, /追番入口/); assert.match(a.panel.innerHTML, /记看第 3 集/);
+    assert.match(a.panel.innerHTML, /正在核对当前放送日历/);
+    assert.doesNotMatch(a.panel.innerHTML, /今日放送参考 <span>0/);
+    assert.ok(a.buttons.every(button => !button.disabled));
+    finish({ code: 200, data: a.airing }); await new Promise(resolve => setImmediate(resolve));
+    assert.match(a.panel.innerHTML, /当前 Bangumi 日历/);
+});
+
+test('当日历核对失败时应该显示未核实且保留补番而不显示今日零部', async () => {
+    const a = app(); a.airing.airingStatus = 'UNAVAILABLE'; a.airing.todayAiringCount = null; a.airing.todayAiring = [];
+    await a.context.loadDailyWatch();
+    await new Promise(resolve => setImmediate(resolve));
+    assert.match(a.panel.innerHTML, /放送信息未核实/); assert.match(a.panel.innerHTML, /继续观看/);
+    assert.doesNotMatch(a.panel.innerHTML, /今日放送参考 <span>0/);
+    assert.doesNotMatch(a.panel.innerHTML, /今天没有匹配/);
+    assert.ok(a.buttons.every(button => !button.disabled));
+});
+
+test('当有效日历没有旧番时应该只在继续观看保留作品', async () => {
+    const a = app(); a.airing.todayAiring = []; a.airing.todayAiringCount = 0;
+    await a.context.loadDailyWatch();
+    await new Promise(resolve => setImmediate(resolve));
+    assert.match(a.panel.innerHTML, /今日放送参考 <span>0/);
+    assert.equal(a.panel.innerHTML.match(/class="daily-title"/g).length, 1);
+    assert.match(a.panel.innerHTML, /当前日历没有匹配/);
+});
+
+test('当旧日历响应迟到时应该不覆盖重新加载后的结果', async () => {
+    const a = app(); let finish;
+    a.context.fetchApi = async url => url === '/api/watch/airing' ? new Promise(resolve => { finish = resolve; }) : { code: 200, data: a.daily };
+    await a.context.loadDailyWatch();
+    a.context.fetchApi = async url => ({ code: 200, data: url === '/api/watch/airing' ? { ...a.airing, todayAiring: [], todayAiringCount: 0 } : a.daily });
+    await a.context.loadDailyWatch();
+    await new Promise(resolve => setImmediate(resolve));
+    const latest = a.panel.innerHTML;
+    finish({ code: 200, data: a.airing }); await new Promise(resolve => setImmediate(resolve));
+    assert.equal(a.panel.innerHTML, latest);
+});
+
+test('当日历响应日期已变化时应该不把跨日结果标为已核对', async () => {
+    const a = app(); a.airing.date = '2026-10-09';
+    await a.context.loadDailyWatch();
+    await new Promise(resolve => setImmediate(resolve));
+    assert.match(a.panel.innerHTML, /放送信息未核实/);
+    assert.doesNotMatch(a.panel.innerHTML, /今日放送参考 <span>1/);
 });
