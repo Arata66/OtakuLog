@@ -3,6 +3,7 @@ package com.otakulog.service.impl;
 import com.otakulog.common.ExternalApiException;
 import com.otakulog.service.TraceMoeService;
 import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.http.MediaType;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
@@ -29,14 +30,15 @@ public class TraceMoeServiceImpl implements TraceMoeService {
     public Map<String, Object> searchByImage(MultipartFile image) {
         try {
             byte[] imageBytes = image.getBytes();
-            String base64 = Base64.getEncoder().encodeToString(imageBytes);
-            String dataUri = "data:" + image.getContentType() + ";base64," + base64;
+            String contentType = image.getContentType();
+            MediaType mediaType = contentType == null || contentType.isBlank()
+                    ? MediaType.APPLICATION_OCTET_STREAM : MediaType.parseMediaType(contentType);
 
-            Map<String, Object> response = client.get()
-                    .uri(uriBuilder -> uriBuilder
-                            .path("/search")
-                            .queryParam("url", dataUri)
-                            .build())
+            // 本地截图用请求体上传，避免图片编码超出请求地址长度限制。
+            Map<String, Object> response = client.post()
+                    .uri("/search")
+                    .contentType(mediaType)
+                    .body(imageBytes)
                     .retrieve()
                     .body(new ParameterizedTypeReference<>() {});
 

@@ -11,7 +11,7 @@ description: Bangumi API 集成参考 — 搜索、详情、剧集、日历、�
 
 - `BangumiService` — 封装所有 Bangumi API 调用，使用 Spring RestClient，超时 10s/30s
 - `TraceMoeService` — 封装 trace.moe 以图搜番
-- `BangumiApiController` — REST 端点，所有异常返回 502 + `ApiResponse.error()`
+- `BangumiApiController` — REST 端点，外部服务异常由 `GlobalExceptionHandler` 返回 502 + `ApiResponse.error()`，无识别结果返回 404
 - 缓存：Spring Cache + Caffeine（500 条目，30 分钟 TTL）
 
 ## API 端点
@@ -31,7 +31,7 @@ description: Bangumi API 集成参考 — 搜索、详情、剧集、日历、�
 
 | 功能 | 方法 | 端点 |
 |------|------|------|
-| 以图搜番 | GET | `/search?url=dataUri` |
+| 以图搜番 | POST | `/search`，请求体为图片原始字节 |
 
 ## 关键实现细节
 
@@ -39,7 +39,7 @@ description: Bangumi API 集成参考 — 搜索、详情、剧集、日历、�
 2. **图片字段两种格式**：`/v0/subjects` 返回 images 对象，`/v0/search/subjects` 可能返回 image 字符串，`mapResult()` 兼容两种
 3. **图片协议**：返回的 URL 可能以 `//` 开头，需补 `https:`
 4. **收藏导入状态映射**：`1=wish→PLANNING, 2=watched→FINISHED, 3=watching→WATCHING, 5=dropped→DROPPED`
-5. **以图搜番**：图片先转 Base64 data URI，再通过 URL 参数传递
+5. **以图搜番**：本地 multipart 图片转发为 POST 原始字节，媒体类型沿用上传文件；缺少类型时使用 `application/octet-stream`。不要把图片编码放进查询参数；协议与验证见 `docs/以图搜番与外部服务.md`
 
 ## 修改指南
 
