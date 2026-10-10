@@ -1,5 +1,9 @@
 const { defineConfig } = require('@playwright/test');
 
+const browserChannel = process.env.OTAKULOG_BROWSER_CHANNEL;
+if (browserChannel && !['msedge', 'chrome'].includes(browserChannel))
+    throw new Error('OTAKULOG_BROWSER_CHANNEL 仅支持 msedge 或 chrome');
+
 module.exports = defineConfig({
     testDir: './src/test/browser',
     testMatch: '*.spec.cjs',
@@ -11,6 +15,7 @@ module.exports = defineConfig({
     reporter: [['list'], ['html', { open: 'never' }]],
     use: {
         browserName: 'chromium',
+        channel: browserChannel || undefined,
         headless: true,
         serviceWorkers: 'block',
         timezoneId: 'Asia/Shanghai',
