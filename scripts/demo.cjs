@@ -1,7 +1,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const net = require('node:net');
-const { spawn } = require('node:child_process');
+const { spawn, spawnSync } = require('node:child_process');
 const { setTimeout: delay } = require('node:timers/promises');
 const { createDemoConfig, javaArguments, javaEnvironment, withDemoDatabase } = require('./lib/demo-config.cjs');
 const { createHttpSession } = require('./lib/http-session.cjs');
@@ -42,9 +42,14 @@ async function runDemo(config, signal, onReady = () => {}) {
             if (process.platform === 'linux' && alive) {
                 try {
                     detail.processState = fs.readFileSync(`/proc/${child.pid}/status`, 'utf8').match(/^State:\s*(.+)$/m)?.[1];
+                    detail.waitChannel = fs.readFileSync(`/proc/${child.pid}/wchan`, 'utf8').trim();
                     detail.stdout = fs.readlinkSync(`/proc/${child.pid}/fd/1`);
                     detail.stderr = fs.readlinkSync(`/proc/${child.pid}/fd/2`);
                 } catch {}
+                const threads = spawnSync(path.join(path.dirname(config.java), 'jcmd'), [String(child.pid), 'Thread.print'],
+                    { encoding: 'utf8', timeout: 4000, maxBuffer: 1024 * 1024, windowsHide: true });
+                fs.writeFileSync(path.join(logs, config.database + '.threads.log'), (threads.stdout || '') + (threads.stderr || ''));
+                detail.threadDumpStatus = threads.error?.code || threads.status;
             }
             return new Error(message + '，日志：' + logPath + '；启动诊断：' + JSON.stringify(detail));
         };
