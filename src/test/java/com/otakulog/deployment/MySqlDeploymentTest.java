@@ -182,6 +182,91 @@ class MySqlDeploymentTest {
         });
     }
 
+    @Test
+    void 当V9旧库升级记忆表时应该保留旧资料且不猜感想或日期() throws Exception {
+        withDatabase(database -> {
+            flyway(database, "9").migrate();
+            execute(database, "INSERT INTO anime (name,remark,current_episode,total_episodes,status,legacy) VALUES ('旧番记忆验收','原有备注',1,12,'WATCHING',0)");
+            execute(database, "INSERT INTO episode_record (anime_id,episode_number,watched_date,record_source) VALUES (1,1,NULL,'IMPORT')");
+            flyway(database, "latest").migrate(); flyway(database, "latest").validate();
+            assertEquals("原有备注", query(database, "SELECT remark FROM anime"));
+            assertEquals("1", query(database, "SELECT COUNT(*) FROM episode_record WHERE watched_date IS NULL"));
+            assertEquals("0", query(database, "SELECT COUNT(*) FROM anime_memory"));
+            try (ConfigurableApplicationContext application = startApplication(database)) {
+                assertEquals(0, application.getBean(com.otakulog.service.AnimeMemoryService.class).get(1L, 0, 20).totalEntries());
+            }
+        });
+    }
+
+    @Test
+    void 当MySQL记忆重启和备份恢复时应该保留中文原文日期与审计时间() throws Exception {
+        withDatabase(database -> {
+            String backupJson;
+            try (ConfigurableApplicationContext application = startApplication(database)) {
+                execute(database, "INSERT INTO anime (name,current_episode,total_episodes,status,legacy) VALUES ('记忆持久化验收',0,12,'WATCHING',0)");
+                var memory = application.getBean(com.otakulog.service.AnimeMemoryService.class);
+                memory.create(1L, new com.otakulog.dto.AnimeMemoryDTO.WriteRequest(UUID.randomUUID().toString(), "澎湃\n还想再听音乐", "演出", "部分剧情", "电影", com.otakulog.enums.MemoryContext.INITIAL, null, null));
+                backupJson = application.getBean(BackupService.class).exportJson();
+                assertEquals("1", query(database, "SELECT COUNT(*) FROM anime_memory WHERE watched_date IS NULL"));
+            }
+            try (ConfigurableApplicationContext application = startApplication(database)) {
+                var backup = application.getBean(BackupService.class);
+                var before = new com.fasterxml.jackson.databind.ObjectMapper().readTree(backupJson).path("memories").get(0);
+                assertEquals("澎湃\n还想再听音乐", application.getBean(com.otakulog.service.AnimeMemoryService.class).get(1L, 0, 20).entries().get(0).content());
+                execute(database, "DELETE FROM anime");
+                assertEquals("0", query(database, "SELECT COUNT(*) FROM anime_memory"));
+                assertEquals(1, backup.importJson(backupJson).get("newMemories"));
+                assertEquals(0, backup.importJson(backupJson).get("newMemories"));
+                var after = new com.fasterxml.jackson.databind.ObjectMapper().readTree(backup.exportJson()).path("memories").get(0);
+                ((com.fasterxml.jackson.databind.node.ObjectNode) before).remove("animeKey");
+                ((com.fasterxml.jackson.databind.node.ObjectNode) after).remove("animeKey");
+                assertEquals(before, after);
+            }
+        });
+    }
+
+    @Test
+    void 当MySQL两个窗口编辑相同记忆版本时应该只允许一次成功() throws Exception {
+        withDatabase(database -> {
+            try (ConfigurableApplicationContext application = startApplication(database)) {
+                execute(database, "INSERT INTO anime (name,current_episode,total_episodes,status,legacy) VALUES ('记忆并发验收',0,12,'WATCHING',0)");
+                var memory = application.getBean(com.otakulog.service.AnimeMemoryService.class);
+                var firstRecord = memory.create(1L, new com.otakulog.dto.AnimeMemoryDTO.WriteRequest(UUID.randomUUID().toString(), "初看", null, null, null, com.otakulog.enums.MemoryContext.INITIAL, null, null));
+                var request = new com.otakulog.dto.AnimeMemoryDTO.WriteRequest(null, "现在的回望", null, null, null, com.otakulog.enums.MemoryContext.REFLECTION, null, firstRecord.version());
+                var executor = Executors.newFixedThreadPool(2);
+                var ready = new CountDownLatch(2); var start = new CountDownLatch(1);
+                try {
+                    java.util.concurrent.Callable<Boolean> call = () -> {
+                        ready.countDown();
+                        if (!start.await(10, TimeUnit.SECONDS)) throw new IllegalStateException("记忆并发启动超时");
+                        try { memory.update(1L, firstRecord.id(), request); return true; }
+                        catch (com.otakulog.common.ConflictException e) { return false; }
+                    };
+                    var first = executor.submit(call); var second = executor.submit(call);
+                    assertTrue(ready.await(10, TimeUnit.SECONDS)); start.countDown();
+                    assertEquals(1, (first.get(20, TimeUnit.SECONDS) ? 1 : 0) + (second.get(20, TimeUnit.SECONDS) ? 1 : 0));
+                    assertEquals(1, memory.get(1L, 0, 20).entries().get(0).version());
+                    assertEquals("现在的回望", memory.get(1L, 0, 20).entries().get(0).content());
+                    assertEquals("0", query(database, "SELECT current_episode FROM anime"));
+                } finally { start.countDown(); executor.shutdownNow(); }
+            }
+        });
+    }
+
+    @Test
+    void 当MySQL删除单部或批量作品时应该只删除对应观影记忆() throws Exception {
+        withDatabase(database -> {
+            try (ConfigurableApplicationContext application = startApplication(database)) {
+                execute(database, "INSERT INTO anime (name,current_episode,total_episodes,status,legacy) VALUES ('单删验收',0,12,'WATCHING',0),('批删验收',0,12,'WATCHING',0)");
+                var memory = application.getBean(com.otakulog.service.AnimeMemoryService.class);
+                for (long id = 1; id <= 2; id++) memory.create(id, new com.otakulog.dto.AnimeMemoryDTO.WriteRequest(UUID.randomUUID().toString(), "感想", null, null, null, com.otakulog.enums.MemoryContext.NOTE, null, null));
+                var service = application.getBean(AnimeService.class);
+                service.deleteAnime(1L); assertEquals("1", query(database, "SELECT COUNT(*) FROM anime_memory"));
+                service.batchDelete(java.util.List.of(2L)); assertEquals("0", query(database, "SELECT COUNT(*) FROM anime_memory"));
+            }
+        });
+    }
+
     private Flyway flyway(String database, String target) {
         return Flyway.configure().dataSource(url(database), user, password)
                 .locations("classpath:db/migration", "classpath:com/otakulog")

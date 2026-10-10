@@ -4,7 +4,10 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 const source = fs.readFileSync(path.join(__dirname, '../../main/resources/static/js/anime-app.js'), 'utf8');
-const body = source.slice(source.indexOf('async function importFromBangumi()'), source.indexOf('function closeDetailModal()'));
+const start = source.indexOf('async function importFromBangumi()');
+const end = source.indexOf('function closeDetailModal(', start);
+assert.ok(start >= 0 && end > start, '收藏导入函数的测试边界应存在');
+const body = source.slice(start, end);
 function setup(reply, username = ' 用户/名 ') {
     const button = { disabled: false }, calls = [], messages = [];
     const context = { document: { getElementById: () => button }, prompt: text => { calls.push(text); return username; },

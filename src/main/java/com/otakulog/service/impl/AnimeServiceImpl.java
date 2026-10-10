@@ -10,6 +10,7 @@ import com.otakulog.entity.Anime;
 import com.otakulog.entity.Tag;
 import com.otakulog.enums.AnimeStatus;
 import com.otakulog.repository.AnimeRepository;
+import com.otakulog.repository.AnimeMemoryRepository;
 import com.otakulog.repository.EpisodeRecordRepository;
 import com.otakulog.repository.TagRepository;
 import com.otakulog.dto.BangumiResult;
@@ -35,6 +36,7 @@ import java.util.stream.Collectors;
 public class AnimeServiceImpl implements AnimeService {
 
     private final AnimeRepository animeRepository;
+    private final AnimeMemoryRepository memoryRepository;
     private final BangumiService bangumiService;
     private final EpisodeRecordRepository episodeRecordRepository;
     private final TagRepository tagRepository;
@@ -44,8 +46,10 @@ public class AnimeServiceImpl implements AnimeService {
 
     public AnimeServiceImpl(AnimeRepository animeRepository, BangumiService bangumiService,
                             EpisodeRecordRepository episodeRecordRepository, TagRepository tagRepository,
-                            WatchProgressService watchProgress, BackupService backup, BangumiImportService bangumiImport) {
+                            WatchProgressService watchProgress, BackupService backup, BangumiImportService bangumiImport,
+                            AnimeMemoryRepository memoryRepository) {
         this.animeRepository = animeRepository;
+        this.memoryRepository = memoryRepository;
         this.bangumiService = bangumiService;
         this.episodeRecordRepository = episodeRecordRepository;
         this.tagRepository = tagRepository;
@@ -188,19 +192,21 @@ public class AnimeServiceImpl implements AnimeService {
     @Override
     @Transactional
     public void deleteAnime(Long id) {
-        if (!animeRepository.existsById(id)) {
-            throw new ResourceNotFoundException("未找到该番剧");
-        }
+        animeRepository.findByIdForUpdate(id).orElseThrow(() -> new ResourceNotFoundException("未找到该番剧"));
         // 级联删除关联的观看记录，避免孤儿数据
         episodeRecordRepository.deleteByAnimeId(id);
+        memoryRepository.deleteByAnimeId(id);
         animeRepository.deleteById(id);
     }
 
     @Override
     @Transactional
     public void batchDelete(List<Long> ids) {
-        for (Long id : ids) {
+        for (Long id : ids.stream().distinct().sorted().toList()) {
+            // 与记忆写入共用作品锁，避免删除时新增孤儿记录。
+            animeRepository.findByIdForUpdate(id);
             episodeRecordRepository.deleteByAnimeId(id);
+            memoryRepository.deleteByAnimeId(id);
         }
         animeRepository.deleteAllById(ids);
     }

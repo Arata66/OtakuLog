@@ -15,6 +15,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.function.Function;
@@ -26,16 +27,18 @@ public class BackupService {
     private final TagRepository tags;
     private final AnimeGroupRepository groups;
     private final EpisodeRecordRepository episodes;
+    private final AnimeMemoryRepository memories;
     private final ObjectMapper mapper = new ObjectMapper().registerModule(new JavaTimeModule())
             .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
             .disable(MapperFeature.ALLOW_COERCION_OF_SCALARS)
             .disable(DeserializationFeature.ACCEPT_FLOAT_AS_INT)
+            .enable(DeserializationFeature.FAIL_ON_NUMBERS_FOR_ENUMS)
             .enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS)
             .enable(JsonParser.Feature.STRICT_DUPLICATE_DETECTION);
 
     public BackupService(AnimeRepository anime, TagRepository tags, AnimeGroupRepository groups,
-                         EpisodeRecordRepository episodes) {
-        this.anime = anime; this.tags = tags; this.groups = groups; this.episodes = episodes;
+                         EpisodeRecordRepository episodes, AnimeMemoryRepository memories) {
+        this.anime = anime; this.tags = tags; this.groups = groups; this.episodes = episodes; this.memories = memories;
     }
 
     @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
@@ -47,7 +50,7 @@ public class BackupService {
             groups.findAnimeIdsByGroupId(group.getId()).stream().sorted()
                     .forEach(id -> links.add(new Membership("g:" + group.getId(), "a:" + id)));
         }
-        var document = new BackupDocument("otakulog-backup", 1, LocalDateTime.now(),
+        var document = new BackupDocument("otakulog-backup", 2, LocalDateTime.now(),
                 allAnime.stream().map(a -> new AnimeEntry("a:" + a.getId(), data(a),
                         a.getTags().stream().sorted(Comparator.comparing(Tag::getId))
                                 .map(t -> "t:" + t.getId()).toList())).toList(),
@@ -56,7 +59,11 @@ public class BackupService {
                         g.getColor(), g.getSortOrder(), g.getCreatedAt(), g.getUpdatedAt())).toList(), links,
                 episodes.findAll(Sort.by("animeId", "episodeNumber")).stream().map(e -> new EpisodeEntry(
                         "a:" + e.getAnimeId(), e.getEpisodeNumber(), e.getWatchedDate(), e.getSource(),
-                        e.getCreatedAt(), e.getUpdatedAt())).toList());
+                        e.getCreatedAt(), e.getUpdatedAt())).toList(),
+                memories.findAll(Sort.by("id")).stream().map(m -> new MemoryEntry(
+                        m.getMemoryKey(), "a:" + m.getAnimeId(), m.getContent(), m.getLiked(), m.getDisliked(),
+                        m.getScope(), m.getContext(), m.getWatchedDate(), m.getVersion(),
+                        m.getCreatedAt(), m.getUpdatedAt())).toList());
         try {
             return mapper.writerWithDefaultPrettyPrinter().writeValueAsString(document);
         } catch (Exception e) { throw new IllegalStateException("备份导出失败", e); }
@@ -130,6 +137,15 @@ public class BackupService {
                 target.setWatchedDate(e.watchedDate()); target.setSource(e.source()); episodes.save(target);
             }
         }
+        for (var m : doc.memories()) {
+            if (memories.findByMemoryKey(m.key()).isPresent()) continue;
+            AnimeMemory target = new AnimeMemory();
+            target.setMemoryKey(m.key()); target.setAnimeId(animeMap.get(m.animeKey()).getId());
+            target.setContent(m.content()); target.setLiked(m.liked()); target.setDisliked(m.disliked());
+            target.setScope(m.scope()); target.setContext(m.context()); target.setWatchedDate(m.watchedDate());
+            target.setVersion(m.version()); target.setCreatedAt(m.createdAt()); target.setUpdatedAt(m.updatedAt());
+            memories.save(target);
+        }
         return analysis.summary;
     }
 
@@ -174,14 +190,24 @@ public class BackupService {
                 conflicts.add(target.getName() + " 第 " + e.episodeNumber() + " 集：观看日期或来源冲突");
             if (local.getWatchedDate() == null && e.watchedDate() != null) filledDates++;
         }
+        int newMemories = 0;
+        for (var m : doc.memories()) {
+            AnimeMemory local = memories.findByMemoryKey(m.key()).orElse(null);
+            if (local == null) { newMemories++; continue; }
+            Anime target = matches.get(m.animeKey());
+            // 稳定编号只用于识别同一条记忆，不能将旧感想覆盖到另一作品或新版本。
+            if (target == null || !Objects.equals(local.getAnimeId(), target.getId()) || !sameMemory(local, m))
+                conflicts.add("观影记忆 " + m.key() + "：所属作品或内容与本地不同，请保留两份后核对");
+        }
         Set<String> localTags = tags.findAll().stream().map(Tag::getName).collect(Collectors.toSet());
         Map<String, Object> result = new LinkedHashMap<>();
-        result.put("valid", conflicts.isEmpty()); result.put("format", "otakulog-backup"); result.put("version", 1); result.put("legacy", input.legacy);
+        result.put("valid", conflicts.isEmpty()); result.put("format", "otakulog-backup"); result.put("version", doc.version()); result.put("legacy", input.legacy);
         result.put("created", doc.anime().size() - matches.size()); result.put("updated", matches.size());
         result.put("tags", doc.tags().size()); result.put("newTags", (int) doc.tags().stream().filter(t -> !localTags.contains(t.name())).count());
         result.put("groups", doc.groups().size()); result.put("newGroups", doc.groups().size() - groupMatches.size());
         result.put("memberships", doc.memberships().size()); result.put("episodes", doc.episodes().size());
         result.put("newEpisodes", newEpisodes); result.put("filledDates", filledDates);
+        result.put("memories", doc.memories().size()); result.put("newMemories", newMemories);
         result.put("warnings", input.legacy ? List.of("旧格式没有逐集日期和分组，缺失记录仅补未知日期。", "已有资料和更高进度会保留，标签与分组关联取并集。")
                 : List.of("已有资料和更高进度会保留，标签与分组关联取并集；本地额外数据不会删除。"));
         result.put("conflicts", conflicts);
@@ -197,8 +223,20 @@ public class BackupService {
             if (legacy) document = legacyDocument(root);
             else {
                 require(root.isObject() && "otakulog-backup".equals(root.path("format").asText()), "备份格式不受支持");
-                require(root.path("version").isIntegralNumber() && root.path("version").intValue() == 1, "备份版本不受支持");
+                require(root.path("version").isIntegralNumber()
+                        && (root.path("version").longValue() == 1 || root.path("version").longValue() == 2), "备份版本不受支持");
+                if (root.path("version").intValue() == 1) {
+                    require(!root.has("memories"), "版本一不能包含观影记忆，请使用版本二");
+                    ((ObjectNode) root).putArray("memories");
+                }
                 fields(root, BackupDocument.class);
+                require(root.path("memories").isArray(), "观影记忆集合必须为数组");
+                for (JsonNode entry : root.path("memories")) {
+                    fields(entry, MemoryEntry.class);
+                    require(entry.path("context").isTextual(), "观影记忆语境必须为文字");
+                    require(entry.path("watchedDate").isNull() || entry.path("watchedDate").isTextual(), "观影记忆观看日期必须为日期文字或null");
+                    require(entry.path("createdAt").isTextual() && entry.path("updatedAt").isTextual(), "观影记忆审计时间必须为ISO文字");
+                }
                 for (JsonNode entry : root.path("anime")) { fields(entry, AnimeEntry.class); fields(entry.path("data"), AnimeData.class); }
                 for (JsonNode entry : root.path("tags")) {
                     fields(entry, TagEntry.class); require(!entry.path("createdAt").isNull(), "标签创建时间不能为空");
@@ -218,6 +256,20 @@ public class BackupService {
         require(d.exportedAt() != null, "缺少导出时间");
         var a = index(d.anime(), AnimeEntry::key); var t = index(d.tags(), TagEntry::key); var g = index(d.groups(), GroupEntry::key);
         require(d.episodes() != null && d.memberships() != null, "缺少记录或关联集合");
+        index(d.memories(), MemoryEntry::key);
+        for (var m : d.memories()) {
+            require(a.containsKey(m.animeKey()), "观影记忆的作品不存在");
+            try { require(UUID.fromString(m.key()).toString().equals(m.key()), "观影记忆编号必须为规范UUID"); }
+            catch (IllegalArgumentException e) { throw new IllegalArgumentException("观影记忆编号必须为规范UUID"); }
+            text(m.content(), 16000, true); text(m.liked(), 2000, false); text(m.disliked(), 2000, false); text(m.scope(), 200, false);
+            require(m.context() != null && m.version() != null && m.version() >= 0, "观影记忆语境或版本无效");
+            require(m.watchedDate() == null || (m.watchedDate().getYear() >= 1000 && !m.watchedDate().isAfter(LocalDate.now())), "观影记忆观看日期无效");
+            require(m.createdAt() != null && m.updatedAt() != null && m.createdAt().getYear() >= 1000
+                    && m.createdAt().getYear() <= 9999 && m.updatedAt().getYear() <= 9999
+                    && !m.updatedAt().isBefore(m.createdAt()), "观影记忆记录或修改时间无效");
+            // 数据库保存到微秒，拒绝更细时间，避免再次恢复原文件时被舍入差异误判冲突。
+            require(m.createdAt().getNano() % 1000 == 0 && m.updatedAt().getNano() % 1000 == 0, "观影记忆审计时间最多支持微秒精度");
+        }
         Set<String> names = new HashSet<>(); Set<Integer> ids = new HashSet<>();
         for (var entry : d.anime()) {
             var data = entry.data(); require(data != null, "缺少作品资料");
@@ -293,6 +345,14 @@ public class BackupService {
             records.add(new EpisodeEntry(entry.key(), n, null, EpisodeRecordSource.IMPORT, null, null));
         return new BackupDocument("otakulog-backup", 1, document.exportedAt(), List.copyOf(entries.values()),
                 List.copyOf(tagEntries.values()), List.of(), List.of(), records);
+    }
+
+    private static boolean sameMemory(AnimeMemory local, MemoryEntry m) {
+        return Objects.equals(local.getContent(), m.content()) && Objects.equals(local.getLiked(), m.liked())
+                && Objects.equals(local.getDisliked(), m.disliked()) && Objects.equals(local.getScope(), m.scope())
+                && local.getContext() == m.context() && Objects.equals(local.getWatchedDate(), m.watchedDate())
+                && Objects.equals(local.getVersion(), m.version()) && Objects.equals(local.getCreatedAt(), m.createdAt())
+                && Objects.equals(local.getUpdatedAt(), m.updatedAt());
     }
 
     private static AnimeData data(Anime a) {

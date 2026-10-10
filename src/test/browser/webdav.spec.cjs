@@ -1,8 +1,8 @@
 const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
-const { randomBytes } = require('node:crypto');
-const { test: base, expect, handleDialog } = require('./fixtures.cjs');
+const { randomBytes, randomUUID } = require('node:crypto');
+const { test: base, expect, handleDialog, openAnime } = require('./fixtures.cjs');
 
 const test = base.extend({
     dav: async ({}, use) => {
@@ -46,13 +46,23 @@ function addRemoteAnime(dav, date) {
 }
 
 test('当推送后取消或确认WebDAV恢复时应该保留完整备份并刷新观看与热力图', async ({ page, demo, dav }) => {
+    await openAnime(page, '演示·雨巷来信');
+    await page.locator('#memoryContent').fill('虚构演示：希望把这段观影感受一起备份。');
+    await page.locator('#memorySave').click();
+    await expect(page.locator('#memoryStatus')).toHaveText('感想已保存。');
+    await page.locator('#detailModal').getByRole('button', { name: '关闭', exact: true }).click();
     const before = await readExport(page, demo);
+    expect(before.version).toBe(2); expect(before.memories).toHaveLength(1);
     const pushed = page.waitForResponse(r => r.url().endsWith('/api/sync/push'));
     await clickSync(page, 'btnSyncPush'); expect((await (await pushed).json()).code).toBe(200);
     await expect(page.locator('#btnSyncPush')).toBeEnabled();
     expect(business(JSON.parse(dav.state.file))).toEqual(business(before));
     const daily = (await (await page.request.get(demo.url + '/api/watch/daily')).json()).data;
     addRemoteAnime(dav, daily.date);
+    const remote = JSON.parse(dav.state.file);
+    const remoteMemory = { ...remote.memories[0], key: randomUUID(), animeKey: 'remote-fixture',
+        content: '虚构远程回望：音乐仍然值得回味。', context: 'REFLECTION', watchedDate: null };
+    remote.memories.push(remoteMemory); dav.state.file = JSON.stringify(remote);
     let dialog = handleDialog(page, /WebDAV 备份预览/, false);
     await clickSync(page, 'btnSyncPull'); await dialog; await expect(page.locator('#btnSyncPull')).toBeEnabled();
     expect(business(await readExport(page, demo))).toEqual(business(before));
@@ -68,6 +78,11 @@ test('当推送后取消或确认WebDAV恢复时应该保留完整备份并刷�
     const after = await readExport(page, demo); expect(after.anime).toHaveLength(5);
     expect(after.tags).toEqual(before.tags); expect(after.groups).toEqual(before.groups); expect(after.memberships).toEqual(before.memberships);
     expect(after.episodes).toHaveLength(8);
+    expect(after.memories).toHaveLength(2);
+    expect(after.memories.find(memory => memory.key === remoteMemory.key)).toMatchObject({
+        content: remoteMemory.content, watchedDate: null, version: remoteMemory.version,
+        createdAt: remoteMemory.createdAt, updatedAt: remoteMemory.updatedAt
+    });
     dialog = handleDialog(page, /新增 0 部作品/, true);
     const repeated = page.waitForResponse(r => r.url().endsWith('/api/sync/pull'));
     await clickSync(page, 'btnSyncPull'); await dialog; expect((await (await repeated).json()).code).toBe(200);

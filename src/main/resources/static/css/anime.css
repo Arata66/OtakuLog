@@ -1116,3 +1116,52 @@
         .heatmap-tooltip { position: fixed; background: var(--text); color: var(--card); padding: 4px 8px; border-radius: 4px; font-size: 11px; white-space: nowrap; z-index: 9999; pointer-events: none; }
         .heatmap-legend { display: flex; align-items: center; gap: 3px; margin-top: 8px; justify-content: flex-end; }
         .heatmap-label { font-size: 11px; color: var(--text-faint); margin: 0 4px; }
+
+        .anime-memory { margin-top: 28px; padding-top: 28px; border-top: 1px solid var(--border); min-width: 0; }
+        .memory-heading { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 20px; }
+        .memory-heading h3 { color: var(--text); font-size: 1.05em; letter-spacing: 0.03em; }
+        .memory-heading > .a-btn { flex-shrink: 0; }
+        .memory-note { color: var(--text-dim); font-size: 0.83em; line-height: 1.7; margin-top: 8px; overflow-wrap: anywhere; }
+        .memory-form { padding: 20px; border: 1px solid var(--border-light); border-radius: var(--radius-sm); background: var(--bg); }
+        .memory-prompt { display: block; margin-bottom: 12px; color: var(--text); font-weight: 600; }
+        .memory-form .app-input { width: 100%; min-height: 44px; color: var(--text); background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; font: inherit; }
+        .memory-form textarea { resize: vertical; line-height: 1.8; }
+        .memory-content-input { min-height: 146px; }
+        .memory-form .app-input:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+        .memory-form .app-input:disabled { opacity: 0.65; }
+        .memory-context-row { display: flex; align-items: center; gap: 12px; margin-top: 16px; font-size: 0.86em; color: var(--text-mid); }
+        .memory-context-row .app-input { width: auto; min-width: 140px; }
+        .memory-optional { margin-top: 18px; border-top: 1px solid var(--border-light); padding-top: 14px; font-size: 0.86em; }
+        .memory-optional summary { min-height: 44px; line-height: 1.6; cursor: pointer; color: var(--text-mid); padding: 10px 0; }
+        .memory-optional-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; padding-top: 12px; }
+        .memory-optional-fields label { min-width: 0; color: var(--text-mid); line-height: 1.8; }
+        .memory-optional-fields .app-input { display: block; margin-top: 6px; }
+        .memory-optional-fields small { display: block; color: var(--text-dim); margin-top: 6px; }
+        .memory-form-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
+        .memory-form-actions #memorySave { background: var(--primary); border-color: var(--primary); color: var(--card); }
+        .anime-memory button { min-height: 44px; }
+        .memory-list { margin-top: 24px; }
+        .memory-entry { border-bottom: 1px solid var(--border-light); padding: 22px 0; min-width: 0; }
+        .memory-entry:first-child { padding-top: 0; }
+        .memory-entry-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+        .memory-context { color: var(--primary); font-size: 0.78em; font-weight: 600; letter-spacing: 0.07em; }
+        .memory-entry-actions { display: flex; gap: 8px; }
+        .memory-original, .memory-reason p { white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word; line-height: 1.9; }
+        .memory-original { color: var(--text); font-size: 0.94em; }
+        .memory-reason { margin-top: 16px; padding-left: 12px; border-left: 2px solid var(--border); }
+        .memory-reason h4 { color: var(--text-dim); font-size: 0.76em; font-weight: 500; margin-bottom: 5px; }
+        .memory-reason p { color: var(--text-mid); font-size: 0.86em; }
+        .memory-entry-meta { display: flex; flex-wrap: wrap; gap: 6px 18px; margin-top: 16px; color: var(--text-dim); font-size: 0.73em; line-height: 1.7; overflow-wrap: anywhere; }
+        .memory-empty { color: var(--text-dim); background: var(--primary-soft); border-radius: var(--radius-sm); padding: 18px; font-size: 0.88em; line-height: 1.8; }
+        .memory-pages { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
+        .memory-pages span { color: var(--text-dim); font-size: 0.78em; }
+        @media (max-width: 600px) {
+            .memory-heading { flex-direction: column; gap: 10px; }
+            .memory-form { padding: 14px; }
+            .memory-optional-fields { grid-template-columns: minmax(0, 1fr); }
+            .memory-context-row { flex-direction: column; align-items: stretch; gap: 6px; }
+            .memory-context-row .app-input { width: 100%; }
+            .memory-entry-meta { flex-direction: column; }
+            .memory-pages { gap: 8px; }
+            .memory-pages span { order: -1; flex-basis: 100%; }
+        }

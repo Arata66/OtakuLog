@@ -335,7 +335,7 @@
             if (n === 'list') loadDailyWatch();
         }
         function goToAddTracking(name) {
-            closeDetailModal();
+            if (!closeDetailModal()) return;
             switchTab('list');
             setTimeout(() => {
                 document.getElementById('animeName').value = name;
@@ -491,6 +491,7 @@
 
         /* Detail modal */
         function openDetailModal(id) {
+            if (document.getElementById('detailModal') && !closeDetailModal()) return;
             rememberFocus();
             const a = _cache[id];
             if (!a) { toast('未找到该番剧', 'error'); return; }
@@ -515,14 +516,16 @@
                 </div>
                 <div class="detail-body">
                     <div class="detail-progress-wrap"><div class="detail-progress-label"><span>进度</span><span id="detailProgressPercent">${pct}%</span></div><div class="detail-progress"><div id="detailProgressBar" class="detail-progress-bar ${a.status}" style="--progress:${pct}%"></div></div></div>
-                    <div class="detail-actions"><button class="a-btn" onclick="shareAnimeCard(${a.id})">分享</button><button class="a-btn" onclick="closeDetailModal();openEditModal(${a.id})">编辑</button><button class="a-btn ep-btn" data-watch-id="${a.id}" onclick="prevEpisode(${a.id})">上一集</button><button class="a-btn ep-btn" data-watch-id="${a.id}" onclick="nextEpisode(${a.id})">下一集</button><button class="a-btn" onclick="showAddToGroup(${a.id})">分组</button><button class="a-btn del" onclick="deleteAnime(${a.id});closeDetailModal()">删除</button></div>
+                    <div class="detail-actions"><button class="a-btn" onclick="shareAnimeCard(${a.id})">分享</button><button class="a-btn" onclick="if(closeDetailModal())openEditModal(${a.id})">编辑</button><button class="a-btn ep-btn" data-watch-id="${a.id}" onclick="prevEpisode(${a.id})">上一集</button><button class="a-btn ep-btn" data-watch-id="${a.id}" onclick="nextEpisode(${a.id})">下一集</button><button class="a-btn" onclick="showAddToGroup(${a.id})">分组</button><button class="a-btn del" onclick="deleteAnime(${a.id})">删除</button></div>
                     ${a.remark ? `<div class="detail-remark">${renderRemark(a.remark)}</div>` : ''}
+                    <section id="animeMemorySection" class="anime-memory" data-anime-id="${a.id}" aria-label="观影记忆"></section>
                     <section id="episodeHistorySection" class="episode-history" data-anime-id="${a.id}" aria-label="逐集观看记录"></section>
                     <div id="bangumiDetailSection"></div>
 
                 </div>`;
             overlay.appendChild(card); document.body.appendChild(overlay);
             trapFocus(overlay);
+            loadAnimeMemories(id);
             loadEpisodeHistory(id);
             syncWatchButtons();
             if (a.bangumiId) loadBangumiDetail(a.bangumiId);
@@ -632,8 +635,7 @@
             if (r && r.code === 200) {
                 toast('匹配成功', 'success');
                 _cache[id] = r.data;
-                closeDetailModal();
-                openDetailModal(id);
+                if (closeDetailModal()) openDetailModal(id);
                 renderList();
             } else {
                 toast(r?.message || '匹配失败', 'error');
@@ -681,12 +683,18 @@
             }
         }
 
-        function closeDetailModal() { const m = document.getElementById('detailModal'); if (m) m.remove(); restoreFocus(); }
+        function closeDetailModal(force = false) {
+            const m = document.getElementById('detailModal');
+            if (m && !force && typeof canLeaveAnimeMemory === 'function' && !canLeaveAnimeMemory()) return false;
+            if (m) { m.remove?.(); restoreFocus(); }
+            return true;
+        }
         function closeTraceMoeModal() { const m = document.getElementById('traceMoeModal'); if (m) m.remove(); restoreFocus(); }
 
         function trapFocus(overlay) {
             overlay.addEventListener('keydown', function(e) {
                 if (e.key === 'Escape') {
+                    e.stopPropagation();
                     if (overlay.id === 'editModal') closeEditModal();
                     else if (overlay.id === 'traceMoeModal') closeTraceMoeModal();
                     else closeDetailModal();
@@ -703,6 +711,7 @@
 
         /* Edit modal */
         function openEditModal(id) {
+            if (document.getElementById('detailModal') && !closeDetailModal()) return;
             rememberFocus();
             const a = _cache[id];
             if (!a) { toast('未找到该番剧', 'error'); return; }
@@ -745,7 +754,23 @@
             if (!r || r.code !== 200) { if (r) toast(r.message || '保存失败', 'error'); return; }
             closeEditModal(); toast('已保存', 'success'); performSearch(); updateStats();
         }
-        async function deleteAnime(id) { if (!confirm('确定删除这个番剧吗？')) return; const r = await fetchApi(`/api/anime/${id}`, { method: 'DELETE' }); if (r && r.code === 200) { toast('已删除', 'success'); performSearch(); updateStats(); } else if (r) toast(r.message || '删除失败', 'error'); }
+        async function deleteAnime(id) {
+            const detail = document.getElementById('detailModal');
+            const ownDetail = detail?.dataset?.animeId === String(id);
+            if (ownDetail && typeof canLeaveAnimeMemory === 'function' && !canLeaveAnimeMemory()) return;
+            if (!confirm('确定删除这个番剧吗？')) return;
+            const operation = ownDetail && typeof beginAnimeMemoryOperation === 'function'
+                ? beginAnimeMemoryOperation('正在删除作品，请等待完成后再离开。') : null;
+            try {
+                const r = await fetchApi(`/api/anime/${id}`, { method: 'DELETE' });
+                if (r && r.code === 200) {
+                    if (ownDetail && document.getElementById('detailModal') === detail) closeDetailModal(true);
+                    toast('已删除', 'success'); performSearch(); updateStats();
+                } else if (r) toast(r.message || '删除失败', 'error');
+            } finally {
+                if (typeof endAnimeMemoryOperation === 'function') endAnimeMemoryOperation(operation);
+            }
+        }
         async function changeStatus(id) { const v = document.getElementById('ss-' + id).value; if (!v) return; const r = await fetchApi(`/api/anime/${id}/status?status=${encodeURIComponent(v)}`, { method: 'POST' }); if (r && r.code === 200) { toast('状态已更新', 'success'); performSearch(); updateStats(); } else if (r) toast(r.message || '修改失败', 'error'); }
 
         function showSearchFeedback(type, reset = true) {
@@ -1309,6 +1334,8 @@
 
         /* Bangumi detail modal for untracked anime */
         async function openBangumiDetailModal(bangumiId) {
+            if (document.getElementById('detailModal') && !closeDetailModal()) return;
+            rememberFocus();
             const overlay = document.createElement('div'); overlay.className = 'detail-overlay'; overlay.id = 'detailModal';
             overlay.onclick = function(e) { if (e.target === overlay) closeDetailModal(); };
             const card = document.createElement('div'); card.className = 'detail-card'; card.setAttribute('role', 'dialog'); card.setAttribute('aria-modal', 'true'); card.setAttribute('aria-label', '番剧详情');
@@ -1428,7 +1455,8 @@
             }
             const counts = `新增 ${preview.created || 0} 部作品，合并 ${preview.updated || 0} 部已有作品\n`
                 + `标签 ${preview.tags || 0} 个，分组 ${preview.groups || 0} 个，分组关联 ${preview.memberships || 0} 条\n`
-                + `逐集记录 ${preview.episodes || 0} 条，其中新增 ${preview.newEpisodes || 0} 条，补齐日期 ${preview.filledDates || 0} 条`;
+                + `逐集记录 ${preview.episodes || 0} 条，其中新增 ${preview.newEpisodes || 0} 条，补齐日期 ${preview.filledDates || 0} 条\n`
+                + `观影记忆 ${preview.memories || 0} 条，其中新增 ${preview.newMemories || 0} 条`;
             return confirm(`${label}\n\n${counts}\n\n${(preview.warnings || []).join('\n')}\n\n确认恢复？`);
         }
 
@@ -1436,10 +1464,18 @@
             const options = { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: json };
             const preview = await fetchApi('/api/anime/import/preview', options);
             if (!preview || preview.code !== 200 || !confirmBackupImport(preview.data, '本地备份预览')) return;
-            const result = await fetchApi('/api/anime/import', options);
-            if (result && result.code === 200) {
-                toast(result.message || '恢复成功', 'success'); performSearch(); updateStats();
-            } else if (result) toast(result.message || '恢复失败', 'error');
+            if (typeof canLeaveAnimeMemory === 'function' && !canLeaveAnimeMemory()) return;
+            const operation = typeof beginAnimeMemoryOperation === 'function'
+                ? beginAnimeMemoryOperation('正在恢复备份，请等待完成后再离开。') : { detail: document.getElementById('detailModal') };
+            try {
+                const result = await fetchApi('/api/anime/import', options);
+                if (result && result.code === 200) {
+                    if (operation.detail && document.getElementById('detailModal') === operation.detail) closeDetailModal(true);
+                    toast(result.message || '恢复成功', 'success'); performSearch(); updateStats();
+                } else if (result) toast(result.message || '恢复失败', 'error');
+            } finally {
+                if (typeof endAnimeMemoryOperation === 'function') endAnimeMemoryOperation(operation);
+            }
         }
 
         async function importData(e) {
@@ -1487,20 +1523,28 @@
         async function syncPull() {
             if (webdavSyncBusy) return;
             setWebdavSyncBusy(true);
+            let operation = null;
             try {
                 closeSyncMenu();
                 toast('正在预览 WebDAV 备份...', 'info');
                 const preview = await fetchApi('/api/sync/pull/preview', { method: 'POST' });
                 if (!preview || preview.code !== 200 || !confirmBackupImport(preview.data, 'WebDAV 备份预览')) return;
+                if (typeof canLeaveAnimeMemory === 'function' && !canLeaveAnimeMemory()) return;
+                operation = typeof beginAnimeMemoryOperation === 'function'
+                    ? beginAnimeMemoryOperation('正在恢复备份，请等待完成后再离开。') : { detail: document.getElementById('detailModal') };
                 toast('正在从 WebDAV 拉取...', 'info');
                 const r = await fetchApi('/api/sync/pull', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ fingerprint: preview.data.fingerprint }) });
                 if (r && r.code === 200) {
+                    if (operation.detail && document.getElementById('detailModal') === operation.detail && typeof closeDetailModal === 'function') closeDetailModal(true);
                     toast(r.data?.message || '拉取成功', 'success');
                     await Promise.allSettled([performSearch(), updateStats(false), loadDailyWatch(), loadHeatmap()]);
                 } else if (r) { toast(r.message || '拉取失败', 'error'); }
             } catch (error) {
                 toast('拉取失败，请稍后重试', 'error');
-            } finally { setWebdavSyncBusy(false); }
+            } finally {
+                if (typeof endAnimeMemoryOperation === 'function') endAnimeMemoryOperation(operation);
+                setWebdavSyncBusy(false);
+            }
         }
         async function syncStatus() {
             document.getElementById('syncMenu').classList.add('is-hidden');
