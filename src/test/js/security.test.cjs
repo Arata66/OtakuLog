@@ -38,6 +38,8 @@ function createBackupApp(preview, accepted = true) {
     app.context.document.getElementById = () => ({ classList: { add() {} } });
     app.context.performSearch = () => {};
     app.context.updateStats = () => {};
+    app.context.loadDailyWatch = () => {};
+    app.context.loadHeatmap = () => {};
     app.context.fetchApi = async (url, options) => {
         app.requests.push({ url, options });
         return { code: 200, data: url.endsWith('/preview') ? preview : {}, message: '恢复完成' };

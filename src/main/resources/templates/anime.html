@@ -62,8 +62,8 @@
                 <div class="menu-anchor">
                     <button class="btn-h" onclick="toggleSyncMenu()" id="syncBtn" aria-haspopup="menu" aria-expanded="false" aria-controls="syncMenu"><i class="ph ph-cloud" aria-hidden="true"></i>同步</button>
                     <div id="syncMenu" class="dropdown-menu is-hidden" role="menu" aria-label="同步菜单">
-                        <button class="sync-menu-btn" role="menuitem" onclick="syncPush()"><i class="ph ph-upload-simple" aria-hidden="true"></i>推送到 WebDAV</button>
-                        <button class="sync-menu-btn" role="menuitem" onclick="syncPull()"><i class="ph ph-download-simple" aria-hidden="true"></i>从 WebDAV 拉取</button>
+                        <button class="sync-menu-btn" role="menuitem" onclick="syncPush()" id="btnSyncPush"><i class="ph ph-upload-simple" aria-hidden="true"></i>推送到 WebDAV</button>
+                        <button class="sync-menu-btn" role="menuitem" onclick="syncPull()" id="btnSyncPull"><i class="ph ph-download-simple" aria-hidden="true"></i>从 WebDAV 拉取</button>
                         <button class="sync-menu-btn" role="menuitem" onclick="syncStatus()"><i class="ph ph-info" aria-hidden="true"></i>同步状态</button>
                         <button class="sync-menu-btn" role="menuitem" onclick="batchMatchBangumi()" id="btnBatchMatch"><i class="ph ph-link" aria-hidden="true"></i>补全 Bangumi 链接</button>
                         <button class="sync-menu-btn" role="menuitem" onclick="importFromBangumi()" id="btnImportBangumi"><i class="ph ph-arrow-square-in" aria-hidden="true"></i>从 Bangumi 导入</button>

@@ -13,6 +13,18 @@ function settings(overrides = {}) {
     return config.createDemoConfig({ env: {}, ...overrides });
 }
 
+test('当演示启用WebDAV时应该只允许回环HTTP目录且凭据不进入命令行', () => {
+    for (const url of ['https://example.com/dav', 'http://192.168.1.5/dav', 'http://user:pass@127.0.0.1/dav', 'http://127.0.0.1/dav?target=remote'])
+        assert.throws(() => settings({ env: { OTAKULOG_DEMO_WEBDAV_URL: url } }), /WebDAV/);
+    const item = settings({ env: { OTAKULOG_DEMO_WEBDAV_URL: 'http://127.0.0.1:12345/dav/', OTAKULOG_DEMO_WEBDAV_PASSWORD: 'fictional-password' } });
+    assert.doesNotMatch(config.javaArguments(item).join(' '), /fictional-password/);
+    const json = JSON.parse(config.javaEnvironment(item).SPRING_APPLICATION_JSON);
+    assert.equal(json['otakulog.webdav.url'], 'http://127.0.0.1:12345/dav/');
+    assert.equal(json['otakulog.webdav.password'], 'fictional-password');
+    assert.equal(json['otakulog.webdav.filename'], 'demo-backup.json');
+    assert.equal(JSON.parse(config.javaEnvironment(settings()).SPRING_APPLICATION_JSON)['otakulog.webdav.url'], '');
+});
+
 test('当启动演示时应该每次生成独立库和临时凭据并绑定回环地址', () => {
     const first = settings(), second = settings();
     assert.match(first.database, /^otakulog_demo_[a-f0-9]{32}$/);

@@ -48,7 +48,8 @@ public class WebDavSyncServiceImpl implements WebDavSyncService {
         if (cachedClient != null) return cachedClient;
         synchronized (this) {
             if (cachedClient != null) return cachedClient;
-            String auth = Base64.getEncoder().encodeToString((username + ":" + password).getBytes());
+            // 固定认证编码，避免 Windows 与服务器默认字符集不同导致凭据变化。
+            String auth = Base64.getEncoder().encodeToString((username + ":" + password).getBytes(StandardCharsets.UTF_8));
             SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
             factory.setConnectTimeout(10_000);
             factory.setReadTimeout(10_000);

@@ -1459,19 +1459,48 @@
                 picker.classList.remove('active');
             }
         });
+        let webdavSyncBusy = false;
+        function setWebdavSyncBusy(busy) {
+            webdavSyncBusy = busy;
+            for (const id of ['btnSyncPush', 'btnSyncPull']) {
+                const button = document.getElementById(id);
+                if (button) button.disabled = busy;
+            }
+        }
+        function closeSyncMenu() {
+            document.getElementById('syncMenu')?.classList.add('is-hidden');
+            document.getElementById('syncBtn')?.setAttribute?.('aria-expanded', 'false');
+        }
         async function syncPush() {
-            document.getElementById('syncMenu').classList.add('is-hidden');
-            toast('正在推送到 WebDAV...', 'info');
-            const r = await fetchApi('/api/sync/push', { method: 'POST' });
-            if (r && r.code === 200) { toast(r.data?.message || '推送成功', 'success'); } else if (r) { toast(r.message || '推送失败', 'error'); }
+            if (webdavSyncBusy) return;
+            setWebdavSyncBusy(true);
+            try {
+                closeSyncMenu();
+                toast('正在推送到 WebDAV...', 'info');
+                const r = await fetchApi('/api/sync/push', { method: 'POST' });
+                if (r && r.code === 200) { toast(r.data?.message || '推送成功', 'success'); }
+                else if (r) { toast(r.message || '推送失败', 'error'); }
+            } catch (error) {
+                toast('推送失败，请稍后重试', 'error');
+            } finally { setWebdavSyncBusy(false); }
         }
         async function syncPull() {
-            document.getElementById('syncMenu').classList.add('is-hidden');
-            const preview = await fetchApi('/api/sync/pull/preview', { method: 'POST' });
-            if (!preview || preview.code !== 200 || !confirmBackupImport(preview.data, 'WebDAV 备份预览')) return;
-            toast('正在从 WebDAV 拉取...', 'info');
-            const r = await fetchApi('/api/sync/pull', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ fingerprint: preview.data.fingerprint }) });
-            if (r && r.code === 200) { toast(r.data?.message || '拉取成功', 'success'); performSearch(); updateStats(); } else if (r) { toast(r.message || '拉取失败', 'error'); }
+            if (webdavSyncBusy) return;
+            setWebdavSyncBusy(true);
+            try {
+                closeSyncMenu();
+                toast('正在预览 WebDAV 备份...', 'info');
+                const preview = await fetchApi('/api/sync/pull/preview', { method: 'POST' });
+                if (!preview || preview.code !== 200 || !confirmBackupImport(preview.data, 'WebDAV 备份预览')) return;
+                toast('正在从 WebDAV 拉取...', 'info');
+                const r = await fetchApi('/api/sync/pull', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ fingerprint: preview.data.fingerprint }) });
+                if (r && r.code === 200) {
+                    toast(r.data?.message || '拉取成功', 'success');
+                    await Promise.allSettled([performSearch(), updateStats(false), loadDailyWatch(), loadHeatmap()]);
+                } else if (r) { toast(r.message || '拉取失败', 'error'); }
+            } catch (error) {
+                toast('拉取失败，请稍后重试', 'error');
+            } finally { setWebdavSyncBusy(false); }
         }
         async function syncStatus() {
             document.getElementById('syncMenu').classList.add('is-hidden');

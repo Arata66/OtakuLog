@@ -68,6 +68,8 @@ jobs:
           git diff --check
       - name: 干净构建与全部 Java 测试
         run: mvn --batch-mode --no-transfer-progress clean verify
+      - name: 检查非UTF8环境下的WebDAV认证
+        run: mvn --batch-mode --no-transfer-progress -Dtest=WebDavHttpTest -DargLine=-Dfile.encoding=GBK test
       - name: 前端、演示工具与真实演示冒烟
         shell: bash
         run: |

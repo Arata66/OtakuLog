@@ -7,7 +7,16 @@ function createDemoConfig({ port = 18080, env = process.env } = {}) {
         throw new Error('演示端口必须为 1–65535，且不能占用日常预览 8080');
     const server = /^(127\.0\.0\.1|localhost):(\d+)$/.exec(env.OTAKULOG_MYSQL_SERVER || '127.0.0.1:3306');
     if (!server || Number(server[2]) < 1 || Number(server[2]) > 65535) throw new Error('演示数据库地址必须为本地回环地址和有效端口');
+    const webdavUrl = env.OTAKULOG_DEMO_WEBDAV_URL || '';
+    if (webdavUrl) {
+        let parsed;
+        try { parsed = new URL(webdavUrl); } catch { throw new Error('演示 WebDAV 地址必须为回环 HTTP 目录'); }
+        if (parsed.protocol !== 'http:' || !['127.0.0.1', 'localhost'].includes(parsed.hostname)
+            || parsed.username || parsed.password || parsed.search || parsed.hash)
+            throw new Error('演示 WebDAV 地址必须为回环 HTTP 目录，且不携带凭据或查询参数');
+    }
     return { port: Number(port), url: `http://127.0.0.1:${port}`, env: { ...env },
+        webdavUrl,
         host: '127.0.0.1', mysqlPort: Number(server[2]), user: env.DB_USER || 'root', password: env.DB_PASS || '123456',
         database: 'otakulog_demo_' + randomUUID().replaceAll('-', ''), loginUser: 'demo', loginPassword: randomBytes(24).toString('base64url'),
         root: path.resolve(__dirname, '../..'), java: env.JAVA_HOME ? path.join(env.JAVA_HOME, 'bin', process.platform === 'win32' ? 'java.exe' : 'java') : 'java' };
@@ -25,7 +34,7 @@ function javaArguments(config) {
         `--spring.datasource.username=${config.user}`, '--spring.datasource.driver-class-name=com.mysql.cj.jdbc.Driver',
         '--spring.jpa.hibernate.ddl-auto=validate', '--spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.MySQLDialect',
         '--spring.flyway.enabled=true', '--spring.flyway.locations=classpath:db/migration,classpath:com/otakulog',
-        '--spring.flyway.out-of-order=true', '--otakulog.webdav.url='];
+        '--spring.flyway.out-of-order=true'];
 }
 
 function javaEnvironment(config) {
@@ -33,7 +42,12 @@ function javaEnvironment(config) {
     return { ...config.env, SPRING_APPLICATION_JSON: JSON.stringify({
         'spring.datasource.password': config.password,
         'app.admin.username': config.loginUser, 'app.admin.password': config.loginPassword,
-        'otakulog.bangumi.base-url': config.env.OTAKULOG_BANGUMI_BASE_URL || 'https://api.bgm.tv'
+        'otakulog.bangumi.base-url': config.env.OTAKULOG_BANGUMI_BASE_URL || 'https://api.bgm.tv',
+        // 演示只连接显式传入的回环测试服务，默认覆盖并关闭自用 WebDAV 配置。
+        'otakulog.webdav.url': config.webdavUrl,
+        'otakulog.webdav.username': config.webdavUrl ? config.env.OTAKULOG_DEMO_WEBDAV_USERNAME || 'demo' : '',
+        'otakulog.webdav.password': config.webdavUrl ? config.env.OTAKULOG_DEMO_WEBDAV_PASSWORD || '' : '',
+        'otakulog.webdav.filename': 'demo-backup.json'
     }) };
 }
 
