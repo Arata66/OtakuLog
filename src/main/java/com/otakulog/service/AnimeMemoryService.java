@@ -8,6 +8,7 @@ import com.otakulog.dto.AnimeMemoryDTO.WriteRequest;
 import com.otakulog.entity.AnimeMemory;
 import com.otakulog.enums.MemoryContext;
 import com.otakulog.repository.AnimeMemoryRepository;
+import com.otakulog.repository.MemoryInsightRepository;
 import com.otakulog.repository.AnimeRepository;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
@@ -25,10 +26,16 @@ import java.util.UUID;
 public class AnimeMemoryService {
     private final AnimeRepository anime;
     private final AnimeMemoryRepository memories;
+    private final MemoryInsightRepository insights;
     @PersistenceContext
     private EntityManager entityManager;
-    public AnimeMemoryService(AnimeRepository anime, AnimeMemoryRepository memories) {
-        this.anime = anime; this.memories = memories;
+    public AnimeMemoryService(AnimeRepository anime, AnimeMemoryRepository memories, MemoryInsightRepository insights) {
+        this.anime = anime; this.memories = memories; this.insights = insights;
+    }
+
+    @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
+    public Entry getEntry(Long animeId, Long memoryId) {
+        return Entry.from(ownedMemory(animeId, memoryId));
     }
 
     @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
@@ -80,6 +87,7 @@ public class AnimeMemoryService {
         lockAnime(animeId);
         AnimeMemory value = ownedMemory(animeId, memoryId);
         checkVersion(value, expectedVersion);
+        insights.deleteByMemoryId(memoryId);
         memories.delete(value);
         memories.flush();
     }

@@ -16,6 +16,10 @@ public class AnimeMemoryController {
             @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "20") int size) {
         return ApiResponse.success(service.get(id, page, size));
     }
+    @GetMapping("/{memoryId}")
+    public ApiResponse<AnimeMemoryDTO.Entry> getEntry(@PathVariable Long id, @PathVariable Long memoryId) {
+        return ApiResponse.success(service.getEntry(id, memoryId));
+    }
     @PostMapping
     public ApiResponse<AnimeMemoryDTO.Entry> create(@PathVariable Long id, @RequestBody AnimeMemoryDTO.WriteRequest request) {
         return ApiResponse.success(service.create(id, request));

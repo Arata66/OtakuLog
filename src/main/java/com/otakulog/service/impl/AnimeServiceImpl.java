@@ -11,6 +11,7 @@ import com.otakulog.entity.Tag;
 import com.otakulog.enums.AnimeStatus;
 import com.otakulog.repository.AnimeRepository;
 import com.otakulog.repository.AnimeMemoryRepository;
+import com.otakulog.repository.MemoryInsightRepository;
 import com.otakulog.repository.EpisodeRecordRepository;
 import com.otakulog.repository.TagRepository;
 import com.otakulog.dto.BangumiResult;
@@ -37,6 +38,7 @@ public class AnimeServiceImpl implements AnimeService {
 
     private final AnimeRepository animeRepository;
     private final AnimeMemoryRepository memoryRepository;
+    private final MemoryInsightRepository insightRepository;
     private final BangumiService bangumiService;
     private final EpisodeRecordRepository episodeRecordRepository;
     private final TagRepository tagRepository;
@@ -47,9 +49,10 @@ public class AnimeServiceImpl implements AnimeService {
     public AnimeServiceImpl(AnimeRepository animeRepository, BangumiService bangumiService,
                             EpisodeRecordRepository episodeRecordRepository, TagRepository tagRepository,
                             WatchProgressService watchProgress, BackupService backup, BangumiImportService bangumiImport,
-                            AnimeMemoryRepository memoryRepository) {
+                            AnimeMemoryRepository memoryRepository, MemoryInsightRepository insightRepository) {
         this.animeRepository = animeRepository;
         this.memoryRepository = memoryRepository;
+        this.insightRepository = insightRepository;
         this.bangumiService = bangumiService;
         this.episodeRecordRepository = episodeRecordRepository;
         this.tagRepository = tagRepository;
@@ -195,6 +198,7 @@ public class AnimeServiceImpl implements AnimeService {
         animeRepository.findByIdForUpdate(id).orElseThrow(() -> new ResourceNotFoundException("未找到该番剧"));
         // 级联删除关联的观看记录，避免孤儿数据
         episodeRecordRepository.deleteByAnimeId(id);
+        insightRepository.deleteByAnimeId(id);
         memoryRepository.deleteByAnimeId(id);
         animeRepository.deleteById(id);
     }
@@ -206,6 +210,7 @@ public class AnimeServiceImpl implements AnimeService {
             // 与记忆写入共用作品锁，避免删除时新增孤儿记录。
             animeRepository.findByIdForUpdate(id);
             episodeRecordRepository.deleteByAnimeId(id);
+            insightRepository.deleteByAnimeId(id);
             memoryRepository.deleteByAnimeId(id);
         }
         animeRepository.deleteAllById(ids);
