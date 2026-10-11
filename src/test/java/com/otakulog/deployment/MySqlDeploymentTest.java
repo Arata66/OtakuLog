@@ -87,7 +87,11 @@ class MySqlDeploymentTest {
     }
 
     private ConfigurableApplicationContext startApplication(String database) {
-        return SpringApplication.run(OtakuLogApplication.class,
+        return startApplication(database, new String[0]);
+    }
+
+    private ConfigurableApplicationContext startApplication(String database, String... extra) {
+        var args = new java.util.ArrayList<String>(java.util.List.of(
                 "--server.port=0", "--server.address=127.0.0.1",
                 "--spring.datasource.url=" + url(database),
                 "--spring.datasource.username=" + user, "--spring.datasource.password=" + password,
@@ -95,7 +99,219 @@ class MySqlDeploymentTest {
                 "--spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.MySQLDialect",
                 "--spring.jpa.hibernate.ddl-auto=validate", "--spring.flyway.enabled=true",
                 "--spring.flyway.locations=classpath:db/migration,classpath:com/otakulog",
-                "--spring.flyway.out-of-order=true");
+                "--spring.flyway.out-of-order=true"));
+        args.addAll(java.util.List.of(extra));
+        return SpringApplication.run(OtakuLogApplication.class, args.toArray(String[]::new));
+    }
+
+    @Test
+    void 当MySQL从V10升级并恢复历史运行调用后重启时应该保留观点且不会恢复外发任务() throws Exception {
+        withDatabase(database -> {
+            flyway(database, "10").migrate();
+            try (FakeAi fake = new FakeAi()) {
+                String json, historyKey;
+                try (var app = startApplication(database, fake.config())) {
+                    var memory = tasteMemory(database, app, "画像重启验收");
+                    var ai = app.getBean(com.otakulog.service.TasteAiService.class);
+                    ai.extract(1L, memory.id(), aiRequest(0L, UUID.randomUUID().toString()));
+                    var backup = app.getBean(BackupService.class);
+                    var doc = (com.fasterxml.jackson.databind.node.ObjectNode) new com.fasterxml.jackson.databind.ObjectMapper().readTree(backup.exportJson());
+                    var history = ((com.fasterxml.jackson.databind.node.ObjectNode) doc.path("aiCalls").get(0)).deepCopy();
+                    historyKey = UUID.randomUUID().toString(); history.put("requestKey", historyKey); history.put("status", "RUNNING"); history.putNull("completedAt");
+                    ((com.fasterxml.jackson.databind.node.ArrayNode) doc.path("aiCalls")).add(history);
+                    json = doc.toString();
+                    assertEquals(true, backup.previewJson(json).get("valid"));
+                    backup.importJson(json); backup.importJson(json);
+                    assertEquals(1, fake.count.get());
+                    assertEquals("1", query(database, "SELECT COUNT(*) FROM ai_call WHERE history_only=1"));
+                    assertEquals("1", query(database, "SELECT COUNT(*) FROM ai_call WHERE history_only=0"));
+                }
+                try (var app = startApplication(database, fake.config())) {
+                    var backup = app.getBean(BackupService.class); var ai = app.getBean(com.otakulog.service.TasteAiService.class);
+                    assertTrue(ai.get(historyKey).message().contains("未知"));
+                    backup.importJson(json); assertEquals(1, fake.count.get());
+                    var memory = app.getBean(com.otakulog.repository.AnimeMemoryRepository.class).findAll().get(0);
+                    assertTrue(ai.extract(1L, memory.getId(), aiRequest(0L, historyKey)).message().contains("未知"));
+                    assertEquals(1, fake.count.get());
+                    var changed = new com.otakulog.dto.TasteAiDTO.Request(0L, java.util.Map.of("content", "人物"), UUID.randomUUID().toString());
+                    assertEquals(com.otakulog.enums.AiCallStatus.SUCCEEDED, ai.extract(1L, memory.getId(), changed).status());
+                    assertEquals(2, fake.count.get());
+                    app.getBean(AnimeService.class).deleteAnime(1L);
+                    assertEquals("0", query(database, "SELECT COUNT(*) FROM memory_insight"));
+                    assertEquals("3", query(database, "SELECT COUNT(*) FROM ai_call"));
+                    backup.importJson(json);
+                    Long restored = app.getBean(AnimeRepository.class).findAll().get(0).getId();
+                    app.getBean(AnimeService.class).batchDelete(java.util.List.of(restored));
+                    assertEquals("0", query(database, "SELECT COUNT(*) FROM memory_insight"));
+                    assertEquals("3", query(database, "SELECT COUNT(*) FROM ai_call"));
+                }
+            }
+        });
+    }
+
+    @Test
+    void 当MySQL同请求键并发提炼时应该只外发一次并保留真实用量() throws Exception {
+        withDatabase(database -> {
+            try (FakeAi fake = new FakeAi(); var app = startApplication(database, fake.config())) {
+                var memory = tasteMemory(database, app, "AI并发验收"); fake.block = true;
+                var ai = app.getBean(com.otakulog.service.TasteAiService.class); var request = aiRequest(0L, UUID.randomUUID().toString());
+                var executor = Executors.newFixedThreadPool(2);
+                try {
+                    var first = executor.submit(() -> ai.extract(1L, memory.id(), request));
+                    assertTrue(fake.entered.await(10, TimeUnit.SECONDS));
+                    var second = executor.submit(() -> ai.extract(1L, memory.id(), request));
+                    assertEquals(com.otakulog.enums.AiCallStatus.RUNNING, second.get(15, TimeUnit.SECONDS).status());
+                    fake.release.countDown();
+                    assertEquals(com.otakulog.enums.AiCallStatus.SUCCEEDED, first.get(15, TimeUnit.SECONDS).status());
+                    assertEquals(1, fake.count.get()); assertEquals("1", query(database, "SELECT COUNT(*) FROM ai_call"));
+                    assertEquals("9", query(database, "SELECT prompt_tokens FROM ai_call"));
+                } finally { fake.release.countDown(); executor.shutdownNow(); }
+            }
+        });
+    }
+
+    @Test
+    void 当MySQL等待模型期间改动原文时应该保存迟到用量并将结果标为失效() throws Exception {
+        withDatabase(database -> {
+            try (FakeAi fake = new FakeAi(); var app = startApplication(database, fake.config())) {
+                var memory = tasteMemory(database, app, "AI迟到验收"); fake.block = true;
+                var executor = Executors.newSingleThreadExecutor();
+                try {
+                    var future = executor.submit(() -> app.getBean(com.otakulog.service.TasteAiService.class).extract(1L, memory.id(), aiRequest(0L, UUID.randomUUID().toString())));
+                    assertTrue(fake.entered.await(10, TimeUnit.SECONDS));
+                    app.getBean(com.otakulog.service.AnimeMemoryService.class).update(1L, memory.id(), new com.otakulog.dto.AnimeMemoryDTO.WriteRequest(null, "现在改了看法", null, null, null, com.otakulog.enums.MemoryContext.NOTE, null, 0L));
+                    fake.release.countDown();
+                    assertEquals(com.otakulog.enums.AiCallStatus.STALE, future.get(15, TimeUnit.SECONDS).status());
+                    assertEquals("4", query(database, "SELECT completion_tokens FROM ai_call"));
+                    assertEquals("0", query(database, "SELECT COUNT(*) FROM memory_insight"));
+                } finally { fake.release.countDown(); executor.shutdownNow(); }
+            }
+        });
+    }
+
+    @Test
+    void 当MySQL预算预留与恢复并发时应该无死锁并保留额度计数() throws Exception {
+        withDatabase(database -> {
+            try (FakeAi fake = new FakeAi(); var app = startApplication(database, fake.config())) {
+                var memory = tasteMemory(database, app, "恢复并发验收"); var backup = app.getBean(BackupService.class);
+                String json = backup.exportJson(); var executor = Executors.newFixedThreadPool(2); var start = new CountDownLatch(1);
+                try {
+                    var restore = executor.submit(() -> { start.await(); return backup.importJson(json); });
+                    var extract = executor.submit(() -> { start.await(); return app.getBean(com.otakulog.service.TasteAiService.class).extract(1L, memory.id(), aiRequest(0L, UUID.randomUUID().toString())); });
+                    start.countDown(); assertEquals(true, restore.get(20, TimeUnit.SECONDS).get("valid"));
+                    assertEquals(com.otakulog.enums.AiCallStatus.SUCCEEDED, extract.get(20, TimeUnit.SECONDS).status());
+                    assertEquals("1", query(database, "SELECT reserved_calls FROM ai_quota"));
+                    backup.importJson("[]"); assertEquals("1", query(database, "SELECT reserved_calls FROM ai_quota"));
+                } finally { start.countDown(); executor.shutdownNow(); }
+            }
+        });
+    }
+
+    @Test
+    void 当MySQL恢复调用写入真实失败时应该回滚全部集合与额度() throws Exception {
+        withDatabase(database -> {
+            try (FakeAi fake = new FakeAi(); var app = startApplication(database, fake.config())) {
+                var memory = tasteMemory(database, app, "恢复回滚验收");
+                app.getBean(com.otakulog.service.TasteAiService.class).extract(1L, memory.id(), aiRequest(0L, UUID.randomUUID().toString()));
+                execute(database, "UPDATE anime SET current_episode=1 WHERE id=1");
+                execute(database, "INSERT INTO tag (name,created_at) VALUES ('虚构人物','2026-01-01 12:00:00')");
+                execute(database, "INSERT INTO anime_tag (anime_id,tag_id) VALUES (1,1)");
+                execute(database, "INSERT INTO anime_group (name,description,color,sort_order) VALUES ('虚构回滚分组','整批验收','#123456',1)");
+                execute(database, "INSERT INTO anime_group_relation (anime_id,group_id) VALUES (1,1)");
+                execute(database, "INSERT INTO episode_record (anime_id,episode_number,watched_date,record_source) VALUES (1,1,'2026-01-01','WATCHED')");
+                var backup = app.getBean(BackupService.class); String json = backup.exportJson();
+                execute(database, "DELETE FROM anime"); execute(database, "DELETE FROM ai_call");
+                execute(database, "DELETE FROM tag"); execute(database, "DELETE FROM anime_group");
+                var mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+                var before = (com.fasterxml.jackson.databind.node.ObjectNode) mapper.readTree(backup.exportJson()); before.remove("exportedAt");
+                execute(database, "CREATE TRIGGER reject_call BEFORE INSERT ON ai_call FOR EACH ROW SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='隔离验收失败'");
+                assertThrows(RuntimeException.class, () -> backup.importJson(json));
+                var after = (com.fasterxml.jackson.databind.node.ObjectNode) mapper.readTree(backup.exportJson()); after.remove("exportedAt");
+                assertEquals(before, after);
+                assertEquals("0", query(database, "SELECT COUNT(*) FROM anime"));
+                assertEquals("0", query(database, "SELECT COUNT(*) FROM anime_memory"));
+                assertEquals("0", query(database, "SELECT COUNT(*) FROM memory_insight"));
+                assertEquals("0", query(database, "SELECT COUNT(*) FROM ai_call"));
+                for (String table : new String[]{"tag", "anime_group", "anime_tag", "anime_group_relation", "episode_record"})
+                    assertEquals("0", query(database, "SELECT COUNT(*) FROM " + table), table);
+                assertEquals("1", query(database, "SELECT reserved_calls FROM ai_quota"));
+                assertEquals(1, fake.count.get());
+            }
+        });
+    }
+
+    private com.otakulog.dto.AnimeMemoryDTO.Entry tasteMemory(String database, ConfigurableApplicationContext app, String name) throws Exception {
+        execute(database, "INSERT INTO anime (name,current_episode,total_episodes,status,legacy) VALUES ('" + name + "',0,12,'WATCHING',0)");
+        return app.getBean(com.otakulog.service.AnimeMemoryService.class).create(1L, new com.otakulog.dto.AnimeMemoryDTO.WriteRequest(UUID.randomUUID().toString(), "人物关系细腻", null, null, null, com.otakulog.enums.MemoryContext.NOTE, null, null));
+    }
+
+    @Test
+    void 当MySQL恢复锁前并发记看和编辑资料时应该保留最新进度逐集与资料() throws Exception {
+        withDatabase(database -> {
+            try (var app = startApplication(database)) {
+                execute(database, "INSERT INTO anime (name,current_episode,total_episodes,status,remark,score,legacy) VALUES ('恢复锁间隙验收',1,12,'WATCHING','旧资料',5,0)");
+                execute(database, "INSERT INTO episode_record (anime_id,episode_number,watched_date,record_source) VALUES (1,1,'2026-01-01','WATCHED')");
+                var backup = app.getBean(BackupService.class);
+                var doc = (com.fasterxml.jackson.databind.node.ObjectNode) new com.fasterxml.jackson.databind.ObjectMapper().readTree(backup.exportJson());
+                ((com.fasterxml.jackson.databind.node.ObjectNode) doc.path("anime").get(0).path("data")).put("currentEpisode", 2);
+                String json = doc.toString();
+                var entered = new CountDownLatch(1); var release = new CountDownLatch(1);
+                var restoreThread = new java.util.concurrent.atomic.AtomicReference<Thread>();
+                var intercepted = new java.util.concurrent.atomic.AtomicBoolean();
+                var repository = (org.springframework.aop.framework.Advised) app.getBean(AnimeRepository.class);
+                // 仅暂停恢复线程第一次取得作品锁，其他窗口的正常操作可以提交。
+                org.aopalliance.intercept.MethodInterceptor pause = invocation -> {
+                    if (Thread.currentThread() == restoreThread.get() && invocation.getMethod().getName().equals("findByIdForUpdate")
+                            && intercepted.compareAndSet(false, true)) {
+                        entered.countDown();
+                        if (!release.await(10, TimeUnit.SECONDS)) throw new IllegalStateException("恢复锁间隙等待超时");
+                    }
+                    return invocation.proceed();
+                };
+                repository.addAdvice(0, pause);
+                var executor = Executors.newSingleThreadExecutor();
+                try {
+                    var future = executor.submit(() -> { restoreThread.set(Thread.currentThread()); return backup.importJson(json); });
+                    assertTrue(entered.await(10, TimeUnit.SECONDS));
+                    var service = app.getBean(AnimeService.class);
+                    service.nextEpisode(1L); service.nextEpisode(1L);
+                    var edit = new com.otakulog.dto.AnimeUpdateDTO(); edit.setName("恢复锁间隙验收");
+                    edit.setSeason("2026秋"); edit.setTotalEpisodes(12); edit.setScore(9.0); edit.setRemark("新资料");
+                    service.updateAnime(1L, edit);
+                    release.countDown(); assertEquals(true, future.get(20, TimeUnit.SECONDS).get("valid"));
+                    assertEquals("3", query(database, "SELECT current_episode FROM anime"));
+                    assertEquals("3", query(database, "SELECT COUNT(*) FROM episode_record WHERE record_source='WATCHED'"));
+                    assertEquals("新资料", query(database, "SELECT remark FROM anime"));
+                    assertEquals(9.0, Double.parseDouble(query(database, "SELECT score FROM anime")));
+                } finally { release.countDown(); executor.shutdownNow(); repository.removeAdvice(pause); }
+            }
+        });
+    }
+
+    private com.otakulog.dto.TasteAiDTO.Request aiRequest(Long version, String key) {
+        return new com.otakulog.dto.TasteAiDTO.Request(version, null, key);
+    }
+
+    private static class FakeAi implements AutoCloseable {
+        final com.sun.net.httpserver.HttpServer server;
+        final java.util.concurrent.atomic.AtomicInteger count = new java.util.concurrent.atomic.AtomicInteger();
+        final CountDownLatch entered = new CountDownLatch(1), release = new CountDownLatch(1);
+        volatile boolean block;
+        FakeAi() throws Exception {
+            server = com.sun.net.httpserver.HttpServer.create(new java.net.InetSocketAddress("127.0.0.1", 0), 0);
+            server.createContext("/", exchange -> {
+                count.incrementAndGet(); exchange.getRequestBody().readAllBytes(); entered.countDown();
+                try { if (block && !release.await(20, TimeUnit.SECONDS)) throw new IllegalStateException("假服务等待超时"); }
+                catch (InterruptedException e) { Thread.currentThread().interrupt(); }
+                String response = "{\"choices\":[{\"finish_reason\":\"stop\",\"message\":{\"content\":\"{\\\"insights\\\":[{\\\"quoteField\\\":\\\"CONTENT\\\",\\\"quote\\\":\\\"人物\\\",\\\"statement\\\":\\\"喜欢人物\\\",\\\"direction\\\":\\\"LIKE\\\",\\\"aspect\\\":\\\"CHARACTER\\\",\\\"factor\\\":\\\"人物\\\"}]}\"}}],\"usage\":{\"prompt_tokens\":9,\"completion_tokens\":4}}";
+                byte[] bytes = response.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+                exchange.sendResponseHeaders(200, bytes.length); exchange.getResponseBody().write(bytes); exchange.close();
+            }); server.start();
+        }
+        String[] config() {
+            return new String[]{"--app.ai.enabled=true", "--app.ai.api-key=isolated-fake", "--app.ai.endpoint=http://127.0.0.1:" + server.getAddress().getPort() + "/", "--app.ai.response-timeout-ms=25000"};
+        }
+        @Override public void close() { release.countDown(); server.stop(0); }
     }
 
     @Test

@@ -45,9 +45,12 @@ class AnimeServiceImplTest {
 
     @BeforeEach
     void setUp() {
+        BackupTestQuota.seed(backupQuota);
         episodeRecordRepository.deleteAll();
         animeRepository.deleteAll();
     }
+
+    @Autowired private com.otakulog.repository.AiQuotaRepository backupQuota;
 
     private AnimeDTO createDTO(String name, int total, String season, double score) {
         AnimeDTO dto = new AnimeDTO();

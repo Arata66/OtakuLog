@@ -7,8 +7,7 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.otakulog.dto.BackupDocument;
 import com.otakulog.dto.BackupDocument.*;
 import com.otakulog.entity.*;
-import com.otakulog.enums.AnimeStatus;
-import com.otakulog.enums.EpisodeRecordSource;
+import com.otakulog.enums.*;
 import com.otakulog.repository.*;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
@@ -28,6 +27,9 @@ public class BackupService {
     private final AnimeGroupRepository groups;
     private final EpisodeRecordRepository episodes;
     private final AnimeMemoryRepository memories;
+    private final MemoryInsightRepository insights;
+    private final AiCallRepository aiCalls;
+    private final AiQuotaRepository quota;
     private final ObjectMapper mapper = new ObjectMapper().registerModule(new JavaTimeModule())
             .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
             .disable(MapperFeature.ALLOW_COERCION_OF_SCALARS)
@@ -37,8 +39,10 @@ public class BackupService {
             .enable(JsonParser.Feature.STRICT_DUPLICATE_DETECTION);
 
     public BackupService(AnimeRepository anime, TagRepository tags, AnimeGroupRepository groups,
-                         EpisodeRecordRepository episodes, AnimeMemoryRepository memories) {
+                         EpisodeRecordRepository episodes, AnimeMemoryRepository memories,
+                         MemoryInsightRepository insights, AiCallRepository aiCalls, AiQuotaRepository quota) {
         this.anime = anime; this.tags = tags; this.groups = groups; this.episodes = episodes; this.memories = memories;
+        this.insights = insights; this.aiCalls = aiCalls; this.quota = quota;
     }
 
     @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
@@ -50,7 +54,9 @@ public class BackupService {
             groups.findAnimeIdsByGroupId(group.getId()).stream().sorted()
                     .forEach(id -> links.add(new Membership("g:" + group.getId(), "a:" + id)));
         }
-        var document = new BackupDocument("otakulog-backup", 2, LocalDateTime.now(),
+        var allMemories = memories.findAll(Sort.by("id"));
+        var memoryKeys = allMemories.stream().collect(Collectors.toMap(AnimeMemory::getId, AnimeMemory::getMemoryKey));
+        var document = new BackupDocument("otakulog-backup", 3, LocalDateTime.now(),
                 allAnime.stream().map(a -> new AnimeEntry("a:" + a.getId(), data(a),
                         a.getTags().stream().sorted(Comparator.comparing(Tag::getId))
                                 .map(t -> "t:" + t.getId()).toList())).toList(),
@@ -60,10 +66,12 @@ public class BackupService {
                 episodes.findAll(Sort.by("animeId", "episodeNumber")).stream().map(e -> new EpisodeEntry(
                         "a:" + e.getAnimeId(), e.getEpisodeNumber(), e.getWatchedDate(), e.getSource(),
                         e.getCreatedAt(), e.getUpdatedAt())).toList(),
-                memories.findAll(Sort.by("id")).stream().map(m -> new MemoryEntry(
+                allMemories.stream().map(m -> new MemoryEntry(
                         m.getMemoryKey(), "a:" + m.getAnimeId(), m.getContent(), m.getLiked(), m.getDisliked(),
                         m.getScope(), m.getContext(), m.getWatchedDate(), m.getVersion(),
-                        m.getCreatedAt(), m.getUpdatedAt())).toList());
+                        m.getCreatedAt(), m.getUpdatedAt())).toList(),
+                insights.findAll(Sort.by("id")).stream().map(i -> insightEntry(i, memoryKeys.get(i.getMemoryId()))).toList(),
+                aiCalls.findAll(Sort.by("id")).stream().map(BackupService::callEntry).toList());
         try {
             return mapper.writerWithDefaultPrettyPrinter().writeValueAsString(document);
         } catch (Exception e) { throw new IllegalStateException("备份导出失败", e); }
@@ -79,9 +87,13 @@ public class BackupService {
         }
     }
 
-    @Transactional(isolation = Isolation.SERIALIZABLE)
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public Map<String, Object> importJson(String json) {
         Input input = parse(json);
+        // 与付费预留共用锁顺序，旧格式恢复也不能绕过额度保护。
+        AiQuota lockedQuota = quota.findSingletonForUpdate().orElseThrow(() -> new IllegalStateException("AI额度行缺失，请先完成数据库迁移"));
+        LocalDate today = LocalDate.now();
+        int retainedCalls = today.equals(lockedQuota.getQuotaDate()) ? lockedQuota.getReservedCalls() : 0;
         Analysis analysis = analyze(input, true);
         if (!analysis.conflicts.isEmpty()) throw new IllegalArgumentException(String.join("；", analysis.conflicts));
         BackupDocument doc = input.document;
@@ -137,22 +149,39 @@ public class BackupService {
                 target.setWatchedDate(e.watchedDate()); target.setSource(e.source()); episodes.save(target);
             }
         }
+        Map<String, AnimeMemory> memoryMap = new HashMap<>();
         for (var m : doc.memories()) {
-            if (memories.findByMemoryKey(m.key()).isPresent()) continue;
+            var existing = memories.findByMemoryKey(m.key()).orElse(null);
+            if (existing != null) { memoryMap.put(m.key(), existing); continue; }
             AnimeMemory target = new AnimeMemory();
             target.setMemoryKey(m.key()); target.setAnimeId(animeMap.get(m.animeKey()).getId());
             target.setContent(m.content()); target.setLiked(m.liked()); target.setDisliked(m.disliked());
             target.setScope(m.scope()); target.setContext(m.context()); target.setWatchedDate(m.watchedDate());
             target.setVersion(m.version()); target.setCreatedAt(m.createdAt()); target.setUpdatedAt(m.updatedAt());
-            memories.save(target);
+            memoryMap.put(m.key(), memories.save(target));
         }
+        for (var i : doc.insights()) {
+            if (insights.findByInsightKey(i.key()).isPresent()) continue;
+            insights.save(restoreInsight(i, memoryMap.get(i.memoryKey()).getId()));
+        }
+        for (var c : doc.aiCalls()) {
+            if (aiCalls.findByRequestKey(c.requestKey()).isPresent()) continue;
+            aiCalls.save(restoreCall(c));
+        }
+        long mergedCount = aiCalls.countCreatedInDay(today.atStartOfDay(), today.plusDays(1).atStartOfDay());
+        require(mergedCount <= Integer.MAX_VALUE, "当日调用记录超出额度计数范围");
+        lockedQuota.setQuotaDate(today);
+        lockedQuota.setReservedCalls(Math.max(retainedCalls, (int) mergedCount));
+        quota.save(lockedQuota);
         return analysis.summary;
     }
 
     private Analysis analyze(Input input, boolean lock) {
         var doc = input.document;
-        List<Anime> localAnime = anime.findAll(Sort.by("id"));
-        if (lock) localAnime = localAnime.stream().map(a -> anime.findByIdForUpdate(a.getId()).orElseThrow()).toList();
+        // 恢复取得作品锁后才载入实体，避免一级缓存把锁前进度和资料带回写入。
+        List<Anime> localAnime = lock
+                ? anime.findAllIdsForRestore().stream().map(id -> anime.findByIdForUpdate(id).orElseThrow()).toList()
+                : anime.findAll(Sort.by("id"));
         List<String> conflicts = new ArrayList<>();
         Map<String, Anime> matches = new HashMap<>();
         for (var entry : doc.anime()) {
@@ -199,6 +228,25 @@ public class BackupService {
             if (target == null || !Objects.equals(local.getAnimeId(), target.getId()) || !sameMemory(local, m))
                 conflicts.add("观影记忆 " + m.key() + "：所属作品或内容与本地不同，请保留两份后核对");
         }
+        int newInsights = 0, newCalls = 0;
+        Map<String, Integer> addedInsights = new HashMap<>();
+        for (var i : doc.insights()) {
+            var local = insights.findByInsightKey(i.key()).orElse(null);
+            if (local == null) { newInsights++; addedInsights.merge(i.memoryKey(), 1, Integer::sum); continue; }
+            var owner = memories.findById(local.getMemoryId()).orElse(null);
+            if (owner == null || !insightEntry(local, owner.getMemoryKey()).equals(i))
+                conflicts.add("观点 " + i.key() + "：所属记忆或内容与本地不同");
+        }
+        for (var entry : addedInsights.entrySet()) {
+            var owner = memories.findByMemoryKey(entry.getKey()).orElse(null);
+            long existing = owner == null ? 0 : insights.countByMemoryId(owner.getId());
+            if (existing + entry.getValue() > 200) conflicts.add("记忆 " + entry.getKey() + "：合并后观点超过200条");
+        }
+        for (var c : doc.aiCalls()) {
+            var local = aiCalls.findByRequestKey(c.requestKey()).orElse(null);
+            if (local == null) { newCalls++; continue; }
+            if (!callEntry(local).equals(c)) conflicts.add("调用 " + c.requestKey() + "：归属或历史与本地不同");
+        }
         Set<String> localTags = tags.findAll().stream().map(Tag::getName).collect(Collectors.toSet());
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("valid", conflicts.isEmpty()); result.put("format", "otakulog-backup"); result.put("version", doc.version()); result.put("legacy", input.legacy);
@@ -208,6 +256,8 @@ public class BackupService {
         result.put("memberships", doc.memberships().size()); result.put("episodes", doc.episodes().size());
         result.put("newEpisodes", newEpisodes); result.put("filledDates", filledDates);
         result.put("memories", doc.memories().size()); result.put("newMemories", newMemories);
+        result.put("insights", doc.insights().size()); result.put("newInsights", newInsights);
+        result.put("aiCalls", doc.aiCalls().size()); result.put("newAiCalls", newCalls);
         result.put("warnings", input.legacy ? List.of("旧格式没有逐集日期和分组，缺失记录仅补未知日期。", "已有资料和更高进度会保留，标签与分组关联取并集。")
                 : List.of("已有资料和更高进度会保留，标签与分组关联取并集；本地额外数据不会删除。"));
         result.put("conflicts", conflicts);
@@ -224,12 +274,22 @@ public class BackupService {
             else {
                 require(root.isObject() && "otakulog-backup".equals(root.path("format").asText()), "备份格式不受支持");
                 require(root.path("version").isIntegralNumber()
-                        && (root.path("version").longValue() == 1 || root.path("version").longValue() == 2), "备份版本不受支持");
+                        && root.path("version").longValue() >= 1 && root.path("version").longValue() <= 3, "备份版本不受支持");
+                if (root.path("version").intValue() < 3) {
+                    require(!root.has("insights") && !root.has("aiCalls"), "旧版本不能包含观点或调用历史，请使用版本三");
+                    ((ObjectNode) root).putArray("insights"); ((ObjectNode) root).putArray("aiCalls");
+                }
                 if (root.path("version").intValue() == 1) {
                     require(!root.has("memories"), "版本一不能包含观影记忆，请使用版本二");
                     ((ObjectNode) root).putArray("memories");
                 }
                 fields(root, BackupDocument.class);
+                require(root.path("insights").isArray() && root.path("aiCalls").isArray(), "观点与调用集合必须为数组");
+                for (JsonNode entry : root.path("insights")) { fields(entry, InsightEntry.class); auditFields(entry); }
+                for (JsonNode entry : root.path("aiCalls")) {
+                    fields(entry, AiCallEntry.class); auditFields(entry);
+                    require(entry.path("completedAt").isNull() || entry.path("completedAt").isTextual(), "调用完成时间必须为ISO文字或null");
+                }
                 require(root.path("memories").isArray(), "观影记忆集合必须为数组");
                 for (JsonNode entry : root.path("memories")) {
                     fields(entry, MemoryEntry.class);
@@ -270,6 +330,7 @@ public class BackupService {
             // 数据库保存到微秒，拒绝更细时间，避免再次恢复原文件时被舍入差异误判冲突。
             require(m.createdAt().getNano() % 1000 == 0 && m.updatedAt().getNano() % 1000 == 0, "观影记忆审计时间最多支持微秒精度");
         }
+        validateTaste(d);
         Set<String> names = new HashSet<>(); Set<Integer> ids = new HashSet<>();
         for (var entry : d.anime()) {
             var data = entry.data(); require(data != null, "缺少作品资料");
@@ -347,6 +408,65 @@ public class BackupService {
                 List.copyOf(tagEntries.values()), List.of(), List.of(), records);
     }
 
+    private static InsightEntry insightEntry(MemoryInsight i, String memoryKey) {
+        return new InsightEntry(i.getInsightKey(), memoryKey,
+                i.getSourceVersion(), i.getQuoteField(), i.getQuote(), i.getStatement(), i.getDirection(),
+                i.getAspect(), i.getFactor(), i.getStatus(), i.getOrigin(), i.getAiCallKey(),
+                i.getSuggestedQuoteField(), i.getSuggestedQuote(), i.getSuggestedStatement(),
+                i.getSuggestedDirection(), i.getSuggestedAspect(), i.getSuggestedFactor(),
+                i.getVersion(), i.getCreatedAt(), i.getUpdatedAt());
+    }
+    private static AiCallEntry callEntry(AiCall c) {
+        return new AiCallEntry(c.getRequestKey(), c.getMemoryKey(), c.getSourceVersion(), c.getInputHash(),
+                c.getModel(), c.getPromptVersion(), c.getSelectedCharacters(), c.getStatus(), c.getErrorCategory(),
+                c.getPromptTokens(), c.getCompletionTokens(), c.getCachedTokens(), c.getReasoningTokens(),
+                c.getCreatedAt(), c.getUpdatedAt(), c.getCompletedAt());
+    }
+    private static MemoryInsight restoreInsight(InsightEntry i, Long memoryId) {
+        var target = new MemoryInsight(); target.setInsightKey(i.key()); target.setMemoryId(memoryId);
+        target.setSourceVersion(i.sourceVersion());
+        target.setQuoteField(i.quoteField());
+        target.setQuote(i.quote());
+        target.setStatement(i.statement());
+        target.setDirection(i.direction());
+        target.setAspect(i.aspect());
+        target.setFactor(i.factor());
+        target.setStatus(i.status());
+        target.setOrigin(i.origin());
+        target.setAiCallKey(i.aiCallKey());
+        target.setSuggestedQuoteField(i.suggestedQuoteField());
+        target.setSuggestedQuote(i.suggestedQuote());
+        target.setSuggestedStatement(i.suggestedStatement());
+        target.setSuggestedDirection(i.suggestedDirection());
+        target.setSuggestedAspect(i.suggestedAspect());
+        target.setSuggestedFactor(i.suggestedFactor());
+        target.setVersion(i.version());
+        target.setCreatedAt(i.createdAt());
+        target.setUpdatedAt(i.updatedAt());
+        return target;
+    }
+    private static AiCall restoreCall(AiCallEntry c) {
+        var target = new AiCall();
+        target.setRequestKey(c.requestKey());
+        target.setMemoryKey(c.memoryKey());
+        target.setSourceVersion(c.sourceVersion());
+        target.setInputHash(c.inputHash());
+        target.setModel(c.model());
+        target.setPromptVersion(c.promptVersion());
+        target.setSelectedCharacters(c.selectedCharacters());
+        target.setStatus(c.status());
+        target.setErrorCategory(c.errorCategory());
+        target.setPromptTokens(c.promptTokens());
+        target.setCompletionTokens(c.completionTokens());
+        target.setCachedTokens(c.cachedTokens());
+        target.setReasoningTokens(c.reasoningTokens());
+        target.setCreatedAt(c.createdAt());
+        target.setUpdatedAt(c.updatedAt());
+        target.setCompletedAt(c.completedAt());
+        target.setHistoryOnly(c.status() == AiCallStatus.RUNNING);
+        return target;
+    }
+
     private static boolean sameMemory(AnimeMemory local, MemoryEntry m) {
         return Objects.equals(local.getContent(), m.content()) && Objects.equals(local.getLiked(), m.liked())
                 && Objects.equals(local.getDisliked(), m.disliked()) && Objects.equals(local.getScope(), m.scope())
@@ -383,8 +503,79 @@ public class BackupService {
         for (var component : type.getRecordComponents()) require(node.has(component.getName()), "备份缺少字段 " + component.getName());
     }
 
+    private static void auditFields(JsonNode node) {
+        require(node.path("createdAt").isTextual() && node.path("updatedAt").isTextual(), "审计时间必须为ISO文字");
+    }
+
+    private static void audit(LocalDateTime created, LocalDateTime updated) {
+        require(created != null && updated != null && created.getYear() >= 1000 && created.getYear() <= 9999
+                && updated.getYear() <= 9999 && !updated.isBefore(created), "审计时间无效");
+        require(created.getNano() % 1000 == 0 && updated.getNano() % 1000 == 0, "审计时间最多支持微秒精度");
+    }
+
+    private static void uuid(String key) {
+        try { require(key != null && UUID.fromString(key).toString().equals(key), "编号必须为规范UUID"); }
+        catch (IllegalArgumentException e) { throw new IllegalArgumentException("编号必须为规范UUID"); }
+    }
+
+    private static void nonNegative(Number value, boolean required) {
+        require((!required && value == null) || (value != null && value.longValue() >= 0), "版本或用量必须为非负整数");
+    }
+
+    private static void insightFields(InsightQuoteField field, String quote, String statement,
+            InsightDirection direction, InsightAspect aspect, String factor) {
+        require(field != null && direction != null && aspect != null, "观点字段或枚举缺失");
+        text(quote, 800, true); text(statement, 500, true); text(factor, 100, true);
+    }
+
+    private static void validateTaste(BackupDocument d) {
+        var memoryMap = index(d.memories(), MemoryEntry::key);
+        index(d.insights(), InsightEntry::key);
+        var callMap = index(d.aiCalls(), AiCallEntry::requestKey);
+        for (var c : d.aiCalls()) {
+            uuid(c.requestKey()); uuid(c.memoryKey()); nonNegative(c.sourceVersion(), true);
+            require(c.inputHash() != null && c.inputHash().matches("[0-9a-f]{64}"), "调用输入哈希无效");
+            text(c.model(), 80, true); text(c.promptVersion(), 40, true); nonNegative(c.selectedCharacters(), true);
+            require(c.selectedCharacters() >= 1 && c.selectedCharacters() <= 6000, "调用选文字数必须在1至6000之间");
+            require(c.status() != null, "调用状态缺失");
+            nonNegative(c.promptTokens(), false); nonNegative(c.completionTokens(), false);
+            nonNegative(c.cachedTokens(), false); nonNegative(c.reasoningTokens(), false);
+            audit(c.createdAt(), c.updatedAt());
+            if (c.completedAt() != null) {
+                audit(c.createdAt(), c.completedAt());
+                require(!c.completedAt().isAfter(c.updatedAt()), "调用完成时间不能晚于修改时间");
+            }
+            require(c.status() == AiCallStatus.RUNNING ? c.completedAt() == null : c.completedAt() != null, "调用完成时间与状态不符");
+        }
+        Map<String, Integer> counts = new HashMap<>();
+        for (var i : d.insights()) {
+            uuid(i.key()); uuid(i.memoryKey()); nonNegative(i.sourceVersion(), true); nonNegative(i.version(), true);
+            var memory = memoryMap.get(i.memoryKey());
+            require(memory != null && i.sourceVersion() <= memory.version(), "观点来源缺失或版本超前");
+            require(counts.merge(i.memoryKey(), 1, Integer::sum) <= 200, "单条记忆观点超过200条");
+            insightFields(i.quoteField(), i.quote(), i.statement(), i.direction(), i.aspect(), i.factor());
+            require(i.status() != null && i.origin() != null, "观点状态或来源缺失"); audit(i.createdAt(), i.updatedAt());
+            if (i.sourceVersion().equals(memory.version())) {
+                String source = switch (i.quoteField()) { case CONTENT -> memory.content(); case LIKED -> memory.liked(); case DISLIKED -> memory.disliked(); };
+                require(source != null && source.contains(i.quote()), "当前观点引用不是来源原文");
+            }
+            if (i.origin() == InsightOrigin.MANUAL) {
+                require(i.aiCallKey() == null && i.suggestedQuoteField() == null && i.suggestedQuote() == null
+                        && i.suggestedStatement() == null && i.suggestedDirection() == null
+                        && i.suggestedAspect() == null && i.suggestedFactor() == null, "手工观点不能夹带模型来源");
+            } else {
+                uuid(i.aiCallKey());
+                insightFields(i.suggestedQuoteField(), i.suggestedQuote(), i.suggestedStatement(),
+                        i.suggestedDirection(), i.suggestedAspect(), i.suggestedFactor());
+                var call = callMap.get(i.aiCallKey());
+                require(call != null && call.memoryKey().equals(i.memoryKey()) && call.sourceVersion() <= i.sourceVersion()
+                        && call.status() == AiCallStatus.SUCCEEDED, "模型观点没有匹配的成功调用来源");
+            }
+        }
+    }
+
     private static void text(String value, int max, boolean required) {
-        require(!required || (value != null && !value.isBlank()), "必填文字不能为空");
+        require(!required || (value != null && !value.matches("(?U)[\\s\\p{javaWhitespace}]*")), "必填文字不能为空");
         require(value == null || value.length() <= max, "文字超出长度限制 " + max);
     }
     private static int value(Integer n) { return n == null ? 0 : n; }

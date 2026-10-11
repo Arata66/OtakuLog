@@ -1,15 +1,19 @@
 package com.otakulog.dto;
 
-import com.otakulog.enums.AnimeStatus;
-import com.otakulog.enums.EpisodeRecordSource;
-import com.otakulog.enums.MemoryContext;
+import com.otakulog.enums.*;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
 public record BackupDocument(String format, Integer version, LocalDateTime exportedAt,
         List<AnimeEntry> anime, List<TagEntry> tags, List<GroupEntry> groups,
-        List<Membership> memberships, List<EpisodeEntry> episodes, List<MemoryEntry> memories) {
+        List<Membership> memberships, List<EpisodeEntry> episodes, List<MemoryEntry> memories,
+        List<InsightEntry> insights, List<AiCallEntry> aiCalls) {
+    public BackupDocument(String format, Integer version, LocalDateTime exportedAt,
+            List<AnimeEntry> anime, List<TagEntry> tags, List<GroupEntry> groups,
+            List<Membership> memberships, List<EpisodeEntry> episodes, List<MemoryEntry> memories) {
+        this(format, version, exportedAt, anime, tags, groups, memberships, episodes, memories, List.of(), List.of());
+    }
     public BackupDocument(String format, Integer version, LocalDateTime exportedAt,
             List<AnimeEntry> anime, List<TagEntry> tags, List<GroupEntry> groups,
             List<Membership> memberships, List<EpisodeEntry> episodes) {
@@ -18,6 +22,17 @@ public record BackupDocument(String format, Integer version, LocalDateTime expor
     public record MemoryEntry(String key, String animeKey, String content, String liked, String disliked,
             String scope, MemoryContext context, LocalDate watchedDate, Long version,
             LocalDateTime createdAt, LocalDateTime updatedAt) {}
+    public record InsightEntry(String key, String memoryKey, Long sourceVersion, InsightQuoteField quoteField,
+            String quote, String statement, InsightDirection direction, InsightAspect aspect, String factor,
+            InsightStatus status, InsightOrigin origin, String aiCallKey, InsightQuoteField suggestedQuoteField,
+            String suggestedQuote, String suggestedStatement, InsightDirection suggestedDirection,
+            InsightAspect suggestedAspect, String suggestedFactor, Long version,
+            LocalDateTime createdAt, LocalDateTime updatedAt) {}
+    public record AiCallEntry(String requestKey, String memoryKey, Long sourceVersion, String inputHash,
+            String model, String promptVersion, Integer selectedCharacters, AiCallStatus status,
+            AiErrorCategory errorCategory, Integer promptTokens, Integer completionTokens,
+            Integer cachedTokens, Integer reasoningTokens, LocalDateTime createdAt,
+            LocalDateTime updatedAt, LocalDateTime completedAt) {}
     public record AnimeEntry(String key, AnimeData data, List<String> tagKeys) {}
     public record AnimeData(String name, Integer currentEpisode, Integer totalEpisodes, AnimeStatus status,
             Double score, String season, String remark, String coverUrl, LocalDate startDate, LocalDate endDate,

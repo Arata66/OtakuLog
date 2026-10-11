@@ -35,8 +35,11 @@ class WatchConsistencyTest {
     @SpyBean private EpisodeRecordRepository records;
     @MockBean private BangumiService bangumi;
 
+    @Autowired private com.otakulog.repository.AiQuotaRepository backupQuota;
+
     @BeforeEach
     void 清理隔离测试数据() {
+        BackupTestQuota.seed(backupQuota);
         records.deleteAll();
         anime.deleteAll();
         tags.deleteAll();

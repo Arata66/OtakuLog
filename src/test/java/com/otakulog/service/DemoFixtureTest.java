@@ -18,8 +18,11 @@ class DemoFixtureTest {
     @Autowired private EpisodeRecordRepository episodes;
     @Autowired private JdbcTemplate jdbc;
 
+    @Autowired private com.otakulog.repository.AiQuotaRepository backupQuota;
+
     @BeforeEach
     void 清理隔离数据() {
+        BackupTestQuota.seed(backupQuota);
         jdbc.execute("CREATE TABLE IF NOT EXISTS anime_group_relation (group_id BIGINT NOT NULL, anime_id BIGINT NOT NULL, PRIMARY KEY(group_id,anime_id))");
         jdbc.update("DELETE FROM anime_group_relation");
         episodes.deleteAll(); anime.deleteAll();

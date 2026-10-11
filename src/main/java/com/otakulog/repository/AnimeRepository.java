@@ -22,6 +22,9 @@ public interface AnimeRepository extends JpaRepository<Anime, Long> {
     @Query("SELECT a FROM Anime a WHERE a.id = :id")
     java.util.Optional<Anime> findByIdForUpdate(@org.springframework.data.repository.query.Param("id") Long id);
 
+    @Query("SELECT a.id FROM Anime a ORDER BY a.id")
+    List<Long> findAllIdsForRestore();
+
     @Query("SELECT a.id FROM Anime a WHERE a.name = :name ORDER BY a.id")
     List<Long> findIdsByName(@org.springframework.data.repository.query.Param("name") String name);
 

@@ -53,8 +53,11 @@ class BackupServiceTest {
            "createdAt":"2025-01-01T12:00:00","updatedAt":"2025-02-01T12:00:00"}]}
         """;
 
+    @Autowired private com.otakulog.repository.AiQuotaRepository backupQuota;
+
     @BeforeEach
     void 清理隔离测试数据() {
+        BackupTestQuota.seed(backupQuota);
         jdbc.execute("CREATE TABLE IF NOT EXISTS anime_group_relation (group_id BIGINT NOT NULL, anime_id BIGINT NOT NULL, PRIMARY KEY(group_id,anime_id))");
         jdbc.update("DELETE FROM anime_group_relation");
         episodes.deleteAll(); anime.deleteAll(); tags.deleteAll(); groups.deleteAll();
@@ -64,8 +67,8 @@ class BackupServiceTest {
     void 当导出时应该包含版本及所有数据集合() throws Exception {
         var root = new ObjectMapper().readTree(service.exportJson());
         assertTrue(root.isObject());
-        assertEquals(2, root.path("version").asInt());
-        for (String collection : new String[]{"anime", "tags", "groups", "memberships", "episodes", "memories"})
+        assertEquals(3, root.path("version").asInt());
+        for (String collection : new String[]{"anime", "tags", "groups", "memberships", "episodes", "memories", "insights", "aiCalls"})
             assertTrue(root.path(collection).isArray(), collection);
     }
 
