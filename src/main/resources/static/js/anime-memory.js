@@ -23,6 +23,7 @@ function memoryStatus(state, message) {
 }
 
 function canLeaveAnimeMemory() {
+    if (typeof canLeaveTasteMemory === 'function' && !canLeaveTasteMemory()) return false;
     const state = document.getElementById('animeMemorySection')?.memoryState;
     if (!state) return true;
     if (state.saving) {
@@ -35,7 +36,7 @@ function canLeaveAnimeMemory() {
 function beginAnimeMemoryOperation(message) {
     const detail = document.getElementById('detailModal');
     const state = detail ? document.getElementById('animeMemorySection')?.memoryState : null;
-    const operation = { detail, state, previousMessage: state ? document.getElementById('memoryStatus').textContent : '' };
+    const operation = { detail, state, previousMessage: state ? document.getElementById('memoryStatus').textContent : '', taste: typeof beginTasteOperation === 'function' ? beginTasteOperation(message) : null };
     if (state) {
         state.operationMessage = message;
         memorySetBusy(state, true);
@@ -45,6 +46,7 @@ function beginAnimeMemoryOperation(message) {
 }
 
 function endAnimeMemoryOperation(operation) {
+    if (typeof endTasteOperation === 'function') endTasteOperation(operation?.taste);
     if (!operation?.state || !memoryCurrent(operation.state)) return;
     memorySetBusy(operation.state, false);
     operation.state.operationMessage = null;
@@ -80,13 +82,14 @@ function renderMemoryForm(state) {
                 <label for="memoryWatchedDate">观看日期<input id="memoryWatchedDate" class="app-input" type="date" min="1000-01-01" max="${memoryToday()}" value=""><small>只填记得的实际日期，不确定就留空。</small></label>
             </div></details>
             <div class="memory-form-actions"><button id="memorySave" type="submit" class="a-btn">保存感想</button><button id="memoryCancelEdit" type="button" class="a-btn" hidden onclick="cancelAnimeMemoryEdit(${state.id})">取消编辑</button></div>
-        </form><p id="memoryStatus" class="memory-note" role="status" aria-live="polite"></p><div id="memoryList" class="memory-list"></div><div id="memoryPages" class="memory-pages"></div>`;
+        </form><p id="memoryStatus" class="memory-note" role="status" aria-live="polite"></p><div id="tasteMount"></div><div id="memoryList" class="memory-list"></div><div id="memoryPages" class="memory-pages"></div>`;
     resetMemoryDraft(state);
 }
 
 async function loadAnimeMemories(id, page = 0) {
     const section = document.getElementById('animeMemorySection');
     if (!section || section.dataset.animeId !== String(id) || page < 0 || (section.memoryState && !canLeaveAnimeMemory())) return;
+    if (typeof closeTasteMemory === 'function') closeTasteMemory(true);
     const state = { id, section, page, size: 20, totalEntries: 0, entries: [], saving: false, conflicted: false, generation: 0 };
     section.memoryState = state;
     renderMemoryForm(state);
@@ -115,7 +118,7 @@ async function fetchMemoryList(state, page, successMessage = '') {
 function renderMemoryList(state) {
     const optional = (label, value) => value ? `<div class="memory-reason"><h4>${label}</h4><p>${esc(value)}</p></div>` : '';
     document.getElementById('memoryList').innerHTML = state.entries.map(entry => `<article class="memory-entry" data-memory-id="${entry.id}">
-        <div class="memory-entry-heading"><span class="memory-context">${esc(memoryContexts[entry.context] || '随手记')}</span><div class="memory-entry-actions"><button type="button" class="a-btn" onclick="editAnimeMemory(${state.id},${entry.id})">编辑</button><button type="button" class="a-btn del" onclick="deleteAnimeMemory(${state.id},${entry.id})">删除</button></div></div>
+        <div class="memory-entry-heading"><span class="memory-context">${esc(memoryContexts[entry.context] || '随手记')}</span><div class="memory-entry-actions"><button type="button" class="a-btn" onclick="openTasteMemory(${state.id},${entry.id})">整理观点</button><button type="button" class="a-btn" onclick="editAnimeMemory(${state.id},${entry.id})">编辑</button><button type="button" class="a-btn del" onclick="deleteAnimeMemory(${state.id},${entry.id})">删除</button></div></div>
         <p class="memory-original">${esc(entry.content)}</p>${optional('打动我的地方', entry.liked)}${optional('不满意的地方', entry.disliked)}
         <div class="memory-entry-meta">${entry.scope ? `<span>评价范围：${esc(entry.scope)}</span>` : ''}<span>观看日期：${esc(entry.watchedDate || '未填写')}</span><span>书写：${esc(entry.createdAt || '').replace('T', ' ')}</span><span>修改：${esc(entry.updatedAt || '').replace('T', ' ')}</span></div>
     </article>`).join('') || '<p class="memory-empty">还没有观影记忆。一句话也可以，之后再追加回望；观看日期不确定时留空。</p>';
@@ -164,7 +167,7 @@ function memoryValid(state, draft) {
 function memorySetBusy(state, busy) {
     state.saving = busy;
     if (busy) {
-        state.controls = [...state.section.querySelectorAll('button, input, textarea, select')].map(control => [control, control.disabled]);
+        state.controls = [...state.section.querySelectorAll('button, input, textarea, select')].filter(control => !control.closest?.('#tastePanel')).map(control => [control, control.disabled]);
         state.controls.forEach(([control]) => { control.disabled = true; });
     } else {
         state.controls?.forEach(([control, disabled]) => { control.disabled = disabled; });
@@ -201,7 +204,9 @@ async function saveAnimeMemory(id) {
     if (!memoryCurrent(state)) return;
     memorySetBusy(state, false);
     if (result?.code !== 200) { memoryWriteFailure(state, result); return; }
+    const savedMemoryId = result.data.id;
     resetMemoryDraft(state);
+    if (typeof refreshTasteSource === 'function') refreshTasteSource(id, savedMemoryId);
     await fetchMemoryList(state, 0, '感想已保存');
 }
 
@@ -209,13 +214,16 @@ async function deleteAnimeMemory(id, memoryId) {
     const state = document.getElementById('animeMemorySection')?.memoryState;
     if (!state || state.id !== id || state.saving || state.conflicted) return;
     const entry = state.entries.find(item => item.id === memoryId);
-    if (!entry || (state.editing?.id === memoryId && !canLeaveAnimeMemory()) || !confirm('确定删除这条观影记忆吗？删除后无法撤销。')) return;
-    memorySetBusy(state, true); memoryStatus(state, '正在删除感想…');
-    const result = await fetchApi(`/api/anime/${id}/memories/${memoryId}?expectedVersion=${entry.version}`, { method: 'DELETE', returnConflict: true, returnError: true });
+    if (!entry || (typeof canLeaveTasteMemory === 'function' && !canLeaveTasteMemory()) || (state.editing?.id === memoryId && !canLeaveAnimeMemory()) || !confirm('确定删除这条观影记忆吗？删除后无法撤销。')) return;
+    const operation = beginAnimeMemoryOperation('正在删除感想，请等待完成后再离开。');
+    let result;
+    try {
+        result = await fetchApi(`/api/anime/${id}/memories/${memoryId}?expectedVersion=${entry.version}`, { method: 'DELETE', returnConflict: true, returnError: true });
+    } finally { endAnimeMemoryOperation(operation); }
     if (!memoryCurrent(state)) return;
-    memorySetBusy(state, false);
     if (result?.code !== 200) { memoryWriteFailure(state, result); return; }
     if (state.editing?.id === memoryId) resetMemoryDraft(state);
+    if (typeof refreshTasteSource === 'function') refreshTasteSource(id, memoryId, true);
     await fetchMemoryList(state, state.page, '感想已删除');
 }
 

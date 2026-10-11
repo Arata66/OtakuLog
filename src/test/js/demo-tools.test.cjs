@@ -13,6 +13,74 @@ function settings(overrides = {}) {
     return config.createDemoConfig({ env: {}, ...overrides });
 }
 
+test('当未显式指定演示AI服务时应该关闭AI并清空凭据', () => {
+    const item = settings({ env: { AI_ENABLE: 'true', DEEPSEEK_API_KEY: 'sk-fictional-parent-secret', AI_ENDPOINT: 'https://api.deepseek.com/chat/completions' } });
+    const json = JSON.parse(config.javaEnvironment(item).SPRING_APPLICATION_JSON);
+    assert.equal(json['app.ai.enabled'], false);
+    assert.equal(json['app.ai.api-key'], '');
+    assert.equal(json['app.ai.endpoint'], 'http://127.0.0.1:1/chat/completions');
+    assert.equal(json['app.ai.daily-limit'], 20);
+    assert.equal(json['app.ai.connect-timeout-ms'], 5000);
+    assert.equal(json['app.ai.response-timeout-ms'], 30000);
+    assert.equal(json['app.ai.input-price-per-million'], 0);
+    assert.equal(json['app.ai.output-price-per-million'], 0);
+    assert.equal(json['app.ai.model'], undefined);
+    assert.doesNotMatch(config.javaArguments(item).join(' '), /sk-fictional-parent-secret/);
+});
+
+test('当父环境含AI配置或大小写别名时应该不传给Java进程', () => {
+    const env = { AI_ENABLE: 'true', ai_endpoint: 'https://example.com', aI_DAILY_LIMIT: '999',
+        DEEPSEEK_API_KEY: 'sk-fictional-parent-secret', deepseek_other: 'fictional-other',
+        APP_AI_ENABLED: 'true', app_ai_api_key: 'sk-fictional-alias-secret', App_Ai_Model: 'fictional-model',
+        Path: 'fictional-path', JAVA_HOME: 'fictional-jdk', DB_USER: 'fictional-db-user', DB_PASS: 'fictional-db-password',
+        OTAKULOG_BANGUMI_BASE_URL: 'http://127.0.0.1:1234' };
+    const childEnv = config.javaEnvironment(settings({ env }));
+    assert.deepEqual(Object.keys(childEnv).filter(key => /^(AI_|DEEPSEEK_|APP_AI_)/i.test(key)), []);
+    for (const key of ['Path', 'JAVA_HOME', 'DB_USER', 'DB_PASS', 'OTAKULOG_BANGUMI_BASE_URL']) assert.equal(childEnv[key], env[key]);
+    assert.equal(JSON.parse(childEnv.SPRING_APPLICATION_JSON)['otakulog.bangumi.base-url'], env.OTAKULOG_BANGUMI_BASE_URL);
+    assert.equal(env.DEEPSEEK_API_KEY, 'sk-fictional-parent-secret');
+});
+
+test('当父环境含JVM参数或Spring附加配置时应该在启动前移除注入通道', () => {
+    const env = { JAVA_TOOL_OPTIONS: '-Dapp.ai.api-key=sk-fictional-jvm-secret', java_tool_options: 'fictional-option',
+        JDK_JAVA_OPTIONS: 'fictional-option', jdk_java_options: 'fictional-option', _JAVA_OPTIONS: 'fictional-option', _java_options: 'fictional-option',
+        SPRING_CONFIG_LOCATION: 'fictional.properties', Spring_Config_Additional_Location: 'fictional.properties', spring_config_import: 'fictional.properties',
+        SPRING_PROFILES_ACTIVE: 'fictional-profile', Spring_Profiles_Include: 'fictional-profile',
+        SPRING_APPLICATION_JSON: '{"app.ai.enabled":true}', spring_application_json: '{"app.ai.api-key":"sk-fictional-json-secret"}',
+        SYSTEMROOT: 'fictional-windows' };
+    const childEnv = config.javaEnvironment(settings({ env }));
+    assert.deepEqual(Object.keys(childEnv).filter(key => /^(SPRING_CONFIG_|SPRING_PROFILES_)/i.test(key) || /^(JAVA_TOOL_OPTIONS|JDK_JAVA_OPTIONS|_JAVA_OPTIONS)$/i.test(key)), []);
+    assert.deepEqual(Object.keys(childEnv).filter(key => /^SPRING_APPLICATION_JSON$/i.test(key)), ['SPRING_APPLICATION_JSON']);
+    assert.equal(JSON.parse(childEnv.SPRING_APPLICATION_JSON)['app.ai.enabled'], false);
+    assert.equal(childEnv.SYSTEMROOT, env.SYSTEMROOT);
+});
+
+test('当显式指定回环HTTP演示AI服务时应该仅使用固定假凭据', () => {
+    for (const url of ['http://127.0.0.1:12345/chat/completions', 'http://localhost:12345/chat/completions', 'http://[::1]:12345/chat/completions']) {
+        const item = settings({ env: { OTAKULOG_DEMO_AI_URL: url, DEEPSEEK_API_KEY: 'sk-fictional-parent-secret', AI_DAILY_LIMIT: '999', APP_AI_API_KEY: 'sk-fictional-alias-secret' } });
+        const json = JSON.parse(config.javaEnvironment(item).SPRING_APPLICATION_JSON);
+        assert.equal(json['app.ai.enabled'], true);
+        assert.equal(json['app.ai.endpoint'], url);
+        assert.equal(json['app.ai.api-key'], 'demo-ai-only');
+        assert.equal(json['app.ai.daily-limit'], 20);
+        assert.equal(json['app.ai.model'], undefined);
+        assert.doesNotMatch(config.javaArguments(item).join(' '), /demo-ai-only|sk-fictional-/);
+    }
+});
+
+test('当演示AI地址含公网或附加参数时应该在创建数据库前拒绝', async () => {
+    for (const url of ['https://api.deepseek.com/chat/completions', 'http://example.com/chat/completions', 'http://192.168.1.5/chat/completions',
+        'https://127.0.0.1/chat/completions', 'http://user:pass@127.0.0.1/chat/completions', 'http://127.0.0.1/chat/completions?key=fake',
+        'http://127.0.0.1/chat/completions#fake', 'http://127.0.0.1', 'not-a-url']) {
+        const calls = [];
+        await assert.rejects(async () => {
+            const item = settings({ env: { OTAKULOG_DEMO_AI_URL: url } });
+            await config.withDemoDatabase(item, async () => {}, sql => calls.push(sql));
+        }, /AI/);
+        assert.deepEqual(calls, []);
+    }
+});
+
 test('当演示启用WebDAV时应该只允许回环HTTP目录且凭据不进入命令行', () => {
     for (const url of ['https://example.com/dav', 'http://192.168.1.5/dav', 'http://user:pass@127.0.0.1/dav', 'http://127.0.0.1/dav?target=remote'])
         assert.throws(() => settings({ env: { OTAKULOG_DEMO_WEBDAV_URL: url } }), /WebDAV/);

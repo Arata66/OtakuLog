@@ -133,6 +133,28 @@ test('当删除记忆时应该确认并发送版本', async () => {
     assert.equal(a.requests[1].url, '/api/anime/7/memories/12?expectedVersion=3');
 });
 
+test('当删除感想等待时应该锁住观点输入且失败后保留两份草稿并恢复控件', async () => {
+    const a = await ready();
+    a.nodes.set('detailModal', { dataset: { animeId: '7' } });
+    const tasteInput = { value: '删除前的观点草稿', disabled: false, closest: selector => selector === '#tastePanel' ? {} : null };
+    a.nodes.set('tasteStatement', tasteInput);
+    a.field('memoryContent').value = '删除前的感想草稿';
+    a.context.canLeaveTasteMemory = () => !tasteInput.disabled;
+    a.context.beginTasteOperation = () => { const previous = tasteInput.disabled; tasteInput.disabled = true; return { previous }; };
+    a.context.endTasteOperation = operation => { if (operation) tasteInput.disabled = operation.previous; };
+    let release;
+    a.context.fetchApi = () => new Promise(resolve => { release = resolve; });
+    const pending = a.context.deleteAnimeMemory(7, 12);
+    try {
+        assert.equal(tasteInput.disabled, true, '等待删除时观点输入应该锁住，避免成功后丢失新输入');
+        assert.equal(a.field('memoryContent').disabled, true);
+        assert.equal(a.context.canLeaveAnimeMemory(), false);
+    } finally { release({ code: 503, message: '虚构删除失败' }); await pending; }
+    assert.equal(tasteInput.disabled, false); assert.equal(tasteInput.value, '删除前的观点草稿');
+    assert.equal(a.field('memoryContent').disabled, false); assert.equal(a.field('memoryContent').value, '删除前的感想草稿');
+    assert.match(a.field('memoryStatus').textContent, /删除失败.*输入已保留/);
+});
+
 test('当取消编辑或重载时应该允许保留未保存修改', async () => {
     const a = await ready(false); a.context.editAnimeMemory(7, 12); a.field('memoryContent').value = '未完成';
     a.context.cancelAnimeMemoryEdit(7); await a.context.loadAnimeMemories(7);

@@ -15,8 +15,16 @@ function createDemoConfig({ port = 18080, env = process.env } = {}) {
             || parsed.username || parsed.password || parsed.search || parsed.hash)
             throw new Error('演示 WebDAV 地址必须为回环 HTTP 目录，且不携带凭据或查询参数');
     }
+    const aiUrl = env.OTAKULOG_DEMO_AI_URL || '';
+    if (aiUrl) {
+        let parsed;
+        try { parsed = new URL(aiUrl); } catch { throw new Error('演示 AI 地址必须为完整的回环 HTTP 接口'); }
+        if (parsed.protocol !== 'http:' || !['127.0.0.1', 'localhost', '[::1]'].includes(parsed.hostname)
+            || !aiUrl.startsWith('http://') || parsed.pathname === '/' || aiUrl.split('/')[2].includes('@') || /[?#]/.test(aiUrl))
+            throw new Error('演示 AI 地址必须为完整的回环 HTTP 接口，且不携带凭据或查询参数');
+    }
     return { port: Number(port), url: `http://127.0.0.1:${port}`, env: { ...env },
-        webdavUrl,
+        webdavUrl, aiUrl,
         host: '127.0.0.1', mysqlPort: Number(server[2]), user: env.DB_USER || 'root', password: env.DB_PASS || '123456',
         database: 'otakulog_demo_' + randomUUID().replaceAll('-', ''), loginUser: 'demo', loginPassword: randomBytes(24).toString('base64url'),
         root: path.resolve(__dirname, '../..'), java: env.JAVA_HOME ? path.join(env.JAVA_HOME, 'bin', process.platform === 'win32' ? 'java.exe' : 'java') : 'java' };
@@ -38,8 +46,11 @@ function javaArguments(config) {
 }
 
 function javaEnvironment(config) {
-    // 命令行和日志不放密码，且不继承可能指向自用库的 Spring JSON 配置。
-    return { ...config.env, SPRING_APPLICATION_JSON: JSON.stringify({
+    // 父环境可能带真实密钥或附加配置，JVM 参数也会直接输出到日志。
+    const env = Object.fromEntries(Object.entries(config.env).filter(([key]) =>
+        !/^(AI_|DEEPSEEK_|APP_AI_|SPRING_CONFIG_|SPRING_PROFILES_)/i.test(key)
+        && !/^(SPRING_APPLICATION_JSON|JAVA_TOOL_OPTIONS|JDK_JAVA_OPTIONS|_JAVA_OPTIONS)$/i.test(key)));
+    return { ...env, SPRING_APPLICATION_JSON: JSON.stringify({
         'spring.datasource.password': config.password,
         'app.admin.username': config.loginUser, 'app.admin.password': config.loginPassword,
         'otakulog.bangumi.base-url': config.env.OTAKULOG_BANGUMI_BASE_URL || 'https://api.bgm.tv',
@@ -47,7 +58,16 @@ function javaEnvironment(config) {
         'otakulog.webdav.url': config.webdavUrl,
         'otakulog.webdav.username': config.webdavUrl ? config.env.OTAKULOG_DEMO_WEBDAV_USERNAME || 'demo' : '',
         'otakulog.webdav.password': config.webdavUrl ? config.env.OTAKULOG_DEMO_WEBDAV_PASSWORD || '' : '',
-        'otakulog.webdav.filename': 'demo-backup.json'
+        'otakulog.webdav.filename': 'demo-backup.json',
+        // 只有显式指定的本地假服务可启用 AI，避免演示误发自用文本或扣费。
+        'app.ai.enabled': Boolean(config.aiUrl),
+        'app.ai.api-key': config.aiUrl ? 'demo-ai-only' : '',
+        'app.ai.endpoint': config.aiUrl || 'http://127.0.0.1:1/chat/completions',
+        'app.ai.daily-limit': 20,
+        'app.ai.connect-timeout-ms': 5000,
+        'app.ai.response-timeout-ms': 30000,
+        'app.ai.input-price-per-million': 0,
+        'app.ai.output-price-per-million': 0
     }) };
 }
 

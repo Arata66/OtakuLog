@@ -223,9 +223,19 @@
             updateBatchToolbar();
         }
         async function batchDelete() {
+            const detail = document.getElementById('detailModal');
+            const ownDetail = detail && selectedIds.has(Number(detail.dataset.animeId));
+            if (ownDetail && typeof canLeaveAnimeMemory === 'function' && !canLeaveAnimeMemory()) return;
             if (!confirm('确定删除选中的 ' + selectedIds.size + ' 项？')) return;
-            const r = await fetchApi('/api/anime/batch-delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids: [...selectedIds] }) });
-            if (r && r.code === 200) { toast('批量删除成功', 'success'); clearSelection(); performSearch(); updateStats(); } else if (r) toast(r.message || '删除失败', 'error');
+            const operation = ownDetail && typeof beginAnimeMemoryOperation === 'function' ? beginAnimeMemoryOperation('正在删除作品，请等待完成后再离开。') : null;
+            try {
+                const r = await fetchApi('/api/anime/batch-delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids: [...selectedIds] }) });
+                if (r && r.code === 200) {
+                    if (ownDetail && document.getElementById('detailModal') === detail) closeDetailModal(true);
+                    toast('批量删除成功', 'success'); clearSelection(); performSearch(); updateStats();
+                    if (typeof refreshTasteProfile === 'function') refreshTasteProfile();
+                } else if (r) toast(r.message || '删除失败', 'error');
+            } finally { if (typeof endAnimeMemoryOperation === 'function') endAnimeMemoryOperation(operation); }
         }
         async function batchChangeStatus(status) {
             if (!status) return;
@@ -490,6 +500,18 @@
         }
 
         /* Detail modal */
+        async function openTasteAnimeDetail(id) {
+            const detail = document.getElementById('detailModal');
+            if (!_cache[id]) {
+                const result = await fetchApi('/api/anime/search', { returnError: true });
+                if (document.getElementById('detailModal') !== detail) return false;
+                const anime = result?.code === 200 ? result.data.find(value => value.id === id) : null;
+                if (!anime) { toast('作品读取失败，请刷新总结后重试', 'error'); return false; }
+                _cache[id] = anime;
+            }
+            if (detail && !closeDetailModal()) return false;
+            openDetailModal(id); return true;
+        }
         function openDetailModal(id) {
             if (document.getElementById('detailModal') && !closeDetailModal()) return;
             rememberFocus();
@@ -686,6 +708,7 @@
         function closeDetailModal(force = false) {
             const m = document.getElementById('detailModal');
             if (m && !force && typeof canLeaveAnimeMemory === 'function' && !canLeaveAnimeMemory()) return false;
+            if (m && typeof closeTasteMemory === 'function') closeTasteMemory(true);
             if (m) { m.remove?.(); restoreFocus(); }
             return true;
         }
@@ -766,6 +789,7 @@
                 if (r && r.code === 200) {
                     if (ownDetail && document.getElementById('detailModal') === detail) closeDetailModal(true);
                     toast('已删除', 'success'); performSearch(); updateStats();
+                    if (typeof refreshTasteProfile === 'function') refreshTasteProfile();
                 } else if (r) toast(r.message || '删除失败', 'error');
             } finally {
                 if (typeof endAnimeMemoryOperation === 'function') endAnimeMemoryOperation(operation);
@@ -1456,7 +1480,9 @@
             const counts = `新增 ${preview.created || 0} 部作品，合并 ${preview.updated || 0} 部已有作品\n`
                 + `标签 ${preview.tags || 0} 个，分组 ${preview.groups || 0} 个，分组关联 ${preview.memberships || 0} 条\n`
                 + `逐集记录 ${preview.episodes || 0} 条，其中新增 ${preview.newEpisodes || 0} 条，补齐日期 ${preview.filledDates || 0} 条\n`
-                + `观影记忆 ${preview.memories || 0} 条，其中新增 ${preview.newMemories || 0} 条`;
+                + `观影记忆 ${preview.memories || 0} 条，其中新增 ${preview.newMemories || 0} 条\n`
+                + `观点 ${preview.insights || 0} 条，其中新增 ${preview.newInsights || 0} 条\n`
+                + `AI调用 ${preview.aiCalls || 0} 条，其中新增 ${preview.newAiCalls || 0} 条`;
             return confirm(`${label}\n\n${counts}\n\n${(preview.warnings || []).join('\n')}\n\n确认恢复？`);
         }
 
@@ -1472,6 +1498,8 @@
                 if (result && result.code === 200) {
                     if (operation.detail && document.getElementById('detailModal') === operation.detail) closeDetailModal(true);
                     toast(result.message || '恢复成功', 'success'); performSearch(); updateStats();
+                    if (typeof refreshTasteProfile === 'function') refreshTasteProfile();
+                    if (typeof refreshTasteUsage === 'function') refreshTasteUsage();
                 } else if (result) toast(result.message || '恢复失败', 'error');
             } finally {
                 if (typeof endAnimeMemoryOperation === 'function') endAnimeMemoryOperation(operation);
@@ -1538,6 +1566,8 @@
                     if (operation.detail && document.getElementById('detailModal') === operation.detail && typeof closeDetailModal === 'function') closeDetailModal(true);
                     toast(r.data?.message || '拉取成功', 'success');
                     await Promise.allSettled([performSearch(), updateStats(false), loadDailyWatch(), loadHeatmap()]);
+                    if (typeof refreshTasteProfile === 'function') refreshTasteProfile();
+                    if (typeof refreshTasteUsage === 'function') refreshTasteUsage();
                 } else if (r) { toast(r.message || '拉取失败', 'error'); }
             } catch (error) {
                 toast('拉取失败，请稍后重试', 'error');
