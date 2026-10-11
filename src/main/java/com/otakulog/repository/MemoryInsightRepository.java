@@ -10,6 +10,7 @@ import java.util.Optional;
 public interface MemoryInsightRepository extends JpaRepository<MemoryInsight, Long> {
     Optional<MemoryInsight> findByInsightKey(String insightKey);
     List<MemoryInsight> findByMemoryIdOrderByIdAsc(Long memoryId);
+    List<MemoryInsight> findByAiCallKeyOrderByIdAsc(String aiCallKey);
     long countByMemoryId(Long memoryId);
     @Modifying
     @Query("delete from MemoryInsight i where i.memoryId = :memoryId")
