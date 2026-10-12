@@ -580,6 +580,7 @@
         .daily-rows { list-style: none; padding: 0; margin: 0; }
         .daily-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 12px 0; border-top: 1px solid var(--border-light); }
         .daily-row-info { min-width: 0; }
+        .daily-actions { display: flex; flex-shrink: 0; flex-wrap: wrap; gap: 8px; }
         .daily-title { background: none; border: 0; padding: 0; font: inherit; font-size: 0.88em; font-weight: 500; color: var(--text); cursor: pointer; text-align: left; overflow-wrap: anywhere; }
         .daily-title:hover { color: var(--primary); }
         .daily-meta { font-size: 0.73em; color: var(--text-dim); margin-top: 5px; font-variant-numeric: tabular-nums; }
@@ -587,6 +588,8 @@
         .daily-empty { font-size: 0.82em; line-height: 1.7; padding: 14px 0; color: var(--text-dim); }
         @media (max-width: 760px) {
             .daily-watch { padding: 18px; }
+            .daily-row { flex-wrap: wrap; gap: 8px; }
+            .daily-row-info { flex-basis: 100%; }
             .daily-record { min-height: 44px; }
             .daily-columns { grid-template-columns: 1fr; gap: 20px; }
             .daily-columns section + section { border-left: 0; padding-left: 0; border-top: 1px solid var(--border-light); padding-top: 18px; }
@@ -975,6 +978,8 @@
         .a-btn, .dt-btn, .g-btn { min-width: 44px; min-height: 44px; }
         .daily-title, .daily-record { min-height: 44px; }
         .g-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); opacity: 1; }
+        .g-actions .memory-entry-button { grid-column: 1 / -1; }
+        .dt-actions, .acts { flex-wrap: wrap; }
         .g-card:focus-within .g-actions { opacity: 1; }
         .table-card { overflow-x: auto; }
         .table-card td:nth-child(5) { min-width: 200px; max-width: 320px; }
@@ -1126,11 +1131,10 @@
         .memory-prompt { display: block; margin-bottom: 12px; color: var(--text); font-weight: 600; }
         .memory-form .app-input { width: 100%; min-height: 44px; color: var(--text); background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; font: inherit; }
         .memory-form textarea { resize: vertical; line-height: 1.8; }
-        .memory-content-input { min-height: 146px; }
+        .memory-content-input { min-height: 146px; scroll-margin-top: 88px; }
         .memory-form .app-input:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
         .memory-form .app-input:disabled { opacity: 0.65; }
-        .memory-context-row { display: flex; align-items: center; gap: 12px; margin-top: 16px; font-size: 0.86em; color: var(--text-mid); }
-        .memory-context-row .app-input { width: auto; min-width: 140px; }
+        .memory-context-row { grid-column: 1 / -1; }
         .memory-optional { margin-top: 18px; border-top: 1px solid var(--border-light); padding-top: 14px; font-size: 0.86em; }
         .memory-optional summary { min-height: 44px; line-height: 1.6; cursor: pointer; color: var(--text-mid); padding: 10px 0; }
         .memory-optional-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; padding-top: 12px; }
@@ -1160,8 +1164,6 @@
             .memory-heading { flex-direction: column; gap: 10px; }
             .memory-form { padding: 14px; }
             .memory-optional-fields { grid-template-columns: minmax(0, 1fr); }
-            .memory-context-row { flex-direction: column; align-items: stretch; gap: 6px; }
-            .memory-context-row .app-input { width: 100%; }
             .memory-entry-meta { flex-direction: column; }
             .memory-pages { gap: 8px; }
             .memory-pages span { order: -1; flex-basis: 100%; }

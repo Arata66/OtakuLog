@@ -186,6 +186,52 @@ test('当保存成功而列表刷新失败时应该明确已保存且不重复�
 });
 
 const appSource = fs.readFileSync(path.resolve(__dirname, '../../main/resources/static/js/anime-app.js'), 'utf8');
+function quickEntryApp(currentId = '7', allowSwitch = false) {
+    const calls = [], messages = [];
+    let detail = currentId ? { dataset: { animeId: currentId } } : null;
+    const input = { value: '未完成的虚构感想', disabled: false,
+        scrollIntoView() { calls.push('定位'); }, focus() { calls.push('聚焦'); } };
+    const context = vm.createContext({ _cache: { 7: {}, 8: {} },
+        document: { getElementById: id => id === 'detailModal' ? detail : id === 'memoryContent' ? input : null },
+        openDetailModal(id) { calls.push('打开'); if (!detail || allowSwitch) detail = { dataset: { animeId: String(id) } }; },
+        toast: message => messages.push(message)
+    });
+    const start = appSource.indexOf('function openAnimeMemory(');
+    if (start >= 0) vm.runInContext(appSource.slice(start, appSource.indexOf('function openDetailModal(', start)), context);
+    return { context, calls, messages, input };
+}
+
+test('当同作品重复点击写感想时应该只定位正文并保留草稿', () => {
+    const a = quickEntryApp(); a.context.openAnimeMemory(7); a.context.openAnimeMemory(7);
+    assert.deepEqual(a.calls, ['定位', '聚焦', '定位', '聚焦']);
+    assert.equal(a.input.value, '未完成的虚构感想');
+});
+
+test('当取消跨作品切换时应该不定位或改动旧草稿', () => {
+    const a = quickEntryApp(); a.context.openAnimeMemory(8);
+    assert.deepEqual(a.calls, ['打开']); assert.equal(a.input.value, '未完成的虚构感想');
+});
+
+test('当打开另一作品的写感想入口时应该先打开对应详情再聚焦', () => {
+    const a = quickEntryApp('7', true); a.context.openAnimeMemory(8);
+    assert.deepEqual(a.calls, ['打开', '定位', '聚焦']);
+});
+
+test('当正文因写入忙碌不可编辑时应该不重新打开或聚焦', () => {
+    const a = quickEntryApp(); a.input.disabled = true; a.context.openAnimeMemory(7);
+    assert.deepEqual(a.calls, []);
+});
+
+test('当入口作品信息已缺失时应该提示刷新并保留当前详情', () => {
+    const a = quickEntryApp(); a.context.openAnimeMemory(99);
+    assert.deepEqual(a.calls, []); assert.match(a.messages[0], /重新加载/);
+});
+
+test('当编辑只有初看语境的旧记录时应该展开补充并保留语境', async () => {
+    const a = await ready(); a.context.editAnimeMemory(7, 12);
+    assert.equal(a.field('memoryOptional').open, true); assert.equal(a.field('memoryContext').value, 'INITIAL');
+});
+
 test('当关闭详情的保护被取消时应该保留弹窗并不恢复焦点', () => {
     let removed = false, focused = false;
     const context = vm.createContext({ document: { getElementById: () => ({ remove() { removed = true; } }) }, canLeaveAnimeMemory: () => false, restoreFocus: () => { focused = true; } });

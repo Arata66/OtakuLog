@@ -141,12 +141,12 @@
         }
         function actionHtml(anime, type) {
             if (type === 'gallery') {
-                return `<div class="g-actions"><button class="g-btn" onclick="openEditModal(${anime.id})">编辑</button><button class="g-btn ep" data-watch-id="${anime.id}" aria-label="上一集" title="上一集" onclick="prevEpisode(${anime.id})">-</button><button class="g-btn ep" data-watch-id="${anime.id}" aria-label="下一集" title="下一集" onclick="nextEpisode(${anime.id})">+</button><button class="g-btn del" onclick="deleteAnime(${anime.id})">删</button></div>`;
+                return `<div class="g-actions"><button type="button" class="g-btn memory-entry-button" onclick="openAnimeMemory(${anime.id})">写感想</button><button class="g-btn" onclick="openEditModal(${anime.id})">编辑</button><button class="g-btn ep" data-watch-id="${anime.id}" aria-label="上一集" title="上一集" onclick="prevEpisode(${anime.id})">-</button><button class="g-btn ep" data-watch-id="${anime.id}" aria-label="下一集" title="下一集" onclick="nextEpisode(${anime.id})">+</button><button class="g-btn del" onclick="deleteAnime(${anime.id})">删</button></div>`;
             }
-            return `<div class="acts"><button class="a-btn" onclick="openEditModal(${anime.id})">编辑</button><button class="a-btn ep-btn" data-watch-id="${anime.id}" aria-label="上一集" title="上一集" onclick="prevEpisode(${anime.id})">-</button><button class="a-btn ep-btn" data-watch-id="${anime.id}" aria-label="下一集" title="下一集" onclick="nextEpisode(${anime.id})">+</button></div>`;
+            return `<div class="acts"><button type="button" class="a-btn" onclick="openAnimeMemory(${anime.id})">写感想</button><button class="a-btn" onclick="openEditModal(${anime.id})">编辑</button><button class="a-btn ep-btn" data-watch-id="${anime.id}" aria-label="上一集" title="上一集" onclick="prevEpisode(${anime.id})">-</button><button class="a-btn ep-btn" data-watch-id="${anime.id}" aria-label="下一集" title="下一集" onclick="nextEpisode(${anime.id})">+</button></div>`;
         }
         function detailActionHtml(anime) {
-            return `<div class="dt-actions"><button class="dt-btn" onclick="openEditModal(${anime.id})">编辑</button><button class="dt-btn ep" data-watch-id="${anime.id}" aria-label="上一集" title="上一集" onclick="prevEpisode(${anime.id})">-</button><button class="dt-btn ep" data-watch-id="${anime.id}" aria-label="下一集" title="下一集" onclick="nextEpisode(${anime.id})">+</button><button class="dt-btn del" onclick="deleteAnime(${anime.id})">删除</button></div>`;
+            return `<div class="dt-actions"><button type="button" class="dt-btn" onclick="openAnimeMemory(${anime.id})">写感想</button><button class="dt-btn" onclick="openEditModal(${anime.id})">编辑</button><button class="dt-btn ep" data-watch-id="${anime.id}" aria-label="上一集" title="上一集" onclick="prevEpisode(${anime.id})">-</button><button class="dt-btn ep" data-watch-id="${anime.id}" aria-label="下一集" title="下一集" onclick="nextEpisode(${anime.id})">+</button><button class="dt-btn del" onclick="deleteAnime(${anime.id})">删除</button></div>`;
         }
         function renderAnimeRow(anime, index, keyword) {
             const r = document.createElement('tr');
@@ -186,7 +186,7 @@
                     <div class="g-meta"><span class="g-tag g-season">${esc(anime.season)}</span>${scoreBadgeHtml(anime.score, 'g-tag g-score')}${anime.tags ? renderTags(anime.tags) : ''}</div>
                     <div class="g-progress"><div class="g-progress-bar ${anime.status}" style="--progress:${pct}%"></div></div>
                     <div class="g-ep">${anime.currentEpisode} / ${anime.totalEpisodes} ep / ${SM[anime.status] || anime.status}</div>
-                    <div class="g-actions"><button class="g-btn" onclick="openEditModal(${anime.id})">编辑</button><button class="g-btn ep" data-watch-id="${anime.id}" aria-label="上一集" title="上一集" onclick="prevEpisode(${anime.id})">-</button><button class="g-btn ep" data-watch-id="${anime.id}" aria-label="下一集" title="下一集" onclick="nextEpisode(${anime.id})">+</button><button class="g-btn del" onclick="deleteAnime(${anime.id})">删</button></div>
+                    ${actionHtml(anime, 'gallery')}
                 </div>`;
             return card;
         }
@@ -512,6 +512,19 @@
             if (detail && !closeDetailModal()) return false;
             openDetailModal(id); return true;
         }
+        function openAnimeMemory(id) {
+            const detail = document.getElementById('detailModal');
+            if (detail?.dataset.animeId !== String(id)) {
+                if (!_cache[id]) { toast('作品信息已变化，请重新加载', 'error'); return; }
+                openDetailModal(id);
+            }
+            if (document.getElementById('detailModal')?.dataset.animeId !== String(id)) return;
+            const input = document.getElementById('memoryContent');
+            if (!input || input.disabled) return;
+            input.scrollIntoView({ block: 'start' });
+            input.focus({ preventScroll: true });
+        }
+
         function openDetailModal(id) {
             if (document.getElementById('detailModal') && !closeDetailModal()) return;
             rememberFocus();

@@ -50,7 +50,8 @@ function renderDailyWatch(panel, data, stale) {
         return items.length ? items.map(({ anime, lastWatchedDate }) => `<li class="daily-row">
             <div class="daily-row-info"><button class="daily-title" onclick="openDailyAnime(${anime.id})">${esc(anime.name)}</button>
                 <div class="daily-meta">${anime.currentEpisode} / ${anime.totalEpisodes} 集 · ${lastWatchedDate ? '最近观看 ' + esc(lastWatchedDate) : '最近观看日期未知'}</div></div>
-            <button class="a-btn daily-record" data-watch-id="${anime.id}" onclick="nextEpisode(${anime.id})" ${stale ? 'disabled' : ''}>记看第 ${anime.currentEpisode + 1} 集</button>
+            <div class="daily-actions"><button type="button" class="a-btn" onclick="openAnimeMemory(${anime.id})">写感想</button>
+            <button class="a-btn daily-record" data-watch-id="${anime.id}" onclick="nextEpisode(${anime.id})" ${stale ? 'disabled' : ''}>记看第 ${anime.currentEpisode + 1} 集</button></div>
         </li>`).join('') : `<li class="daily-empty">${empty}</li>`;
     }
     panel.innerHTML = `<div class="daily-heading"><div><h2>今天从这里继续</h2><p class="daily-note">${esc(data.date)} · ${days[data.weekday - 1] || ''} · 可继续 ${data.ongoingCount} 部</p></div>${refresh}</div>${note}

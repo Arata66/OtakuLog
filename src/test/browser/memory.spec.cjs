@@ -17,8 +17,8 @@ test('当初看后追加回望并修改删除时应该保留各次原文且不�
     const id = await openAnime(page, '演示·雨巷来信');
     const before = await readEpisodes(page, id);
     const original = '  虚构感想：这次反转让我很投入。\n结幕时还想再听一次音乐。  ';
-    await page.locator('#memoryContext').selectOption('INITIAL');
     await page.locator('#memoryOptional summary').click();
+    await page.locator('#memoryContext').selectOption('INITIAL');
     await page.locator('#memoryLiked').fill('演出与音乐');
     await page.locator('#memoryDisliked').fill('中段有些拖沓');
     await page.locator('#memoryScope').fill('动画第一季');
@@ -42,6 +42,120 @@ test('当初看后追加回望并修改删除时应该保留各次原文且不�
     await page.reload(); await openAnime(page, '演示·雨巷来信');
     await expect(section(page)).toContainText('人物的选择更值得回味');
     expect(await readEpisodes(page, id)).toEqual(before);
+});
+
+test('当从三种作品视图和继续观看写感想时应该直接聚焦正文并仅保存随手记', async ({ page }) => {
+    const name = '演示·雨巷来信';
+    const sources = [
+        [null, '#dailyWatch [aria-label="继续观看"] .daily-row'],
+        ['viewTable', '.table-card tbody tr'],
+        ['viewDetail', '#detailView .dt-card'],
+        ['viewGallery', '#galleryView .g-card']
+    ];
+    let id;
+    for (const [view, selector] of sources) {
+        if (view) await page.locator('#' + view).click();
+        await page.locator(selector).filter({ hasText: name }).getByRole('button', { name: '写感想', exact: true }).click();
+        await expect(page.locator('#memoryContent')).toBeFocused();
+        await expect(page.locator('#memoryContext')).toBeHidden();
+        await expect(page.locator('#memoryOptional')).not.toHaveAttribute('open', '');
+        id = Number(await page.locator('#detailModal').getAttribute('data-anime-id'));
+        const position = await page.locator('#memoryContent').evaluate(el => ({
+            top: el.getBoundingClientRect().top,
+            toolbarBottom: document.querySelector('#detailModal .detail-toolbar').getBoundingClientRect().bottom
+        }));
+        expect(position.top).toBeGreaterThanOrEqual(position.toolbarBottom);
+        await page.locator('#detailModal').getByRole('button', { name: '关闭', exact: true }).click();
+    }
+    await page.locator('#dailyWatch [aria-label="继续观看"] .daily-row').filter({ hasText: name })
+        .getByRole('button', { name: '写感想', exact: true }).click();
+    await save(page, '虚构的一句话感想。');
+    expect((await readMemories(page, id))[0]).toMatchObject({ content: '虚构的一句话感想。', context: 'NOTE',
+        liked: null, disliked: null, scope: null, watchedDate: null });
+    await expect(page.locator('#tastePanel')).toHaveCount(0);
+});
+
+test('当重复直达同作品并取消跨作品切换时应该保留草稿和原编号', async ({ page }) => {
+    const id = await openAnime(page, '演示·雨巷来信');
+    await page.locator('#memoryContent').fill('虚构的未完成草稿');
+    let first = true, savedKey;
+    await page.route('**/api/anime/*/memories', async route => {
+        if (route.request().method() !== 'POST') return route.continue();
+        if (!first) { expect(route.request().postDataJSON().key).toBe(savedKey); return route.continue(); }
+        first = false; savedKey = route.request().postDataJSON().key;
+        await route.fulfill({ status: 503, json: { code: 503, message: '虚构保存失败' } });
+    });
+    await page.locator('#memorySave').click();
+    await expect(page.locator('#memoryStatus')).toContainText('输入已保留');
+    let reads = 0;
+    page.on('request', request => { if (/\/memories\?/.test(request.url())) reads++; });
+    await page.evaluate(id => openAnimeMemory(id), id);
+    await expect(page.locator('#memoryContent')).toBeFocused();
+    await expect(page.locator('#memoryContent')).toHaveValue('虚构的未完成草稿');
+    expect(reads).toBe(0);
+    const anotherId = await page.locator('#dailyWatch [aria-label="继续观看"] .daily-row button[onclick^="openAnimeMemory"]')
+        .evaluateAll((buttons, id) => buttons.map(button => Number(button.getAttribute('onclick').match(/\d+/)[0])).find(value => value !== id), id);
+    const dialog = handleDialog(page, /未保存的感想/, false);
+    await page.evaluate(id => openAnimeMemory(id), anotherId); await dialog;
+    await expect(page.locator('#detailModal')).toHaveAttribute('data-anime-id', String(id));
+    await expect(page.locator('#memoryContent')).toHaveValue('虚构的未完成草稿');
+    await page.locator('#memorySave').click();
+    await expect(page.locator('#memoryStatus')).toHaveText('感想已保存。');
+    expect(await readMemories(page, id)).toHaveLength(1);
+});
+
+test('当编辑已有补充字段或仅回望语境时应该自动展开并完整保留', async ({ page }) => {
+    const id = await openAnime(page, '演示·雨巷来信');
+    await page.locator('#memoryOptional summary').click();
+    await page.locator('#memoryContext').selectOption('REWATCH');
+    await page.locator('#memoryLiked').fill('虚构音乐');
+    await page.locator('#memoryDisliked').fill('虚构节奏');
+    await page.locator('#memoryScope').fill('电影');
+    await page.locator('#memoryWatchedDate').fill('2020-01-02');
+    await save(page, '带补充的虚构感想');
+    await entry(page, '带补充').getByRole('button', { name: '编辑', exact: true }).click();
+    await expect(page.locator('#memoryOptional')).toHaveAttribute('open', '');
+    await expect(page.locator('#memoryContext')).toHaveValue('REWATCH');
+    await expect(page.locator('#memoryLiked')).toHaveValue('虚构音乐');
+    await expect(page.locator('#memoryDisliked')).toHaveValue('虚构节奏');
+    await expect(page.locator('#memoryScope')).toHaveValue('电影');
+    await expect(page.locator('#memoryWatchedDate')).toHaveValue('2020-01-02');
+    await save(page, '只修改正文后的虚构感想');
+    expect((await readMemories(page, id))[0]).toMatchObject({ context: 'REWATCH', liked: '虚构音乐',
+        disliked: '虚构节奏', scope: '电影', watchedDate: '2020-01-02' });
+    await section(page).getByRole('button', { name: '写一条回望', exact: true }).click();
+    await expect(page.locator('#memoryContext')).toBeVisible();
+    await expect(page.locator('#memoryContext')).toHaveValue('REFLECTION');
+    await save(page, '仅有回望语境的虚构记录');
+    await entry(page, '仅有回望').getByRole('button', { name: '编辑', exact: true }).click();
+    await expect(page.locator('#memoryContext')).toBeVisible();
+    await expect(page.locator('#memoryContext')).toHaveValue('REFLECTION');
+    expect(await readMemories(page, id)).toHaveLength(2);
+});
+
+test('当手机深色下从继续观看和封面墙写感想时应该定位可编辑正文并能保存', async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 360, height: 780 });
+    await page.locator('#themeToggle').click();
+    const row = page.locator('#dailyWatch [aria-label="继续观看"] .daily-row').filter({ hasText: '演示·雨巷来信' });
+    await row.getByRole('button', { name: '写感想', exact: true }).click();
+    await expect(page.locator('#memoryContent')).toBeFocused();
+    await expect(page.locator('#memoryContext')).toBeHidden();
+    const bounds = await page.locator('#memoryContent').evaluate(el => ({
+        top: el.getBoundingClientRect().top, bottom: el.getBoundingClientRect().bottom,
+        toolbarBottom: document.querySelector('#detailModal .detail-toolbar').getBoundingClientRect().bottom,
+        height: window.innerHeight, overflow: document.documentElement.scrollWidth > window.innerWidth
+    }));
+    expect(bounds.top).toBeGreaterThanOrEqual(bounds.toolbarBottom);
+    expect(bounds.bottom).toBeLessThan(bounds.height); expect(bounds.overflow).toBe(false);
+    await page.screenshot({ path: testInfo.outputPath('手机快速感想.png'), animations: 'disabled' });
+    await save(page, '手机里的一句虚构感想');
+    await page.locator('#detailModal').getByRole('button', { name: '关闭', exact: true }).click();
+    await page.locator('#viewGallery').click();
+    await page.locator('#galleryView .g-card').filter({ hasText: '演示·雨巷来信' })
+        .getByRole('button', { name: '写感想', exact: true }).click();
+    await expect(page.locator('#memoryContent')).toBeFocused();
+    await save(page, '封面墙里的另一句虚构感想');
+    await expect(section(page).locator('.memory-entry')).toHaveCount(2);
 });
 
 test('当双窗口修改同一条感想时应该保留冲突输入并要求重新加载核对', async ({ page, secondPage }) => {

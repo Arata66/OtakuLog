@@ -63,7 +63,7 @@ function resetMemoryDraft(state, entry = null, context = 'NOTE') {
     document.getElementById('memorySave').textContent = entry ? '保存修改' : '保存感想';
     document.getElementById('memoryCancelEdit').hidden = !entry;
     document.getElementById('memoryFormTitle').textContent = entry ? '修改这条感想' : '此刻有什么想留下的？';
-    document.getElementById('memoryOptional').open = !!entry && !!(entry.liked || entry.disliked || entry.scope || entry.watchedDate);
+    document.getElementById('memoryOptional').open = (entry?.context || context) !== 'NOTE' || !!(entry?.liked || entry?.disliked || entry?.scope || entry?.watchedDate);
     state.baseline = JSON.stringify(memoryDraft());
 }
 
@@ -73,9 +73,9 @@ function renderMemoryForm(state) {
         <form id="memoryForm" class="memory-form" onsubmit="event.preventDefault();saveAnimeMemory(${state.id})">
             <label id="memoryFormTitle" class="memory-prompt" for="memoryContent">此刻有什么想留下的？</label>
             <textarea id="memoryContent" class="app-input memory-content-input" rows="5" required maxlength="16000" placeholder="写下现在的感想，不必整理成结论。"></textarea>
-            <div class="memory-context-row"><label for="memoryContext">这次记录的语境</label><select id="memoryContext" class="app-input">
-                ${Object.entries(memoryContexts).map(([key, label]) => `<option value="${key}">${label}</option>`).join('')}</select></div>
-            <details id="memoryOptional" class="memory-optional"><summary>补充原因、评价范围或观看日期（可选）</summary><div class="memory-optional-fields">
+            <details id="memoryOptional" class="memory-optional"><summary>补充语境、原因、范围或观看日期（可选）</summary><div class="memory-optional-fields">
+                <label class="memory-context-row" for="memoryContext">这次记录的语境<select id="memoryContext" class="app-input">
+                    ${Object.entries(memoryContexts).map(([key, label]) => `<option value="${key}">${label}</option>`).join('')}</select></label>
                 <label for="memoryLiked">打动我的地方<textarea id="memoryLiked" class="app-input" rows="3" maxlength="2000"></textarea></label>
                 <label for="memoryDisliked">不满意的地方<textarea id="memoryDisliked" class="app-input" rows="3" maxlength="2000"></textarea></label>
                 <label for="memoryScope">评价范围<input id="memoryScope" class="app-input" maxlength="200" placeholder="如：第一季、电影、原作后续" value=""></label>
