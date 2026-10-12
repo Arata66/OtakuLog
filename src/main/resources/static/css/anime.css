@@ -1125,7 +1125,7 @@
         .anime-memory { margin-top: 28px; padding-top: 28px; border-top: 1px solid var(--border); min-width: 0; }
         .memory-heading { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 20px; }
         .memory-heading h3 { color: var(--text); font-size: 1.05em; letter-spacing: 0.03em; }
-        .memory-heading > .a-btn { flex-shrink: 0; }
+        .memory-heading-actions { display: flex; flex-shrink: 0; flex-wrap: wrap; gap: 8px; }
         .memory-note { color: var(--text-dim); font-size: 0.83em; line-height: 1.7; margin-top: 8px; overflow-wrap: anywhere; }
         .memory-form { padding: 20px; border: 1px solid var(--border-light); border-radius: var(--radius-sm); background: var(--bg); }
         .memory-prompt { display: block; margin-bottom: 12px; color: var(--text); font-weight: 600; }
@@ -1144,15 +1144,28 @@
         .memory-form-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
         .memory-form-actions #memorySave { background: var(--primary); border-color: var(--primary); color: var(--card); }
         .anime-memory button { min-height: 44px; }
-        .memory-list { margin-top: 24px; }
+        .memory-list { margin-top: 24px; scroll-margin-top: 88px; }
+        .memory-list:focus-visible { outline: 2px solid var(--primary); outline-offset: 6px; }
+        .memory-list-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 18px; }
+        .memory-list-heading h4 { font-size: 0.94em; color: var(--text); }
+        .memory-list-heading .memory-note { margin-top: 4px; }
+        .memory-list-heading > .a-btn { flex-shrink: 0; }
         .memory-entry { border-bottom: 1px solid var(--border-light); padding: 22px 0; min-width: 0; }
-        .memory-entry:first-child { padding-top: 0; }
+        .memory-list-heading + .memory-entry { padding-top: 0; }
         .memory-entry-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
         .memory-context { color: var(--primary); font-size: 0.78em; font-weight: 600; letter-spacing: 0.07em; }
         .memory-entry-actions { display: flex; gap: 8px; }
         .memory-entry-actions { flex-wrap: wrap; }
         .memory-original, .memory-reason p { white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word; line-height: 1.9; }
         .memory-original { color: var(--text); font-size: 0.94em; }
+        .memory-text summary { cursor: pointer; list-style: none; min-height: 44px; scroll-margin-top: 88px; }
+        .memory-text summary::-webkit-details-marker { display: none; }
+        .memory-text summary:focus-visible { outline: 2px solid var(--primary); outline-offset: 4px; }
+        .memory-preview { display: block; white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word; line-height: 1.9; font-size: 0.94em; color: var(--text); max-height: 11.4em; overflow: hidden; }
+        .memory-expand-label, .memory-collapse-label { display: flex; align-items: center; min-height: 44px; color: var(--primary); font-size: 0.83em; font-weight: 500; }
+        .memory-collapse-label { display: none; }
+        .memory-text[open] .memory-preview, .memory-text[open] .memory-expand-label { display: none; }
+        .memory-text[open] .memory-collapse-label { display: flex; }
         .memory-reason { margin-top: 16px; padding-left: 12px; border-left: 2px solid var(--border); }
         .memory-reason h4 { color: var(--text-dim); font-size: 0.76em; font-weight: 500; margin-bottom: 5px; }
         .memory-reason p { color: var(--text-mid); font-size: 0.86em; }

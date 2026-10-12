@@ -260,8 +260,84 @@ test('当手机深色下读取失败后重试并写入长文本时应该安全�
     await page.locator('#memoryContent').scrollIntoViewIfNeeded();
     await page.screenshot({ path: testInfo.outputPath('手机深色记忆输入.png'), animations: 'disabled', style: '.mobile-nav { visibility: hidden; }' });
     await page.locator('#memoryOptional summary').click();
+    await section(page).locator('.memory-text summary').click();
     await section(page).locator('.memory-original').scrollIntoViewIfNeeded();
     await page.screenshot({ path: testInfo.outputPath('手机深色记忆原文.png'), animations: 'disabled', style: '.mobile-nav { visibility: hidden; }' });
+});
+
+test('当带着未保存感想往返回看列表时应该保留草稿且不重载或确认放弃', async ({ page }) => {
+    await openAnime(page, '演示·雨巷来信');
+    await save(page, '已经保存的虚构感想');
+    await page.locator('#memoryContent').fill('还没写完的另一条虚构感想');
+    const dialogs = [], requests = [];
+    page.on('dialog', async dialog => { dialogs.push(dialog.message()); await dialog.dismiss(); });
+    page.on('request', request => { if (/\/memories(?:[/?]|$)/.test(new URL(request.url()).pathname)) requests.push(request.method()); });
+    await section(page).getByRole('button', { name: '回看感想', exact: true }).click();
+    await expect(page.locator('#memoryList')).toBeFocused();
+    await expect(page.locator('#memoryList')).toContainText('1 条 · 最新记录在前');
+    await expect(entry(page, '已经保存')).toBeVisible();
+    const position = await page.locator('#memoryList').evaluate(el => ({
+        top: el.getBoundingClientRect().top,
+        toolbarBottom: document.querySelector('#detailModal .detail-toolbar').getBoundingClientRect().bottom
+    }));
+    expect(position.top).toBeGreaterThanOrEqual(position.toolbarBottom);
+    await page.locator('#memoryList').getByRole('button', { name: '回到输入', exact: true }).click();
+    await expect(page.locator('#memoryContent')).toBeFocused();
+    await expect(page.locator('#memoryContent')).toHaveValue('还没写完的另一条虚构感想');
+    expect(dialogs).toEqual([]); expect(requests).toEqual([]);
+});
+
+test('当回看长短感想并展开收起后编辑时应该始终保留完整原文', async ({ page }) => {
+    const id = await openAnime(page, '演示·雨巷来信');
+    await save(page, '短文直接显示');
+    const text = '长文的虚构开头\n' + '🌸虚构感想'.repeat(90) + '\n<script>window.readUnsafe=true</script>';
+    await save(page, text);
+    const longEntry = entry(page, '长文的虚构开头'), shortEntry = entry(page, '短文直接显示');
+    await section(page).getByRole('button', { name: '回看感想', exact: true }).click();
+    await expect(longEntry.locator('.memory-text')).not.toHaveAttribute('open', '');
+    await expect(longEntry.locator('.memory-original')).toBeHidden();
+    await expect(shortEntry.locator('.memory-text')).toHaveCount(0);
+    await expect(shortEntry.locator('.memory-original')).toBeVisible();
+    let requests = 0;
+    page.on('request', request => { if (/\/memories(?:[/?]|$)/.test(new URL(request.url()).pathname)) requests++; });
+    await longEntry.locator('summary').click();
+    await expect(longEntry.locator('.memory-original')).toBeVisible();
+    await expect(longEntry.locator('.memory-original')).toHaveText(text);
+    expect(await page.evaluate(() => window.readUnsafe)).toBeUndefined();
+    await longEntry.locator('summary').press('Enter');
+    await expect(longEntry.locator('.memory-original')).toBeHidden();
+    expect(requests).toBe(0);
+    await longEntry.getByRole('button', { name: '编辑', exact: true }).click();
+    await expect(page.locator('#memoryContent')).toHaveValue(text);
+    expect((await readMemories(page, id)).find(row => row.content.startsWith('长文的虚构开头')).content).toBe(text);
+});
+
+test('当手机深色下回看展开长文并回到输入时应该保持安全布局和草稿', async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 360, height: 780 });
+    await page.locator('#themeToggle').click();
+    await openAnime(page, '演示·雨巷来信');
+    const text = '手机回看的虚构长文\n' + '虚构原文🌸'.repeat(120);
+    await save(page, text);
+    await page.locator('#memoryContent').fill('手机里尚未保存的虚构草稿');
+    await section(page).getByRole('button', { name: '回看感想', exact: true }).click();
+    await expect(page.locator('#memoryList')).toBeFocused();
+    await expect(page.locator('#memoryContent')).toHaveValue('手机里尚未保存的虚构草稿');
+    await page.screenshot({ path: testInfo.outputPath('手机感想摘要.png'), animations: 'disabled' });
+    const summary = entry(page, '手机回看').locator('summary');
+    await summary.click();
+    await expect(entry(page, '手机回看').locator('.memory-original')).toHaveText(text);
+    const layout = await section(page).evaluate(el => ({
+        overflow: document.documentElement.scrollWidth > window.innerWidth,
+        heights: [...el.querySelectorAll('button:not([hidden]), summary')]
+            .filter(control => control.getClientRects().length).map(control => control.getBoundingClientRect().height)
+    }));
+    expect(layout.overflow).toBe(false); expect(layout.heights.every(height => height >= 44)).toBe(true);
+    await summary.scrollIntoViewIfNeeded();
+    await page.screenshot({ path: testInfo.outputPath('手机完整感想.png'), animations: 'disabled' });
+    await summary.click();
+    await page.locator('#memoryList').getByRole('button', { name: '回到输入', exact: true }).click();
+    await expect(page.locator('#memoryContent')).toBeFocused();
+    await expect(page.locator('#memoryContent')).toHaveValue('手机里尚未保存的虚构草稿');
 });
 
 test('当完整备份导入感想时应该显示新增数并保留原编号日期与书写时间', async ({ page, demo }) => {

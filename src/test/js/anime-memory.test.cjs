@@ -36,6 +36,44 @@ function app(accepted = true) {
 
 async function ready(accepted = true) { const a = app(accepted); await a.context.loadAnimeMemories(7); return a; }
 
+test('当带着未保存草稿回看感想时应该只定位列表而不确认或重载', async () => {
+    const a = await ready(false), positions = [];
+    a.field('memoryContent').value = '还没写完的虚构感想';
+    a.field('memoryList').scrollIntoView = () => positions.push('定位');
+    a.field('memoryList').focus = () => positions.push('聚焦');
+    a.context.focusAnimeMemories(7);
+    assert.deepEqual(positions, ['定位', '聚焦']); assert.equal(a.requests.length, 1);
+    assert.equal(a.confirmations.length, 0); assert.equal(a.field('memoryContent').value, '还没写完的虚构感想');
+});
+
+test('当回看入口与当前作品不符时应该不移动焦点', async () => {
+    const a = await ready(), positions = [];
+    a.field('memoryList').scrollIntoView = () => positions.push('定位');
+    a.field('memoryList').focus = () => positions.push('聚焦');
+    a.context.focusAnimeMemories(8);
+    assert.deepEqual(positions, []); assert.equal(a.requests.length, 1);
+});
+
+test('当正文很短时应该直接展示完整原文而无需展开', async () => {
+    const a = await ready();
+    assert.equal(a.context.memoryTextHtml('短感想\r\n第二行'), '<p class="memory-original">短感想\r\n第二行</p>');
+});
+
+test('当正文超过摘要长度时应该按完整Unicode字符预览并保留全部原文', async () => {
+    const a = await ready(), text = '🌸'.repeat(241);
+    const html = a.context.memoryTextHtml(text);
+    assert.ok(html.includes('🌸'.repeat(240) + '…')); assert.ok(html.includes(text));
+    assert.match(html, /展开全文/); assert.match(html, /收起全文/);
+    assert.doesNotMatch(html, /\uFFFD/);
+});
+
+test('当正文换行很多时应该只预览前六行并安全保留完整纯文本', async () => {
+    const a = await ready(), text = '1\n2\n3\n4\n5\n6\n<script>虚构</script>';
+    const html = a.context.memoryTextHtml(text);
+    assert.ok(html.includes('1\n2\n3\n4\n5\n6…')); assert.match(html, /&lt;script&gt;/);
+    assert.doesNotMatch(html, /<script>/);
+});
+
 test('当打开记忆区时应该提供自由原文并保持观看日期为空', async () => {
     const a = await ready();
     assert.match(a.section.innerHTML, /此刻有什么想留下的/);
