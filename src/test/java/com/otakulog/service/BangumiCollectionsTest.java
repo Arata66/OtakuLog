@@ -54,6 +54,55 @@ class BangumiCollectionsTest {
         assertThrows(RuntimeException.class, () -> service.getUserCollections("test", 200)); server.verify();
     }
     private String url(int size, int offset) { return "https://api.bgm.tv/v0/users/test/collections?subject_type=2&limit=" + size + "&offset=" + offset; }
+    @Test
+    void 当公开收藏超过二百条时应该完整读取且保留个人评分评论与标签() {
+        for (int page = 0; page < 6; page++) {
+            int currentPage = page;
+            var rows = java.util.stream.IntStream.range(0, page == 5 ? 1 : 50)
+                    .mapToObj(n -> row(pageId(n, currentPage))).toList();
+            server.expect(requestTo(url(50, page * 50))).andRespond(withSuccess(
+                    "{\"total\":251,\"data\":[" + String.join(",", rows) + "]}", MediaType.APPLICATION_JSON));
+        }
+        var snapshot = service.getCompleteUserCollections("test");
+        assertEquals(251, snapshot.rows().size()); assertEquals(251, snapshot.total()); assertFalse(snapshot.sourceChanged());
+        assertEquals(7, snapshot.rows().get(0).get("rate"));
+        assertEquals("来源评论", snapshot.rows().get(0).get("comment"));
+        assertEquals(java.util.List.of("自己的标签"), snapshot.rows().get(0).get("tags")); server.verify();
+    }
+    private int pageId(int n, int page) { return page * 50 + n + 1; }
+    @Test
+    void 当完整读取的后续页失败时应该拒绝返回部分收藏() {
+        expectFullPage(0, 51);
+        server.expect(requestTo(url(50, 50))).andRespond(withServerError());
+        assertThrows(RuntimeException.class, () -> service.getCompleteUserCollections("test")); server.verify();
+    }
+    @Test
+    void 当上游收藏总数超过保护上限时应该明确拒绝而不是静默截断() {
+        server.expect(requestTo(url(50, 0))).andRespond(withSuccess("{\"total\":10001,\"data\":[]}", MediaType.APPLICATION_JSON));
+        assertThrows(ExternalApiException.class, () -> service.getCompleteUserCollections("test")); server.verify();
+    }
+    @Test
+    void 当分页出现重复编号时应该提示重新读取() {
+        expectFullPage(0, 51);
+        server.expect(requestTo(url(50, 50))).andRespond(withSuccess("{\"total\":51,\"data\":[" + row(1) + "]}", MediaType.APPLICATION_JSON));
+        assertThrows(ExternalApiException.class, () -> service.getCompleteUserCollections("test")); server.verify();
+    }
+    @Test
+    void 当上游收藏数量在读取期间变化时应该保留变化提示且不伪装事务快照() {
+        expectFullPage(0, 51);
+        server.expect(requestTo(url(50, 50))).andRespond(withSuccess("{\"total\":50,\"data\":[]}", MediaType.APPLICATION_JSON));
+        var snapshot = service.getCompleteUserCollections("test");
+        assertEquals(50, snapshot.rows().size()); assertTrue(snapshot.sourceChanged()); server.verify();
+    }
+    @Test
+    void 当完整收藏为空时应该返回明确的空快照() {
+        server.expect(requestTo(url(50, 0))).andRespond(withSuccess("{\"total\":0,\"data\":[]}", MediaType.APPLICATION_JSON));
+        assertTrue(service.getCompleteUserCollections("test").rows().isEmpty()); server.verify();
+    }
+    private void expectFullPage(int offset, int total) {
+        var rows = java.util.stream.IntStream.range(offset + 1, offset + 51).mapToObj(this::row).toList();
+        server.expect(requestTo(url(50, offset))).andRespond(withSuccess("{\"total\":" + total + ",\"data\":[" + String.join(",", rows) + "]}", MediaType.APPLICATION_JSON));
+    }
     private String page(java.util.List<String> rows) { return "{\"data\":[" + String.join(",", rows) + "]}"; }
-    private String row(int id) { return "{\"subject\":{\"id\":" + id + ",\"name\":\"原名\",\"name_cn\":\"收藏样例\",\"eps\":12,\"images\":{\"large\":\"//example.test/cover.jpg\"}},\"type\":3,\"ep_status\":3}"; }
+    private String row(int id) { return "{\"subject\":{\"id\":" + id + ",\"name\":\"原名\",\"name_cn\":\"收藏样例\",\"eps\":12,\"images\":{\"large\":\"//example.test/cover.jpg\"}},\"type\":3,\"ep_status\":3,\"rate\":7,\"comment\":\"来源评论\",\"tags\":[\"自己的标签\"]}"; }
 }

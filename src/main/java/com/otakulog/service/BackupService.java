@@ -30,6 +30,7 @@ public class BackupService {
     private final MemoryInsightRepository insights;
     private final AiCallRepository aiCalls;
     private final AiQuotaRepository quota;
+    private final ExternalCollectionBackup externalBackup;
     private final ObjectMapper mapper = new ObjectMapper().registerModule(new JavaTimeModule())
             .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
             .disable(MapperFeature.ALLOW_COERCION_OF_SCALARS)
@@ -40,9 +41,10 @@ public class BackupService {
 
     public BackupService(AnimeRepository anime, TagRepository tags, AnimeGroupRepository groups,
                          EpisodeRecordRepository episodes, AnimeMemoryRepository memories,
-                         MemoryInsightRepository insights, AiCallRepository aiCalls, AiQuotaRepository quota) {
+                         MemoryInsightRepository insights, AiCallRepository aiCalls, AiQuotaRepository quota, ExternalCollectionBackup externalBackup) {
         this.anime = anime; this.tags = tags; this.groups = groups; this.episodes = episodes; this.memories = memories;
         this.insights = insights; this.aiCalls = aiCalls; this.quota = quota;
+        this.externalBackup = externalBackup;
     }
 
     @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
@@ -56,7 +58,7 @@ public class BackupService {
         }
         var allMemories = memories.findAll(Sort.by("id"));
         var memoryKeys = allMemories.stream().collect(Collectors.toMap(AnimeMemory::getId, AnimeMemory::getMemoryKey));
-        var document = new BackupDocument("otakulog-backup", 3, LocalDateTime.now(),
+        var document = new BackupDocument("otakulog-backup", 4, LocalDateTime.now(),
                 allAnime.stream().map(a -> new AnimeEntry("a:" + a.getId(), data(a),
                         a.getTags().stream().sorted(Comparator.comparing(Tag::getId))
                                 .map(t -> "t:" + t.getId()).toList())).toList(),
@@ -71,7 +73,8 @@ public class BackupService {
                         m.getScope(), m.getContext(), m.getWatchedDate(), m.getVersion(),
                         m.getCreatedAt(), m.getUpdatedAt())).toList(),
                 insights.findAll(Sort.by("id")).stream().map(i -> insightEntry(i, memoryKeys.get(i.getMemoryId()))).toList(),
-                aiCalls.findAll(Sort.by("id")).stream().map(BackupService::callEntry).toList());
+                aiCalls.findAll(Sort.by("id")).stream().map(BackupService::callEntry).toList(),
+                externalBackup.exportCollections(), externalBackup.exportBatches());
         try {
             return mapper.writerWithDefaultPrettyPrinter().writeValueAsString(document);
         } catch (Exception e) { throw new IllegalStateException("备份导出失败", e); }
@@ -92,6 +95,7 @@ public class BackupService {
         Input input = parse(json);
         // 与付费预留共用锁顺序，旧格式恢复也不能绕过额度保护。
         AiQuota lockedQuota = quota.findSingletonForUpdate().orElseThrow(() -> new IllegalStateException("AI额度行缺失，请先完成数据库迁移"));
+        externalBackup.lock();
         LocalDate today = LocalDate.now();
         int retainedCalls = today.equals(lockedQuota.getQuotaDate()) ? lockedQuota.getReservedCalls() : 0;
         Analysis analysis = analyze(input, true);
@@ -173,6 +177,7 @@ public class BackupService {
         lockedQuota.setQuotaDate(today);
         lockedQuota.setReservedCalls(Math.max(retainedCalls, (int) mergedCount));
         quota.save(lockedQuota);
+        externalBackup.restore(doc);
         return analysis.summary;
     }
 
@@ -261,6 +266,8 @@ public class BackupService {
         result.put("warnings", input.legacy ? List.of("旧格式没有逐集日期和分组，缺失记录仅补未知日期。", "已有资料和更高进度会保留，标签与分组关联取并集。")
                 : List.of("已有资料和更高进度会保留，标签与分组关联取并集；本地额外数据不会删除。"));
         result.put("conflicts", conflicts);
+        externalBackup.analyze(doc, conflicts, result);
+        result.put("valid", conflicts.isEmpty());
         return new Analysis(matches, groupMatches, conflicts, result);
     }
 
@@ -274,7 +281,11 @@ public class BackupService {
             else {
                 require(root.isObject() && "otakulog-backup".equals(root.path("format").asText()), "备份格式不受支持");
                 require(root.path("version").isIntegralNumber()
-                        && root.path("version").longValue() >= 1 && root.path("version").longValue() <= 3, "备份版本不受支持");
+                        && root.path("version").longValue() >= 1 && root.path("version").longValue() <= 4, "备份版本不受支持");
+                if (root.path("version").intValue() < 4) {
+                    require(!root.has("externalCollections") && !root.has("importBatches"), "旧版本不能包含外部收藏或导入批次，请使用版本四");
+                    ((ObjectNode) root).putArray("externalCollections"); ((ObjectNode) root).putArray("importBatches");
+                }
                 if (root.path("version").intValue() < 3) {
                     require(!root.has("insights") && !root.has("aiCalls"), "旧版本不能包含观点或调用历史，请使用版本三");
                     ((ObjectNode) root).putArray("insights"); ((ObjectNode) root).putArray("aiCalls");
@@ -284,6 +295,9 @@ public class BackupService {
                     ((ObjectNode) root).putArray("memories");
                 }
                 fields(root, BackupDocument.class);
+                require(root.path("externalCollections").isArray() && root.path("importBatches").isArray(), "外部集合必须为数组");
+                for (JsonNode entry : root.path("externalCollections")) { fields(entry, ExternalEntry.class); auditFields(entry); }
+                for (JsonNode entry : root.path("importBatches")) { fields(entry, ImportBatchEntry.class); auditFields(entry); }
                 require(root.path("insights").isArray() && root.path("aiCalls").isArray(), "观点与调用集合必须为数组");
                 for (JsonNode entry : root.path("insights")) { fields(entry, InsightEntry.class); auditFields(entry); }
                 for (JsonNode entry : root.path("aiCalls")) {
@@ -307,6 +321,7 @@ public class BackupService {
                 document = mapper.treeToValue(root, BackupDocument.class);
             }
             validate(document);
+            externalBackup.validate(document);
             return new Input(document, legacy);
         } catch (IllegalArgumentException e) { throw e; }
         catch (Exception e) { throw new IllegalArgumentException("备份结构、字段或日期格式无效", e); }

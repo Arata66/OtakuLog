@@ -634,6 +634,102 @@ class MySqlDeploymentTest {
         }
     }
 
+    @Test
+    void 当MySQL升级并并发确认同一收藏预览后重启时应该保留外部原文且只写入一次() throws Exception {
+        withDatabase(database -> {
+            flyway(database, "12").migrate();
+            var count = new java.util.concurrent.atomic.AtomicInteger();
+            var server = com.sun.net.httpserver.HttpServer.create(new java.net.InetSocketAddress("127.0.0.1", 0), 0);
+            var mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+            var rows = java.util.List.of(
+                    java.util.Map.of("subject", java.util.Map.of("id", 913001, "name", "虚构完成作品", "eps", 3),
+                            "type", 2, "ep_status", 0, "rate", 8, "tags", java.util.List.of("收藏标签"), "comment", "外部原文\n<script>保留</script>"),
+                    java.util.Map.of("subject", java.util.Map.of("id", 913002, "name", "虚构搁置作品", "eps", 0),
+                            "type", 4, "ep_status", 0, "rate", 0, "tags", java.util.List.of(), "comment", ""));
+            byte[] response = mapper.writeValueAsBytes(java.util.Map.of("total", 2, "data", rows));
+            server.createContext("/", exchange -> {
+                count.incrementAndGet(); exchange.getResponseHeaders().set("Content-Type", "application/json; charset=utf-8");
+                exchange.sendResponseHeaders(200, response.length); exchange.getResponseBody().write(response); exchange.close();
+            }); server.start();
+            String config = "--otakulog.bangumi.base-url=http://127.0.0.1:" + server.getAddress().getPort();
+            String json;
+            com.otakulog.dto.BangumiImportDTO.ConfirmRequest request;
+            try {
+                try (var app = startApplication(database, config)) {
+                    var service = app.getBean(com.otakulog.service.BangumiImportPreviewService.class);
+                    var preview = service.preview("tester", "test");
+                    request = new com.otakulog.dto.BangumiImportDTO.ConfirmRequest(preview.previewKey(), UUID.randomUUID().toString(), true, true);
+                    assertEquals("0", query(database, "SELECT COUNT(*) FROM anime"));
+                    var executor = Executors.newFixedThreadPool(2);
+                    try {
+                        var first = executor.submit(() -> service.confirm("tester", request));
+                        var second = executor.submit(() -> service.confirm("tester", request));
+                        assertEquals(first.get(20, TimeUnit.SECONDS), second.get(20, TimeUnit.SECONDS));
+                    } finally { executor.shutdownNow(); }
+                    assertEquals("1", query(database, "SELECT COUNT(*) FROM anime"));
+                    assertEquals("2", query(database, "SELECT COUNT(*) FROM external_collection"));
+                    assertEquals("1", query(database, "SELECT COUNT(*) FROM import_batch"));
+                    assertEquals("3", query(database, "SELECT COUNT(*) FROM episode_record WHERE watched_date IS NULL AND record_source='IMPORT'"));
+                    json = app.getBean(BackupService.class).exportJson();
+                    assertEquals(true, app.getBean(BackupService.class).previewJson(json).get("valid"));
+                }
+                try (var app = startApplication(database, config)) {
+                    assertEquals(1, app.getBean(com.otakulog.service.BangumiImportPreviewService.class).confirm("tester", request).created());
+                    var before = mapper.readTree(json); var after = mapper.readTree(app.getBean(BackupService.class).exportJson());
+                    assertEquals(before.path("externalCollections"), after.path("externalCollections"));
+                    assertEquals(before.path("importBatches"), after.path("importBatches")); assertEquals(1, count.get());
+                }
+            } finally { server.stop(0); }
+        });
+    }
+
+    @Test
+    void 当MySQL空库恢复旧备份与确认导入并发时应该串行核对且不产生重复作品() throws Exception {
+        withDatabase(database -> {
+            var server = com.sun.net.httpserver.HttpServer.create(new java.net.InetSocketAddress("127.0.0.1", 0), 0);
+            byte[] response = new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsBytes(java.util.Map.of("total", 1, "data", java.util.List.of(
+                    java.util.Map.of("subject", java.util.Map.of("id", 914001, "name", "虚构并发恢复", "eps", 12), "type", 1, "ep_status", 0))));
+            server.createContext("/", exchange -> {
+                exchange.getResponseHeaders().set("Content-Type", "application/json; charset=utf-8");
+                exchange.sendResponseHeaders(200, response.length); exchange.getResponseBody().write(response); exchange.close();
+            }); server.start();
+            try (var app = startApplication(database, "--otakulog.bangumi.base-url=http://127.0.0.1:" + server.getAddress().getPort())) {
+                var anime = app.getBean(AnimeRepository.class); var value = new Anime();
+                value.setName("虚构并发恢复"); value.setBangumiId(914001); value.setTotalEpisodes(12); anime.saveAndFlush(value);
+                var backup = app.getBean(BackupService.class);
+                var legacy = (com.fasterxml.jackson.databind.node.ObjectNode) new com.fasterxml.jackson.databind.ObjectMapper().readTree(backup.exportJson());
+                legacy.put("version", 3); legacy.remove("externalCollections"); legacy.remove("importBatches"); anime.deleteAll();
+                var service = app.getBean(com.otakulog.service.BangumiImportPreviewService.class);
+                var preview = service.preview("tester", "test");
+                var request = new com.otakulog.dto.BangumiImportDTO.ConfirmRequest(preview.previewKey(), UUID.randomUUID().toString(), false, false);
+                var entered = new CountDownLatch(1); var release = new CountDownLatch(1);
+                var restoreThread = new java.util.concurrent.atomic.AtomicReference<Thread>();
+                var repository = (org.springframework.aop.framework.Advised) anime;
+                org.aopalliance.intercept.MethodInterceptor pause = invocation -> {
+                    var result = invocation.proceed();
+                    // 强制空库恢复已读完身份后，另一线程才尝试确认导入。
+                    if (Thread.currentThread() == restoreThread.get() && invocation.getMethod().getName().equals("findAllIdsForRestore")) {
+                        entered.countDown(); if (!release.await(10, TimeUnit.SECONDS)) throw new IllegalStateException("恢复等待超时");
+                    }
+                    return result;
+                };
+                repository.addAdvice(0, pause); var executor = Executors.newFixedThreadPool(2);
+                try {
+                    var restoring = executor.submit(() -> { restoreThread.set(Thread.currentThread()); return backup.importJson(legacy.toString()); });
+                    assertTrue(entered.await(10, TimeUnit.SECONDS));
+                    var confirming = executor.submit(() -> service.confirm("tester", request));
+                    assertThrows(java.util.concurrent.TimeoutException.class, () -> confirming.get(400, TimeUnit.MILLISECONDS));
+                    release.countDown(); assertEquals(true, restoring.get(20, TimeUnit.SECONDS).get("valid"));
+                    var failure = assertThrows(java.util.concurrent.ExecutionException.class, () -> confirming.get(20, TimeUnit.SECONDS));
+                    org.junit.jupiter.api.Assertions.assertInstanceOf(com.otakulog.common.ConflictException.class, failure.getCause());
+                    assertEquals("1", query(database, "SELECT COUNT(*) FROM anime"));
+                    assertEquals("0", query(database, "SELECT COUNT(*) FROM external_collection"));
+                    assertEquals("0", query(database, "SELECT COUNT(*) FROM import_batch"));
+                } finally { release.countDown(); executor.shutdownNow(); repository.removeAdvice(pause); }
+            } finally { server.stop(0); }
+        });
+    }
+
     private void withDatabase(DatabaseCheck check) throws Exception {
         // 库名完全由测试生成，清理只针对本次成功创建的隔离库。
         String database = "otakulog_verify_" + UUID.randomUUID().toString().replace("-", "");

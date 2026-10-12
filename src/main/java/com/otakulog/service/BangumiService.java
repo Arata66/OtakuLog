@@ -24,4 +24,6 @@ public interface BangumiService {
     List<BangumiResult> searchByTag(String tag, int limit);
 
     List<Map<String, Object>> getUserCollections(String username, int limit);
+
+    com.otakulog.dto.BangumiCollectionSnapshot getCompleteUserCollections(String username);
 }

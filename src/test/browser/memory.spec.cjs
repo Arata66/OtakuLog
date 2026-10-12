@@ -345,7 +345,7 @@ test('当完整备份导入感想时应该显示新增数并保留原编号日�
     await save(page, '本地备份里的虚构记忆');
     const before = (await readMemories(page, id))[0];
     const exported = await (await page.request.get(demo.url + '/api/anime/export')).json();
-    expect(exported.version).toBe(3); expect(exported.memories).toHaveLength(1);
+    expect(exported.version).toBe(4); expect(exported.memories).toHaveLength(1);
     let dialog = handleDialog(page, /删除这条观影记忆/, true);
     await entry(page, '虚构记忆').getByRole('button', { name: '删除', exact: true }).click(); await dialog;
     await expect(section(page).locator('.memory-entry')).toHaveCount(0);

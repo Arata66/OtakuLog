@@ -90,12 +90,9 @@ public class BangumiApiController {
         return ResponseEntity.ok(ApiResponse.success(result));
     }
 
-    @Operation(summary = "从Bangumi导入追番记录")
+    @Operation(summary = "旧版Bangumi直接导入入口（已停用）", deprecated = true)
     @PostMapping("/api/bangumi/import/{username}")
     public ResponseEntity<ApiResponse<Map<String, Object>>> importFromBangumi(@PathVariable String username) {
-        Map<String, Object> result = animeService.importFromBangumi(username);
-        int created = (int) result.get("created");
-        int skipped = (int) result.get("skipped");
-        return ResponseEntity.ok(ApiResponse.success("已导入 " + created + " 条，跳过 " + skipped + " 条", result));
+        throw new IllegalArgumentException("直接导入入口已停用，请先读取收藏预览，再明确确认导入");
     }
 }

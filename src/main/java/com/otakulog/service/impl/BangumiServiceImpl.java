@@ -298,6 +298,10 @@ public class BangumiServiceImpl implements BangumiService {
                 }
                 entry.put("type", item.get("type"));
                 entry.put("epStatus", item.get("ep_status"));
+                entry.put("rate", item.get("rate"));
+                entry.put("comment", item.get("comment"));
+                entry.put("tags", item.get("tags"));
+                entry.put("sourceUpdatedAt", item.get("updated_at"));
                 allResults.add(entry);
 
                 if (allResults.size() >= limit) break;
@@ -308,6 +312,60 @@ public class BangumiServiceImpl implements BangumiService {
         }
 
         return allResults;
+    }
+
+    @Override
+    public com.otakulog.dto.BangumiCollectionSnapshot getCompleteUserCollections(String username) {
+        var rows = new ArrayList<Map<String, Object>>();
+        var ids = new HashSet<Integer>();
+        int firstTotal = -1, latestTotal = 0, offset = 0;
+        boolean changed = false;
+        long deadline = System.nanoTime() + java.time.Duration.ofMinutes(3).toNanos();
+        for (int page = 0; page < 200; page++) {
+            if (System.nanoTime() > deadline) throw new ExternalApiException("收藏读取超时，未导入任何作品，请稍后重试");
+            Map<String, Object> response = client.get()
+                    .uri("/v0/users/{username}/collections?subject_type=2&limit=50&offset={offset}", username, offset)
+                    .retrieve().body(new ParameterizedTypeReference<>() {});
+            if (response == null || !(response.get("data") instanceof List<?> data)
+                    || !(response.get("total") instanceof Number total) || total.doubleValue() != total.intValue()
+                    || total.intValue() < 0 || total.intValue() > 10000 || data.size() > 50)
+                throw new ExternalApiException("收藏响应异常或超过10000条保护上限，未生成完整预览");
+            latestTotal = total.intValue();
+            if (firstTotal < 0) firstTotal = latestTotal;
+            changed |= latestTotal != firstTotal;
+            for (Object value : data) {
+                if (!(value instanceof Map<?, ?> item)) throw new ExternalApiException("收藏条目格式异常");
+                var entry = collectionRow(item);
+                Object id = entry.get("subjectId");
+                if (!(id instanceof Number number) || number.doubleValue() != number.intValue() || number.intValue() <= 0)
+                    throw new ExternalApiException("收藏缺少有效作品编号，请重新读取");
+                if (!ids.add(number.intValue())) throw new ExternalApiException("分页出现重复作品，收藏可能已变化，请重新读取");
+                rows.add(entry);
+            }
+            offset += data.size();
+            if (offset >= latestTotal) {
+                if (offset != latestTotal) throw new ExternalApiException("收藏数量与响应总数不一致，请重新读取");
+                return new com.otakulog.dto.BangumiCollectionSnapshot(latestTotal, rows, changed);
+            }
+            if (data.size() < 50) throw new ExternalApiException("收藏分页提前结束，未生成完整预览，请重新读取");
+        }
+        throw new ExternalApiException("收藏读取达到保护上限，未导入任何作品");
+    }
+
+    private Map<String, Object> collectionRow(Map<?, ?> item) {
+        var entry = new LinkedHashMap<String, Object>();
+        Object subject = item.get("subject");
+        if (subject instanceof Map<?, ?> s) {
+            entry.put("subjectId", s.get("id")); entry.put("name", s.get("name")); entry.put("nameCn", s.get("name_cn"));
+            entry.put("eps", s.get("eps")); entry.put("date", s.get("date"));
+            if (s.get("images") instanceof Map<?, ?> images) {
+                Object image = images.get("large") != null ? images.get("large") : images.get("common") != null ? images.get("common") : images.get("medium");
+                if (image instanceof String url) entry.put("image", url.startsWith("//") ? "https:" + url : url);
+            }
+        } else entry.put("subjectId", item.get("subject_id"));
+        entry.put("type", item.get("type")); entry.put("epStatus", item.get("ep_status")); entry.put("rate", item.get("rate"));
+        entry.put("comment", item.get("comment")); entry.put("tags", item.get("tags")); entry.put("sourceUpdatedAt", item.get("updated_at"));
+        return entry;
     }
 
     private BangumiResult mapResult(Map<String, Object> item) {

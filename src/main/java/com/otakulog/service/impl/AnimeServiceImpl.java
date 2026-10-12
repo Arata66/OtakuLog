@@ -45,11 +45,13 @@ public class AnimeServiceImpl implements AnimeService {
     private final WatchProgressService watchProgress;
     private final BackupService backup;
     private final BangumiImportService bangumiImport;
+    private final com.otakulog.repository.ExternalCollectionRepository externalCollections;
 
     public AnimeServiceImpl(AnimeRepository animeRepository, BangumiService bangumiService,
                             EpisodeRecordRepository episodeRecordRepository, TagRepository tagRepository,
                             WatchProgressService watchProgress, BackupService backup, BangumiImportService bangumiImport,
-                            AnimeMemoryRepository memoryRepository, MemoryInsightRepository insightRepository) {
+                            AnimeMemoryRepository memoryRepository, MemoryInsightRepository insightRepository,
+                            com.otakulog.repository.ExternalCollectionRepository externalCollections) {
         this.animeRepository = animeRepository;
         this.memoryRepository = memoryRepository;
         this.insightRepository = insightRepository;
@@ -59,6 +61,7 @@ public class AnimeServiceImpl implements AnimeService {
         this.watchProgress = watchProgress;
         this.backup = backup;
         this.bangumiImport = bangumiImport;
+        this.externalCollections = externalCollections;
     }
 
     @Override
@@ -541,6 +544,8 @@ public class AnimeServiceImpl implements AnimeService {
         Map<String, Integer> tagCounts = new HashMap<>();
         Set<String> trackedNames = new HashSet<>();
         Set<Integer> trackedBangumiIds = new HashSet<>();
+        // 无法恢复进度的搁置或未知集数作品，仍有明确外部收藏依据。
+        trackedBangumiIds.addAll(externalCollections.findExcludedSubjectIds());
         for (Anime a : all) {
             trackedNames.add(a.getName().toLowerCase());
             if (a.getBangumiId() != null) trackedBangumiIds.add(a.getBangumiId());

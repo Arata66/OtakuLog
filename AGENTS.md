@@ -40,7 +40,7 @@ src/main/java/com/otakulog/
 src/main/resources/
 ├── templates/       # Thymeleaf 模板（anime.html, login.html）
 ├── static/          # 前端资源（js/, css/, manifest.json, sw.js）
-└── db/migration/    # Flyway SQL 迁移（V0-V7、V9-V12）；V6.1、V8 为 Java 迁移
+└── db/migration/    # Flyway SQL 迁移（V0-V7、V9-V13）；V6.1、V8 为 Java 迁移
 ```
 
 ## 关键约束
@@ -52,8 +52,9 @@ src/main/resources/
 - **热力图**：V5 起使用 `episode_record` 表事件驱动聚合，优先查表，fallback 旧估算逻辑
 - **日常观看写入**：统一调用 `WatchProgressService`，必须处于服务事务内；未知逐集日期存 NULL，来源单独记录，不能根据进度猜日期；已有记录时热力图不回退估算
 - **观影记忆**：独立多条记录，不把旧备注或写作时间猜成历史观看；写入和删除先锁作品，编辑/删除核对版本，UUID防重；原文、原因、范围及审计纳入完整备份，同编号差异必须冲突。
-- **口味画像与AI**：只汇总当前来源版本的确认观点，原模型建议与用户改写分开；只有显式发送才调用，同请求键不重发，失败不退额；预算相关操作与恢复均先锁quota再锁作品，模型HTTP在事务外。备份v3保留观点与非秘密调用历史，恢复RUNNING只作历史，不自动外发，不降低当天预算；historyOnly不进入备份或UUID内容比较。
+- **口味画像与AI**：只汇总当前来源版本的确认观点，原模型建议与用户改写分开；只有显式发送才调用，同请求键不重发，失败不退额；预算相关操作与恢复均先锁quota再锁作品，模型HTTP在事务外。备份v3起保留观点与非秘密调用历史，恢复RUNNING只作历史，不自动外发，不降低当天预算；historyOnly不进入备份或UUID内容比较。
 - **备份恢复**：统一调用 `BackupService`，本地与 WebDAV 复用同一校验；备份 key 只作文件内引用，恢复事务与真实写入前校验不可绕过
+- **收藏导入**：公开分页在事务外完整读取，预览绑定登录身份且到期，确认只接受编号与选项；固定导入锁后按作品ID锁定，整批写入、防重结果持久保存。外部原始评论不自动变成感想或观看日期，未知状态／集数保留镜像；备份v4保留外部收藏与非秘密批次，所有格式恢复先quota、再import_lock、再作品，禁止倒序。
 - **年度统计**：完成数按完成日期，观看量按逐集日期且排除 LEGACY；来源不明历史数据和全库缺失提示单列，禁止猜年份；均分仅纳入有效评分，时长必须标记估算
 - **界面写入验收**：使用 `node scripts/demo.cjs` 的随机隔离库与虚构样例，不在自用库测试记看/核对；清理只能针对本次成功创建的库，强制中断残留需核对归属
 
@@ -62,12 +63,12 @@ src/main/resources/
 | 表 | 用途 |
 |----|------|
 | `anime` | 核心番剧表 |
-| `anime_memory` | 多次观影感想、原因、范围、语境与版本 |
 | `episode_record` | V5 新增，每集观看记录，热力图数据源 |
 | `anime_group` | V4 新增，番剧分组 |
 | `anime_memory` | V10 新增，多次观影记忆 |
 | `memory_insight` | V11 新增，可核对观点及原模型建议 |
 | `ai_call` / `ai_quota` | V12 新增，调用历史与唯一预算行 |
+| `external_collection` / `import_batch` / `import_lock` | V13 新增，外部收藏、防重结果与固定导入锁 |
 | `flyway_schema_history` | Flyway 迁移历史 |
 
 ## 工作流程

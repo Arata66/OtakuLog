@@ -51,9 +51,9 @@ class MemoryBackupTest {
     }
 
     @Test
-    void 当导出完整备份时应该使用版本三并包含观影记忆集合() throws Exception {
+    void 当导出完整备份时应该使用版本四并包含观影记忆集合() throws Exception {
         var document = mapper.readTree(backup.exportJson());
-        assertEquals(3, document.path("version").asInt());
+        assertEquals(4, document.path("version").asInt());
         assertTrue(document.path("memories").isArray());
     }
 
@@ -128,7 +128,7 @@ class MemoryBackupTest {
     @Test
     void 当恢复旧版本或旧数组时应该保留本地额外记忆() throws Exception {
         var doc = documentWithMemory();
-        doc.put("version", 1); doc.remove(java.util.List.of("memories", "insights", "aiCalls"));
+        doc.put("version", 1); doc.remove(java.util.List.of("memories", "insights", "aiCalls", "externalCollections", "importBatches"));
         backup.importJson(doc.toString()); backup.importJson("[]");
         assertEquals(1, memories.count());
         assertEquals("  结幕还想再听一次音乐\n<script>原文保留</script>  ", memories.findAll().get(0).getContent());

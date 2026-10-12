@@ -8,7 +8,17 @@ import java.util.List;
 public record BackupDocument(String format, Integer version, LocalDateTime exportedAt,
         List<AnimeEntry> anime, List<TagEntry> tags, List<GroupEntry> groups,
         List<Membership> memberships, List<EpisodeEntry> episodes, List<MemoryEntry> memories,
-        List<InsightEntry> insights, List<AiCallEntry> aiCalls) {
+        List<InsightEntry> insights, List<AiCallEntry> aiCalls,
+        List<ExternalEntry> externalCollections, List<ImportBatchEntry> importBatches) {
+    public BackupDocument(String format, Integer version, LocalDateTime exportedAt,
+            List<AnimeEntry> anime, List<TagEntry> tags, List<GroupEntry> groups, List<Membership> memberships,
+            List<EpisodeEntry> episodes, List<MemoryEntry> memories, List<InsightEntry> insights, List<AiCallEntry> aiCalls) {
+        this(format, version, exportedAt, anime, tags, groups, memberships, episodes, memories, insights, aiCalls, List.of(), List.of());
+    }
+    public record ExternalEntry(String key, String username, Integer subjectId, String payload, Long version,
+            LocalDateTime capturedAt, LocalDateTime createdAt, LocalDateTime updatedAt) {}
+    public record ImportBatchEntry(String requestKey, String owner, String username, String fingerprint, String resultJson,
+            LocalDateTime createdAt, LocalDateTime updatedAt) {}
     public BackupDocument(String format, Integer version, LocalDateTime exportedAt,
             List<AnimeEntry> anime, List<TagEntry> tags, List<GroupEntry> groups,
             List<Membership> memberships, List<EpisodeEntry> episodes, List<MemoryEntry> memories) {
