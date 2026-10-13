@@ -698,7 +698,7 @@ class MySqlDeploymentTest {
                 value.setName("虚构并发恢复"); value.setBangumiId(914001); value.setTotalEpisodes(12); anime.saveAndFlush(value);
                 var backup = app.getBean(BackupService.class);
                 var legacy = (com.fasterxml.jackson.databind.node.ObjectNode) new com.fasterxml.jackson.databind.ObjectMapper().readTree(backup.exportJson());
-                legacy.put("version", 3); legacy.remove("externalCollections"); legacy.remove("importBatches"); legacy.remove("recommendationPreferences"); legacy.remove("recommendationFeedback"); anime.deleteAll();
+                legacy.put("version", 3); legacy.remove("externalCollections"); legacy.remove("importBatches"); legacy.remove("recommendationPreferences"); legacy.remove("recommendationFeedback"); legacy.remove("recommendationBases"); anime.deleteAll();
                 var service = app.getBean(com.otakulog.service.BangumiImportPreviewService.class);
                 var preview = service.preview("tester", "test");
                 var request = new com.otakulog.dto.BangumiImportDTO.ConfirmRequest(preview.previewKey(), UUID.randomUUID().toString(), false, false);
@@ -764,6 +764,37 @@ class MySqlDeploymentTest {
                     assertEquals(false,app.getBean(com.otakulog.service.RecommendationService.class).feedback("tester",request).active());
                     var backup=app.getBean(BackupService.class);backup.importJson(exported);
                     var expected=mapper.readTree(exported);var actual=mapper.readTree(backup.exportJson());assertEquals(expected.path("recommendationPreferences"),actual.path("recommendationPreferences"));assertEquals(expected.path("recommendationFeedback"),actual.path("recommendationFeedback"));assertEquals(before,count.get());
+                }
+            }finally{server.stop(0);}
+        });
+    }
+
+    @Test
+    void 当MySQL从V14升级并并发保存关联后重启时应该保留来源核对与暂停状态() throws Exception {
+        withDatabase(database -> {
+            flyway(database,"14").migrate();
+            var server=com.sun.net.httpserver.HttpServer.create(new java.net.InetSocketAddress("127.0.0.1",0),0);var calls=new java.util.concurrent.atomic.AtomicInteger();
+            server.createContext("/",exchange -> {calls.incrementAndGet();byte[] bytes="{\"id\":971001,\"type\":2,\"name\":\"虚构种子\",\"tags\":[{\"name\":\"剧情\",\"count\":1}]}".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+                exchange.getResponseHeaders().set("Content-Type","application/json; charset=utf-8");exchange.sendResponseHeaders(200,bytes.length);exchange.getResponseBody().write(bytes);exchange.close();});server.start();
+            String config="--otakulog.bangumi.base-url=http://127.0.0.1:"+server.getAddress().getPort();String exported;com.otakulog.dto.RecommendationBasisDTO.Write request;
+            try {
+                try(var app=startApplication(database,config)){
+                    var a=new Anime();a.setName("虚构关联来源");a.setTotalEpisodes(12);a.setCurrentEpisode(0);a.setStatus(AnimeStatus.PLANNING);a=app.getBean(AnimeRepository.class).saveAndFlush(a);
+                    var memory=app.getBean(com.otakulog.service.AnimeMemoryService.class).create(a.getId(),new com.otakulog.dto.AnimeMemoryDTO.WriteRequest(UUID.randomUUID().toString(),"虚构原文：人物选择让我喜欢",null,null,null,com.otakulog.enums.MemoryContext.NOTE,null,null));
+                    var insight=app.getBean(com.otakulog.service.MemoryInsightService.class).create(a.getId(),memory.id(),new com.otakulog.dto.MemoryInsightDTO.WriteRequest(UUID.randomUUID().toString(),0L,com.otakulog.enums.InsightQuoteField.CONTENT,"人物选择","虚构已核对观点",com.otakulog.enums.InsightDirection.LIKE,com.otakulog.enums.InsightAspect.CHARACTER,"人物选择",com.otakulog.enums.InsightStatus.CONFIRMED,null));
+                    var service=app.getBean(com.otakulog.service.RecommendationBasisService.class);var source=service.get().sources().get(0);
+                    request=new com.otakulog.dto.RecommendationBasisDTO.Write(UUID.randomUUID().toString(),insight.key(),0L,0L,source.sourceFingerprint(),com.otakulog.enums.InsightDirection.LIKE,com.otakulog.dto.RecommendationBasisDTO.Kind.SEED,null,971001,true,0L);
+                    service.preview(request);assertEquals("0",query(database,"SELECT COUNT(*) FROM recommendation_basis"));
+                    var executor=Executors.newFixedThreadPool(2);try{var one=executor.submit(() -> service.save(request));var two=executor.submit(() -> service.save(request));assertEquals(one.get(20,TimeUnit.SECONDS),two.get(20,TimeUnit.SECONDS));}finally{executor.shutdownNow();}
+                    assertEquals("1",query(database,"SELECT COUNT(*) FROM recommendation_basis"));assertEquals("0",query(database,"SELECT COUNT(*) FROM episode_record"));
+                    execute(database,"UPDATE anime_memory SET version=1,content='虚构改变后的原文' WHERE id="+memory.id());assertEquals("STALE",service.get().entries().get(0).state());
+                    exported=app.getBean(BackupService.class).exportJson();
+                }
+                int before=calls.get();try(var app=startApplication(database,config)){
+                    var service=app.getBean(com.otakulog.service.RecommendationBasisService.class);assertEquals("STALE",service.save(request).state());
+                    var backup=app.getBean(BackupService.class);backup.importJson(exported);var mapper=new com.fasterxml.jackson.databind.ObjectMapper();
+                    assertEquals(mapper.readTree(exported).path("recommendationBases"),mapper.readTree(backup.exportJson()).path("recommendationBases"));assertEquals(before,calls.get());
+                    assertEquals("0",query(database,"SELECT COUNT(*) FROM episode_record"));assertEquals("0",query(database,"SELECT current_episode FROM anime"));
                 }
             }finally{server.stop(0);}
         });

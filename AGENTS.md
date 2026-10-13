@@ -40,7 +40,7 @@ src/main/java/com/otakulog/
 src/main/resources/
 ├── templates/       # Thymeleaf 模板（anime.html, login.html）
 ├── static/          # 前端资源（js/, css/, manifest.json, sw.js）
-└── db/migration/    # Flyway SQL 迁移（V0-V7、V9-V14）；V6.1、V8 为 Java 迁移
+└── db/migration/    # Flyway SQL 迁移（V0-V7、V9-V15）；V6.1、V8 为 Java 迁移
 ```
 
 ## 关键约束
@@ -56,6 +56,7 @@ src/main/resources/
 - **备份恢复**：统一调用 `BackupService`，本地与 WebDAV 复用同一校验；备份 key 只作文件内引用，恢复事务与真实写入前校验不可绕过
 - **收藏导入**：公开分页在事务外完整读取，预览绑定登录身份且到期，确认只接受编号与选项；固定导入锁后按作品ID锁定，整批写入、防重结果持久保存。外部原始评论不自动变成感想或观看日期，未知状态／集数保留镜像；备份v4保留外部收藏与非秘密批次，所有格式恢复先quota、再import_lock、再作品，禁止倒序。
 - **可控推荐**：上游HTTP在事务外，完整实际标签与年份核对后硬过滤，不放宽条件；反馈与展示写入先锁固定导入行，批次绑定身份，反馈UUID持久防重、撤销不复活。备份v5保留永久条件与全部反馈历史，展示缓存不备份；已看反馈不写观看日期。
+- **推荐依据**：确认观点只能经用户预览关联并明确勾选后用于口味模式；不自动映射自由因素。来源语义指纹含原文与观点版本，变更暂停；正负同标签保留冲突。保存先import_lock再作品，种子HTTP在事务外；备份v6保留关联及停用历史，同UUID或同观点差异冲突，恢复零外发。
 - **年度统计**：完成数按完成日期，观看量按逐集日期且排除 LEGACY；来源不明历史数据和全库缺失提示单列，禁止猜年份；均分仅纳入有效评分，时长必须标记估算
 - **界面写入验收**：使用 `node scripts/demo.cjs` 的随机隔离库与虚构样例，不在自用库测试记看/核对；清理只能针对本次成功创建的库，强制中断残留需核对归属
 
@@ -71,6 +72,7 @@ src/main/resources/
 | `ai_call` / `ai_quota` | V12 新增，调用历史与唯一预算行 |
 | `external_collection` / `import_batch` / `import_lock` | V13 新增，外部收藏、防重结果与固定导入锁 |
 | `recommendation_preference` / `recommendation_feedback` / `recommendation_shown` | V14 新增，条件、反馈历史与展示缓存 |
+| `recommendation_basis` | V15 新增，观点推荐关联与稳定来源指纹 |
 | `flyway_schema_history` | Flyway 迁移历史 |
 
 ## 工作流程

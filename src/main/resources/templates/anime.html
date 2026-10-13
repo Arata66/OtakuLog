@@ -236,9 +236,14 @@
             <div class="chart-card">
                 <div class="cal-top-bar rec-heading">
                     <h4 class="card-title-compact">猜你想看</h4>
-                    <div class="rec-actions"><button class="btn-sm" onclick="openRecommendationSettings()">推荐条件</button><button class="btn-sm" onclick="openRecommendationFeedback()">反馈列表</button><button class="btn-sm" onclick="loadRecommendations()">换一批</button></div>
+                    <div class="rec-actions"><button class="btn-sm" onclick="openRecommendationSettings()">推荐条件</button><button class="btn-sm" onclick="openRecommendationBases()">推荐依据</button><button class="btn-sm" onclick="openRecommendationFeedback()">反馈列表</button><button class="btn-sm" onclick="loadRecommendations()">换一批</button></div>
                 </div>
+                <div class="rec-controls"><label>本轮怎么找<select id="recMode" onchange="changeRecommendationMode()"><option value="AUTO">按库内高评分标签</option><option value="TAGS">按标签找</option><option value="SEED">找类似这部</option><option value="TASTE">按我的口味</option></select></label>
+                    <label id="recModeTagsField" hidden>本轮标签（最多3个）<input id="recModeTags" placeholder="用逗号分隔；按作品时留空用实际标签" oninput="invalidateRecommendationChoice()"></label>
+                    <label id="recSeedField" hidden>Bangumi作品编号<input id="recSeedId" type="number" min="1" placeholder="也可从作品详情进入" oninput="invalidateRecommendationChoice()"></label></div>
+                <div id="recBasisSelection" hidden></div><button class="btn-sm" onclick="loadRecommendations()">开始推荐</button>
                 <label class="rec-check"><input id="recIncludeRecent" type="checkbox" onchange="loadRecommendations()">查看近期推荐（仍遵守永久排除）</label>
+                <p id="recEvidence" class="rec-help taste-plain"></p>
                 <p id="recSummary" class="rec-help"></p><p id="recStatus" role="status" class="rec-help"></p>
                 <div class="browse-grid" id="recGrid"></div>
             </div>
@@ -386,6 +391,7 @@
     <script th:src="@{/js/anime-app.js}"></script>
     <script th:src="@{/js/bangumi-import.js}"></script>
     <script th:src="@{/js/recommendations.js}"></script>
+    <script th:src="@{/js/recommendation-bases.js}"></script>
     <script th:src="@{/js/anime-memory.js}"></script>
     <script th:src="@{/js/taste-profile.js}"></script>
     <script th:src="@{/js/episode-history.js}"></script>

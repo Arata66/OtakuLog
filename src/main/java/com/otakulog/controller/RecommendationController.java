@@ -13,7 +13,9 @@ import com.otakulog.service.RecommendationJson;
 public class RecommendationController {
     private final RecommendationService service;private final RecommendationState state;private final ObjectMapper mapper;
     public RecommendationController(RecommendationService service,RecommendationState state,ObjectMapper mapper){this.service=service;this.state=state;this.mapper=mapper;}
-    @GetMapping public ApiResponse<Result> recommend(@RequestParam(defaultValue="false")boolean includeRecent,Principal principal){return ApiResponse.success(service.recommend(principal.getName(),includeRecent));}
+    @GetMapping public ApiResponse<Result> recommend(@RequestParam(defaultValue="false")boolean includeRecent,@RequestParam(defaultValue="AUTO")Mode mode,
+            @RequestParam(required=false)Integer subjectId,@RequestParam(required=false)java.util.List<String> tags,@RequestParam(required=false)java.util.List<String> basisKeys,Principal principal){
+        return ApiResponse.success(service.recommend(principal.getName(),includeRecent,mode,subjectId,tags==null?java.util.List.of():tags,basisKeys==null?java.util.List.of():basisKeys));}
     @GetMapping("/settings") public ApiResponse<Settings> settings(){return ApiResponse.success(state.settings());}
     @PutMapping("/settings") public ApiResponse<Settings> settings(@RequestBody JsonNode settings){return ApiResponse.success(state.save(decode(settings,Settings.class,true)));}
     @GetMapping("/feedback") public ApiResponse<FeedbackPage> feedback(@RequestParam(defaultValue="0")int page,@RequestParam(defaultValue="20")int size){return ApiResponse.success(state.feedbackPage(page,size));}

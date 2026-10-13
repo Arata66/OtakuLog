@@ -38,7 +38,8 @@ public class TasteProfileService {
             var group = groups.computeIfAbsent(key, ignored -> new GroupBuilder(insight.getAspect(), insight.getFactor()));
             var evidence = new Evidence(insight.getId(), insight.getInsightKey(), animeId, animeName, memory.getId(),
                     memory.getMemoryKey(), memory.getContext(), memory.getScope(), memory.getWatchedDate(), memory.getCreatedAt(),
-                    insight.getSourceVersion(), insight.getStatement(), insight.getQuoteField(), insight.getQuote());
+                    insight.getSourceVersion(), insight.getStatement(), insight.getQuoteField(), insight.getQuote(), insight.getVersion(),
+                    com.otakulog.util.InsightSourceFingerprint.of(memory,insight));
             if (insight.getDirection() == InsightDirection.LIKE) group.likes.add(evidence); else group.dislikes.add(evidence);
             group.animeIds.add(animeId); animeIds.add(animeId); evidenceCount++;
         }

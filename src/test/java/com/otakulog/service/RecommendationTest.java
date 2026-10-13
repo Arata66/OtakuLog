@@ -135,7 +135,7 @@ class RecommendationTest {
         mvc.perform(delete("/api/recommendations/feedback/"+key).param("expectedVersion","0").with(user("tester")).with(csrf())).andExpect(status().isOk());
         var current=recommendations(false);String shownBody=mapper.writeValueAsString(Map.of("batchKey",current.path("batchKey").asText(),"subjectIds",List.of(101)));
         mvc.perform(post("/api/recommendations/shown").with(user("tester")).with(csrf()).contentType(MediaType.APPLICATION_JSON).content(shownBody)).andExpect(status().isOk());
-        var document=mapper.readTree(backup.exportJson());assertEquals(5,document.path("version").asInt());assertEquals(1,document.path("recommendationPreferences").size());assertEquals(1,document.path("recommendationFeedback").size());assertFalse(document.has("recommendationShown"));
+        var document=mapper.readTree(backup.exportJson());assertEquals(6,document.path("version").asInt());assertEquals(1,document.path("recommendationPreferences").size());assertEquals(1,document.path("recommendationFeedback").size());assertFalse(document.has("recommendationShown"));
         for(String table:List.of("recommendation_shown","recommendation_feedback","recommendation_preference"))jdbc.update("DELETE FROM "+table);
         clearInvocations(bangumi);backup.importJson(document.toString());verifyNoInteractions(bangumi);
         var restored=mapper.readTree(backup.exportJson());assertEquals(document.path("recommendationPreferences"),restored.path("recommendationPreferences"));assertEquals(document.path("recommendationFeedback"),restored.path("recommendationFeedback"));
@@ -144,7 +144,7 @@ class RecommendationTest {
     }
     @Test void 当旧版备份恢复或同编号条件不同时时应该保留新状态并拒绝冲突() throws Exception {
         seed();var document=(ObjectNode)mapper.readTree(backup.exportJson());
-        var old=document.deepCopy();old.put("version",4);old.remove(List.of("recommendationPreferences","recommendationFeedback"));backup.importJson(old.toString());
+        var old=document.deepCopy();old.put("version",4);old.remove(List.of("recommendationPreferences","recommendationFeedback","recommendationBases"));backup.importJson(old.toString());
         assertEquals(1,settings().path("recallTags").size());
         ((ObjectNode)document.path("recommendationPreferences").get(0).path("settings")).put("minYear",2020);
         assertEquals(false,backup.previewJson(document.toString()).get("valid"));assertThrows(IllegalArgumentException.class,() -> backup.importJson(document.toString()));

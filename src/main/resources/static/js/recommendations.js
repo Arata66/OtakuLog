@@ -16,18 +16,22 @@ async function loadRecommendationPanel() {
     grid.innerHTML = inlineStateHtml('loading', '正在核对推荐...', '只显示符合当前条件的候选。');
     try {
         const recent = !!document.getElementById('recIncludeRecent')?.checked;
-        const response = await fetchApi('/api/recommendations?includeRecent=' + recent, { signal: controller.signal });
+        const query = typeof recommendationQuery === 'function' ? recommendationQuery() : '';
+        const response = await fetchApi('/api/recommendations?includeRecent=' + recent + query, { signal: controller.signal });
         if (generation !== recommendationView.generation || (charts && !charts.classList.contains('active'))) return;
         if (!response || response.code !== 200) throw new Error(response?.msg || response?.message || '推荐核对失败，请重试。');
         recommendationView.result = response.data; recommendationView.requests.clear(); recommendationView.shown.clear(); renderRecommendationRows();
         const data = response.data, entries = data.entries || [];
         const summary = document.getElementById('recSummary');
         if (summary) {
-            const settings = data.settings || {}, reasons = { YEAR: '年份不符', UNKNOWN_YEAR: '年份未知', TAG: '排除标签', TRACKED: '已在库', WATCHED: '已看', FEEDBACK: '不感兴趣', RECENT: '近期展示', EXTERNAL: '外部在看或搁置／放弃', NO_MATCH: '题材依据不足' };
+            const settings = data.settings || {}, reasons = { YEAR: '年份不符', UNKNOWN_YEAR: '年份未知', TAG: '排除标签', TRACKED: '已在库', WATCHED: '已看', FEEDBACK: '不感兴趣', RECENT: '近期展示', EXTERNAL: '外部在看或搁置／放弃', NO_MATCH: '题材依据不足', SEED: '种子自身', TASTE_TAG: '口味避开标签' };
             const counts = Object.entries(data.excludedCounts || {}).map(([key, count]) => `${reasons[key] || '未核对'} ${count}`);
             summary.textContent = [`${settings.minYear || '不限'} — ${settings.maxYear || '不限'}`, settings.excludedTags?.length ? '排除：' + settings.excludedTags.join('、') : '', ...counts,
                 data.unverified ? `详情未核对 ${data.unverified}` : '', data.sourceErrors ? `部分来源失败 ${data.sourceErrors}` : ''].filter(Boolean).join(' · ');
         }
+        const evidence = document.getElementById('recEvidence');
+        if (evidence) evidence.textContent = [data.context?.seedName ? '种子：' + data.context.seedName : '', data.seedTags?.length ? '本轮实际标签：' + data.seedTags.join('、') : '',
+            ...(data.context?.bases || []).map(b => `${b.source.direction === 'LIKE' ? '喜欢' : '避开'} · ${b.source.factor}（${b.source.animeName}）→ ${b.tags.join('、')}`)].filter(Boolean).join('\n');
         if (entries.length && data.batchKey) await observeRecommendationShown(data, generation);
     } catch (error) {
         if (generation !== recommendationView.generation || controller.signal.aborted) return;
@@ -59,7 +63,10 @@ function renderRecommendationRows() {
     const grid = document.getElementById('recGrid'), data = recommendationView.result; if (!grid || !data) return;
     document.getElementById('recStatus').textContent = '';
     if (!data.entries?.length) {
-        grid.innerHTML = data.status === 'COLD_START' ? inlineStateHtml('empty', '先选择几个喜欢的标签', '打开推荐条件，或为喜欢的作品评分。未评分收藏不会当作偏好。')
+        grid.innerHTML = data.status === 'BASIS_CONFLICT' ? inlineStateHtml('empty', '喜欢与避开同一标签，请核对本轮选择', '两边都保留；取消其中一条勾选后再开始推荐。')
+            : data.status === 'COLD_START_TASTE' ? inlineStateHtml('empty', '先关联并勾选喜欢观点', '打开推荐依据，明确把当前确认观点关联到标签或作品；不会回退全部收藏。')
+            : data.status === 'COLD_START_TAGS' ? inlineStateHtml('empty', '输入喜欢的标签后开始推荐', '本轮最多3个标签，永久排除继续有效。')
+            : data.status === 'COLD_START' ? inlineStateHtml('empty', '先选择几个喜欢的标签', '打开推荐条件，或为喜欢的作品评分。未评分收藏不会当作偏好。')
             : inlineStateHtml('empty', '当前条件下没有新候选', '可以修改条件，或明确勾选“查看近期推荐”；永久排除仍然有效。');
         return;
     }
@@ -113,8 +120,9 @@ async function retryRecommendationFeedback(index) { return feedbackRecommendatio
 
 function showRecommendationModal(kind, body) {
     if (recommendationModal?.busy) return null;
-    closeRecommendationModal(); const overlay = document.createElement('div'); overlay.id = kind === 'settings' ? 'recommendationSettingsModal' : 'recommendationFeedbackModal'; overlay.className = 'modal-overlay';
-    overlay.innerHTML = `<section class="rec-dialog" role="dialog" aria-modal="true" aria-label="${kind === 'settings' ? '推荐条件' : '推荐反馈'}"><div class="rec-dialog-heading"><h3>${kind === 'settings' ? '推荐条件' : '推荐反馈'}</h3><button class="btn-sm" onclick="closeRecommendationModal()" aria-label="关闭推荐面板">关闭</button></div>${body}<p id="recModalStatus" role="status"></p></section>`;
+    closeRecommendationModal(); const overlay = document.createElement('div'); overlay.id = kind === 'settings' ? 'recommendationSettingsModal' : kind === 'bases' ? 'recommendationBasesModal' : 'recommendationFeedbackModal'; overlay.className = 'modal-overlay';
+    const title = kind === 'settings' ? '推荐条件' : kind === 'bases' ? '推荐依据' : '推荐反馈';
+    overlay.innerHTML = `<section class="rec-dialog" role="dialog" aria-modal="true" aria-label="${title}"><div class="rec-dialog-heading"><h3>${title}</h3><button class="btn-sm" onclick="closeRecommendationModal()" aria-label="关闭推荐面板">关闭</button></div>${body}<p id="recModalStatus" role="status"></p></section>`;
     document.body.appendChild(overlay); recommendationModal = { kind, overlay, busy: false, settings: null, page: 0, entries: [], origin: document.activeElement };
     if (typeof trapFocus === 'function') recommendationModal.cleanup = trapFocus(overlay, closeRecommendationModal);
     return recommendationModal;
@@ -127,7 +135,7 @@ function closeRecommendationModal() {
 }
 function recommendationModalBusy(busy) {
     if (!recommendationModal) return; recommendationModal.busy = busy;
-    recommendationModal.overlay.querySelectorAll('button,input,textarea').forEach(field => field.disabled = busy);
+    recommendationModal.overlay.querySelectorAll('button,input,textarea,select').forEach(field => field.disabled = busy);
     const save = document.getElementById('recSaveSettings'); if (save) save.disabled = busy;
 }
 

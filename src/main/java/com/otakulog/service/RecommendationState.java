@@ -27,17 +27,19 @@ public class RecommendationState {
     private final ExternalCollectionRepository external;
     private final ImportLockRepository locks;
     private final ObjectMapper mapper;
+    private final RecommendationBasisService bases;
     private final TransactionTemplate read, write;
     private Clock clock=Clock.systemDefaultZone();
     public RecommendationState(RecommendationPreferenceRepository preferences,RecommendationFeedbackRepository feedback,
             RecommendationShownRepository shown,AnimeRepository anime,ExternalCollectionRepository external,
-            ImportLockRepository locks,ObjectMapper mapper,PlatformTransactionManager manager) {
+            ImportLockRepository locks,ObjectMapper mapper,PlatformTransactionManager manager,RecommendationBasisService bases) {
         this.preferences=preferences;this.feedback=feedback;this.shown=shown;this.anime=anime;this.external=external;this.locks=locks;this.mapper=mapper;
+        this.bases=bases;
         read=new TransactionTemplate(manager);read.setReadOnly(true);read.setIsolationLevel(org.springframework.transaction.TransactionDefinition.ISOLATION_REPEATABLE_READ);
         write=new TransactionTemplate(manager);
     }
     public record Snapshot(Settings settings,List<String> seedTags,Set<Integer> tracked,Set<String> names,Set<Integer> watched,
-            Set<Integer> blockedExternal,Set<Integer> rejected,Set<Integer> recent,String fingerprint,String guardFingerprint) {}
+            Set<Integer> blockedExternal,Set<Integer> rejected,Set<Integer> recent,String fingerprint,String guardFingerprint,com.otakulog.dto.RecommendationBasisDTO.Page bases) {}
     public Settings settings() { return read.execute(s -> settingsValue()); }
     public Settings settingsValue() { return preferences.findById(1L).map(this::settings).orElse(new Settings(null,0L,null,null,List.of(),List.of(),false)); }
     public Settings settings(RecommendationPreference p) {
@@ -80,7 +82,8 @@ public class RecommendationState {
         for(var f:entries)if(f.active()) {if(f.kind()==Kind.NOT_INTERESTED)rejected.add(f.subjectId());else watched.add(f.subjectId());}
         for(var e:shown.findByShownAtAfter(now().minusDays(7)))recent.add(e.getSubjectId());
         List<String> seeds=settings.recallTags().isEmpty()?counts.entrySet().stream().sorted(Map.Entry.<String,Integer>comparingByValue().reversed().thenComparing(Map.Entry::getKey)).limit(3).map(Map.Entry::getKey).toList():settings.recallTags();
-        return new Snapshot(settings,seeds,tracked,names,watched,blocked,rejected,recent,hash(json(Arrays.asList(settings,library,mirrors,entries))),hash(json(Arrays.asList(settings,library,mirrors))));
+        var basisPage=bases.pageValue();
+        return new Snapshot(settings,seeds,tracked,names,watched,blocked,rejected,recent,hash(json(Arrays.asList(settings,library,mirrors,entries,basisPage))),hash(json(Arrays.asList(settings,library,mirrors,basisPage))),basisPage);
     }
     public FeedbackPage feedbackPage(int page,int size) {
         if(page<0||size<1||size>50)throw new IllegalArgumentException("反馈分页无效");

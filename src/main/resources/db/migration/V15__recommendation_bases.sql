@@ -1,0 +1,12 @@
+CREATE TABLE recommendation_basis (
+ id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+ basis_key VARCHAR(36) NOT NULL UNIQUE,
+ insight_key VARCHAR(36) NOT NULL UNIQUE,
+ source_version BIGINT NOT NULL,
+ insight_version BIGINT NOT NULL,
+ source_fingerprint VARCHAR(64) NOT NULL,
+ direction VARCHAR(20) NOT NULL, kind VARCHAR(20) NOT NULL,
+ tag VARCHAR(200) NULL, subject_id INT NULL,
+ enabled BIT NOT NULL DEFAULT 1, version BIGINT NOT NULL DEFAULT 0,
+ created_at DATETIME(6) NOT NULL, updated_at DATETIME(6) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

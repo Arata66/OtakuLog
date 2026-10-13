@@ -551,7 +551,7 @@
                 </div>
                 <div class="detail-body">
                     <div class="detail-progress-wrap"><div class="detail-progress-label"><span>进度</span><span id="detailProgressPercent">${pct}%</span></div><div class="detail-progress"><div id="detailProgressBar" class="detail-progress-bar ${a.status}" style="--progress:${pct}%"></div></div></div>
-                    <div class="detail-actions"><button class="a-btn" onclick="shareAnimeCard(${a.id})">分享</button><button class="a-btn" onclick="if(closeDetailModal())openEditModal(${a.id})">编辑</button><button class="a-btn ep-btn" data-watch-id="${a.id}" onclick="prevEpisode(${a.id})">上一集</button><button class="a-btn ep-btn" data-watch-id="${a.id}" onclick="nextEpisode(${a.id})">下一集</button><button class="a-btn" onclick="showAddToGroup(${a.id})">分组</button><button class="a-btn del" onclick="deleteAnime(${a.id})">删除</button></div>
+                    <div class="detail-actions">${a.bangumiId ? `<button class="a-btn" onclick="useRecommendationSeed(${a.bangumiId})">找类似这部</button>` : ''}<button class="a-btn" onclick="shareAnimeCard(${a.id})">分享</button><button class="a-btn" onclick="if(closeDetailModal())openEditModal(${a.id})">编辑</button><button class="a-btn ep-btn" data-watch-id="${a.id}" onclick="prevEpisode(${a.id})">上一集</button><button class="a-btn ep-btn" data-watch-id="${a.id}" onclick="nextEpisode(${a.id})">下一集</button><button class="a-btn" onclick="showAddToGroup(${a.id})">分组</button><button class="a-btn del" onclick="deleteAnime(${a.id})">删除</button></div>
                     ${a.remark ? `<div class="detail-remark">${renderRemark(a.remark)}</div>` : ''}
                     <section id="animeMemorySection" class="anime-memory" data-anime-id="${a.id}" aria-label="观影记忆"></section>
                     <section id="episodeHistorySection" class="episode-history" data-anime-id="${a.id}" aria-label="逐集观看记录"></section>
@@ -1411,7 +1411,7 @@
                         <div class="detail-info-item"><div class="detail-info-label">开播</div><div class="detail-info-val">${esc(airDate)}</div></div>
                     </div>
                     ${ratingHtml}${tagsHtml}${summaryHtml}${epsHtml}
-                    <div class="detail-actions"><button class="a-btn" onclick="goToAddTracking(this.dataset.name)" data-name="${esc(displayName)}">添加追踪</button><button class="a-btn" onclick="closeDetailModal()">关闭</button></div>
+                    <div class="detail-actions"><button class="a-btn" onclick="useRecommendationSeed(${bangumiId})">找类似这部</button><button class="a-btn" onclick="goToAddTracking(this.dataset.name)" data-name="${esc(displayName)}">添加追踪</button><button class="a-btn" onclick="closeDetailModal()">关闭</button></div>
                 </div>`;
         }
 
@@ -1459,7 +1459,8 @@
                 + `外部收藏 ${preview.externalCollections || 0} 条，其中新增 ${preview.newExternalCollections || 0} 条\n`
                 + `导入历史 ${preview.importBatches || 0} 条，其中新增 ${preview.newImportBatches || 0} 条\n`
                 + `推荐条件 ${preview.recommendationPreferences || 0} 条，其中新增 ${preview.newRecommendationPreferences || 0} 条\n`
-                + `反馈历史 ${preview.recommendationFeedback || 0} 条，其中新增 ${preview.newRecommendationFeedback || 0} 条（含已撤销）`;
+                + `反馈历史 ${preview.recommendationFeedback || 0} 条，其中新增 ${preview.newRecommendationFeedback || 0} 条（含已撤销）\n`
+                + `推荐关联 ${preview.recommendationBases || 0} 条，其中新增 ${preview.newRecommendationBases || 0} 条`;
             return confirm(`${label}\n\n${counts}\n\n${(preview.warnings || []).join('\n')}\n\n确认恢复？`);
         }
 

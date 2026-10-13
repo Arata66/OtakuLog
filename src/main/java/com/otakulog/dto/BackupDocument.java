@@ -10,7 +10,13 @@ public record BackupDocument(String format, Integer version, LocalDateTime expor
         List<Membership> memberships, List<EpisodeEntry> episodes, List<MemoryEntry> memories,
         List<InsightEntry> insights, List<AiCallEntry> aiCalls,
         List<ExternalEntry> externalCollections, List<ImportBatchEntry> importBatches,
-        List<RecommendationDTO.PreferenceEntry> recommendationPreferences, List<RecommendationDTO.FeedbackEntry> recommendationFeedback) {
+        List<RecommendationDTO.PreferenceEntry> recommendationPreferences, List<RecommendationDTO.FeedbackEntry> recommendationFeedback,
+        List<RecommendationBasisDTO.Stored> recommendationBases) {
+    public BackupDocument(String format,Integer version,LocalDateTime exportedAt,List<AnimeEntry> anime,List<TagEntry> tags,List<GroupEntry> groups,
+            List<Membership> memberships,List<EpisodeEntry> episodes,List<MemoryEntry> memories,List<InsightEntry> insights,List<AiCallEntry> aiCalls,
+            List<ExternalEntry> externalCollections,List<ImportBatchEntry> importBatches,List<RecommendationDTO.PreferenceEntry> preferences,List<RecommendationDTO.FeedbackEntry> feedback){
+        this(format,version,exportedAt,anime,tags,groups,memberships,episodes,memories,insights,aiCalls,externalCollections,importBatches,preferences,feedback,List.of());
+    }
     public BackupDocument(String format,Integer version,LocalDateTime exportedAt,List<AnimeEntry> anime,List<TagEntry> tags,
             List<GroupEntry> groups,List<Membership> memberships,List<EpisodeEntry> episodes,List<MemoryEntry> memories,
             List<InsightEntry> insights,List<AiCallEntry> aiCalls,List<ExternalEntry> externalCollections,List<ImportBatchEntry> importBatches){

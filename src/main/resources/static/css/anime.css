@@ -1224,6 +1224,15 @@
         .rec-dialog input:not([type="checkbox"]), .rec-dialog textarea { width: 100%; min-height: 44px; margin-top: 6px; padding: 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--card); color: var(--text); font: inherit; }
         .rec-dialog .rec-check { display: flex; }
         .rec-years { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 12px; }
+        .rec-controls { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 12px; margin: 16px 0; }
+        .rec-controls label, #recBasisForm label { display: grid; min-width: 0; gap: 6px; font-size: 0.84em; margin-top: 12px; }
+        .rec-controls input, .rec-controls select, .rec-dialog select { min-width: 0; width: 100%; min-height: 44px; border: 1px solid var(--border); border-radius: 6px; padding: 10px; font: inherit; background: var(--card); color: var(--text); }
+        .rec-controls [hidden], .rec-dialog [hidden], #recBasisForm [hidden], #recBasisSelection[hidden] { display: none; }
+        .rec-basis-choice { align-items: flex-start; }
+        .rec-basis-choice span { min-width: 0; overflow-wrap: anywhere; }
+        #recBasisEvidence { line-height: 1.8; overflow-wrap: anywhere; }
+        #recModalStatus { white-space: pre-wrap; overflow-wrap: anywhere; }
+        @media(max-width:600px) { .rec-controls { grid-template-columns: minmax(0,1fr); } }
         .rec-feedback-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; border-top: 1px solid var(--border-light); padding: 14px 0; }
         .rec-feedback-row span { min-width: 0; overflow-wrap: anywhere; }
         .rec-feedback-row small { display: block; color: var(--text-dim); }

@@ -12,5 +12,5 @@ public record TasteProfileDTO(long animeCount, long evidenceCount, long staleCou
     public record Evidence(Long insightId, String insightKey, Long animeId, String animeName, Long memoryId,
                            String memoryKey, MemoryContext context, String scope, LocalDate watchedDate,
                            LocalDateTime sourceCreatedAt, Long sourceVersion, String statement,
-                           InsightQuoteField quoteField, String quote) {}
+                           InsightQuoteField quoteField, String quote, Long insightVersion, String sourceFingerprint) {}
 }

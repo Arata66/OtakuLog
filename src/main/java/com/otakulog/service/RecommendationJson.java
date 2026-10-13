@@ -16,8 +16,9 @@ public final class RecommendationJson {
             if(!node.has(field.getName()))throw new IllegalArgumentException("推荐存档缺少字段："+field.getName());
             var value=node.get(field.getName());Class<?> kind=field.getType();boolean valid;
             if(kind.isRecord()){strict(value,kind,false);continue;}
-            if(kind==String.class)valid=value.isTextual()||(defaultKey&&type==Settings.class&&field.getName().equals("key")&&value.isNull());
-            else if(kind==Integer.class)valid=(value.isNull()&&(field.getName().equals("minYear")||field.getName().equals("maxYear")))||(value.isIntegralNumber()&&value.canConvertToInt());
+            boolean basis=type==com.otakulog.dto.RecommendationBasisDTO.Write.class||type==com.otakulog.dto.RecommendationBasisDTO.Stored.class;
+            if(kind==String.class)valid=value.isTextual()||(defaultKey&&type==Settings.class&&field.getName().equals("key")&&value.isNull())||(basis&&field.getName().equals("tag")&&value.isNull());
+            else if(kind==Integer.class)valid=(value.isNull()&&(field.getName().equals("minYear")||field.getName().equals("maxYear")||(basis&&field.getName().equals("subjectId"))))||(value.isIntegralNumber()&&value.canConvertToInt());
             else if(kind==Long.class)valid=value.isIntegralNumber()&&value.canConvertToLong();
             else if(kind==boolean.class)valid=value.isBoolean();
             else if(kind.isEnum()||kind==LocalDateTime.class)valid=value.isTextual();

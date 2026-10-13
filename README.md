@@ -31,7 +31,7 @@
 - 喜欢与不满意分别保留，显示作品、范围、语境和原文依据；来源修改后旧观点失效
 - 原始模型建议与自己的修改分开保存，支持拒绝、删除和完整备份
 - 发送前预览文字、估算用量与当日次数；同请求键不重复外发，成功结果复用缓存，失败不自动重试
-- AI默认关闭，手工整理独立可用；配置与口径见[口味画像](docs/口味画像.md)，基于画像的推荐另立阶段
+- AI默认关闭，手工整理独立可用；确认观点可预览并关联推荐依据，来源变化后暂停，见[口味画像](docs/口味画像.md)
 
 ### Bangumi 集成
 - 搜索 Bangumi 番剧数据库（名称/标签）
@@ -57,6 +57,8 @@
 ### 可控推荐
 - 保存首播年份范围与永久排除标签，按候选完整实际标签核对，结果不足时不放宽条件
 - 手选喜欢的标签，或使用评分至少7分且未放弃作品的标签；未评分收藏不自动当作喜欢
+- 可从作品详情“找类似这部”，只用种子实际标签并避开自身；本轮标签与永久条件独立
+- 把确认观点预览关联到标签或作品，口味模式明确勾选后使用；正负同标签提示冲突，来源变化暂停
 - 默认避开库内及外部已看、在看、搁置、放弃作品；逐条“不感兴趣”“已看过”反馈可撤销，不生成观看日期
 - 实际展示后记录7天去重，可明确查看近期推荐；规则、备份与接口见[可控推荐](docs/可控推荐.md)
 
@@ -93,7 +95,7 @@
 | Spring Data JPA | - | ORM |
 | Spring Security | - | 表单登录、API 认证、CSRF 写入保护 |
 | Spring Cache + Caffeine | - | Bangumi API 响应缓存 |
-| Flyway | 9.22.3 | 数据库迁移（V0–V14，含 V6.1、V8 Java 迁移） |
+| Flyway | 9.22.3 | 数据库迁移（V0–V15，含 V6.1、V8 Java 迁移） |
 | Flyway MySQL | 9.22.3 | MySQL 方言支持 |
 | MySQL | 8.0+ | 生产数据库 |
 | H2 | - | 测试环境内存数据库 |
@@ -221,7 +223,8 @@ OtakuLog/
 │   │   ├── V11__add_memory_insight.sql       # 观点及模型原建议
 │   │   ├── V12__add_ai_call_budget.sql       # 非秘密调用历史与预算
 │   │   ├── V13__external_collections.sql     # 外部收藏、导入历史与固定锁
-│   │   └── V14__recommendation_controls.sql  # 推荐条件、反馈与展示缓存
+│   │   ├── V14__recommendation_controls.sql  # 推荐条件、反馈与展示缓存
+│   │   └── V15__recommendation_bases.sql     # 确认观点的推荐关联
 │   └── application.properties                # 应用配置
 ├── src/test/java/com/otakulog/
 │   ├── config/
@@ -258,6 +261,7 @@ OtakuLog/
 | `ai_call` / `ai_quota` | V12 新增，非秘密调用历史与唯一预算行 |
 | `external_collection` / `import_batch` / `import_lock` | V13 新增，来源镜像、确认防重及固定锁 |
 | `recommendation_preference` / `recommendation_feedback` / `recommendation_shown` | V14 新增，永久条件、可撤销反馈与7天展示缓存 |
+| `recommendation_basis` | V15 新增，观点推荐关联、来源语义指纹与停用历史 |
 
 V6.1 Java 迁移负责迁移旧字符串标签；V8 Java 迁移负责对齐状态列类型，两者位于 `src/main/java/com/otakulog/`。V0 补齐空库初始化，历史迁移文件保持不变。
 
@@ -368,6 +372,8 @@ npm run test:e2e
 登录后访问 Swagger UI：http://localhost:8080/swagger-ui.html。写接口需携带当前会话 CSRF 令牌。
 
 ### Docker 部署
+
+给朋友试用前先区分各自本地保存与多用户服务器，当前资料库没有多用户隔离，见[给别人使用](docs/给别人使用.md)。
 
 需要 Docker 引擎和 Docker Compose v2 或更新版本。容器应用连接 `mysql:3306/otakulog`；MySQL 通过 SQL 健康检查后应用才启动。数据库不映射宿主端口，因此可以和本地 MySQL 共存。
 

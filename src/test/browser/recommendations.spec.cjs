@@ -46,7 +46,7 @@ test('当保存年份与排除标签后重新打开时应该保留硬条件且�
     await expect(page.locator('#recSummary')).toContainText('年份未知 1'); expect(recommendationSource.requests.some(r => r.keyword === '' && r.filter.tag[0] === '剧情')).toBe(true);
     await page.reload(); await page.getByRole('button', { name: '推荐条件', exact: true }).click();
     await expect(page.locator('#recMinYear')).toHaveValue('2020'); await expect(page.locator('#recExcludedTags')).toHaveValue('机战');
-    const after = await exportData(page); expect(after.version).toBe(5); expect(after.recommendationPreferences).toHaveLength(1);
+    const after = await exportData(page); expect(after.version).toBe(6); expect(after.recommendationPreferences).toHaveLength(1);
     for (const key of ['anime','episodes','memories','insights','aiCalls','externalCollections','importBatches']) expect(after[key]).toEqual(before[key]);
 });
 

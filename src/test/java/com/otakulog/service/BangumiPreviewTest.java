@@ -92,7 +92,7 @@ class BangumiPreviewTest {
         mvc.perform(post("/api/bangumi/import/confirm").with(user("tester")).with(csrf())
                 .contentType(MediaType.APPLICATION_JSON).content(body)).andExpect(status().isOk());
         var document = mapper.readTree(backup.exportJson());
-        assertEquals(5, document.path("version").asInt()); assertEquals(2, document.path("externalCollections").size());
+        assertEquals(6, document.path("version").asInt()); assertEquals(2, document.path("externalCollections").size());
         assertEquals(1, document.path("importBatches").size());
         collections.deleteAll(); batches.deleteAll(); episodes.deleteAll(); anime.deleteAll();
         clearInvocations(bangumi);
