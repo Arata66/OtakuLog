@@ -92,7 +92,7 @@ class BangumiPreviewTest {
         mvc.perform(post("/api/bangumi/import/confirm").with(user("tester")).with(csrf())
                 .contentType(MediaType.APPLICATION_JSON).content(body)).andExpect(status().isOk());
         var document = mapper.readTree(backup.exportJson());
-        assertEquals(4, document.path("version").asInt()); assertEquals(2, document.path("externalCollections").size());
+        assertEquals(5, document.path("version").asInt()); assertEquals(2, document.path("externalCollections").size());
         assertEquals(1, document.path("importBatches").size());
         collections.deleteAll(); batches.deleteAll(); episodes.deleteAll(); anime.deleteAll();
         clearInvocations(bangumi);
@@ -152,7 +152,10 @@ class BangumiPreviewTest {
         String key = preview(); previewService.confirm("tester", new com.otakulog.dto.BangumiImportDTO.ConfirmRequest(key, UUID.randomUUID().toString(), true, true));
         var held = new com.otakulog.dto.BangumiResult(); held.setId(91002); held.setName("未入库的搁置作品"); held.setNameCn(held.getName());
         var fresh = new com.otakulog.dto.BangumiResult(); fresh.setId(91003); fresh.setName("新的虚构候选"); fresh.setNameCn(fresh.getName());
-        when(bangumi.searchByTag(anyString(), anyInt())).thenReturn(List.of(held, fresh));
+        when(bangumi.searchTaggedSubjects(anyString(), anyInt(), any(), any())).thenReturn(List.of(held, fresh));
+        when(bangumi.getSubject(anyInt())).thenAnswer(call -> {
+            int id=call.getArgument(0);var d=new com.otakulog.dto.BangumiSubjectDetail();d.setId(id);d.setType(2);d.setName("虚构候选"+id);d.setNameCn(d.getName());d.setAllTags(List.of("自己的标签"));d.setAirDate("2024-01-01");return d;
+        });
         var result = animeService.getRecommendations();
         assertTrue(result.stream().anyMatch(r -> r.get("id").equals(91003)));
         assertFalse(result.stream().anyMatch(r -> r.get("id").equals(91002)));

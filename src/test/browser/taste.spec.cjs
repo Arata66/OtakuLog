@@ -199,7 +199,7 @@ test('当完整v3备份往返时应该恢复用户观点原建议调用记录并
     await row(page, '喜欢结尾').getByRole('button', { name: '确认观点', exact: true }).click();
     await expect(row(page, '喜欢结尾')).toContainText('已确认');
     const backup = await (await page.request.get(demo.url + '/api/anime/export')).json();
-    expect(backup.version).toBe(4); expect(backup.insights).toHaveLength(2); expect(backup.aiCalls).toHaveLength(1);
+    expect(backup.version).toBe(5); expect(backup.insights).toHaveLength(2); expect(backup.aiCalls).toHaveLength(1);
     const deleting = handleDialog(page, /删除这条观影记忆/, true); await page.locator('.memory-entry').getByRole('button', { name: '删除', exact: true }).click(); await deleting;
     await expect(panel(page)).toHaveCount(0);
     const restore = handleDialog(page, /观点 2 条，其中新增 2 条[\s\S]*AI调用 1 条/, true);

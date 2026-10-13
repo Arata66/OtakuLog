@@ -40,7 +40,7 @@ class TasteBackupTest {
         assertEquals(1, backup.importJson(doc.toString()).get("newInsights"));
         assertEquals(2, backup.importJson(doc.toString()).get("aiCalls"));
         var actual = mapper.readTree(backup.exportJson());
-        assertEquals(4, actual.path("version").asInt());
+        assertEquals(5, actual.path("version").asInt());
         assertEquals(doc.path("insights"), actual.path("insights"));
         assertEquals(doc.path("aiCalls"), actual.path("aiCalls"));
         assertFalse(actual.toString().contains("historyOnly"));
@@ -174,7 +174,7 @@ class TasteBackupTest {
         Anime a = new Anime(); a.setName("虚构口味备份"); a.setCurrentEpisode(0); a.setTotalEpisodes(12); a.setStatus(AnimeStatus.WATCHING); anime.saveAndFlush(a);
         AnimeMemory m = new AnimeMemory(); m.setMemoryKey(UUID.randomUUID().toString()); m.setAnimeId(a.getId()); m.setContent("现在喜欢人物关系"); m.setContext(MemoryContext.NOTE); m.setVersion(2L); memories.saveAndFlush(m);
         ObjectNode doc = (ObjectNode) mapper.readTree(backup.exportJson()); doc.put("version", 3);
-        doc.remove(List.of("externalCollections", "importBatches"));
+        doc.remove(List.of("externalCollections", "importBatches", "recommendationPreferences", "recommendationFeedback"));
         String callKey = UUID.randomUUID().toString();
         var c = doc.putArray("aiCalls").addObject();
         c.put("requestKey", callKey); c.put("memoryKey", m.getMemoryKey()); c.put("sourceVersion", 0); c.put("inputHash", "a".repeat(64)); c.put("model", "deepseek-flash"); c.put("promptVersion", "v1"); c.put("selectedCharacters", 8); c.put("status", "SUCCEEDED"); c.putNull("errorCategory"); c.put("promptTokens", 10); c.put("completionTokens", 5); c.putNull("cachedTokens"); c.putNull("reasoningTokens");

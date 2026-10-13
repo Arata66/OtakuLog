@@ -22,6 +22,7 @@ public interface BangumiService {
     List<BangumiResult> getSeasonAnime(String sort, int limit, int offset);
 
     List<BangumiResult> searchByTag(String tag, int limit);
+    List<BangumiResult> searchTaggedSubjects(String tag, int limit, Integer minYear, Integer maxYear);
 
     List<Map<String, Object>> getUserCollections(String username, int limit);
 

@@ -31,6 +31,7 @@ public class BackupService {
     private final AiCallRepository aiCalls;
     private final AiQuotaRepository quota;
     private final ExternalCollectionBackup externalBackup;
+    private final RecommendationBackup recommendationBackup;
     private final ObjectMapper mapper = new ObjectMapper().registerModule(new JavaTimeModule())
             .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
             .disable(MapperFeature.ALLOW_COERCION_OF_SCALARS)
@@ -41,10 +42,11 @@ public class BackupService {
 
     public BackupService(AnimeRepository anime, TagRepository tags, AnimeGroupRepository groups,
                          EpisodeRecordRepository episodes, AnimeMemoryRepository memories,
-                         MemoryInsightRepository insights, AiCallRepository aiCalls, AiQuotaRepository quota, ExternalCollectionBackup externalBackup) {
+                         MemoryInsightRepository insights, AiCallRepository aiCalls, AiQuotaRepository quota, ExternalCollectionBackup externalBackup, RecommendationBackup recommendationBackup) {
         this.anime = anime; this.tags = tags; this.groups = groups; this.episodes = episodes; this.memories = memories;
         this.insights = insights; this.aiCalls = aiCalls; this.quota = quota;
         this.externalBackup = externalBackup;
+        this.recommendationBackup = recommendationBackup;
     }
 
     @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
@@ -58,7 +60,7 @@ public class BackupService {
         }
         var allMemories = memories.findAll(Sort.by("id"));
         var memoryKeys = allMemories.stream().collect(Collectors.toMap(AnimeMemory::getId, AnimeMemory::getMemoryKey));
-        var document = new BackupDocument("otakulog-backup", 4, LocalDateTime.now(),
+        var document = new BackupDocument("otakulog-backup", 5, LocalDateTime.now(),
                 allAnime.stream().map(a -> new AnimeEntry("a:" + a.getId(), data(a),
                         a.getTags().stream().sorted(Comparator.comparing(Tag::getId))
                                 .map(t -> "t:" + t.getId()).toList())).toList(),
@@ -74,7 +76,7 @@ public class BackupService {
                         m.getCreatedAt(), m.getUpdatedAt())).toList(),
                 insights.findAll(Sort.by("id")).stream().map(i -> insightEntry(i, memoryKeys.get(i.getMemoryId()))).toList(),
                 aiCalls.findAll(Sort.by("id")).stream().map(BackupService::callEntry).toList(),
-                externalBackup.exportCollections(), externalBackup.exportBatches());
+                externalBackup.exportCollections(), externalBackup.exportBatches(), recommendationBackup.preferences(), recommendationBackup.feedback());
         try {
             return mapper.writerWithDefaultPrettyPrinter().writeValueAsString(document);
         } catch (Exception e) { throw new IllegalStateException("备份导出失败", e); }
@@ -178,6 +180,7 @@ public class BackupService {
         lockedQuota.setReservedCalls(Math.max(retainedCalls, (int) mergedCount));
         quota.save(lockedQuota);
         externalBackup.restore(doc);
+        recommendationBackup.restore(doc);
         return analysis.summary;
     }
 
@@ -267,6 +270,7 @@ public class BackupService {
                 : List.of("已有资料和更高进度会保留，标签与分组关联取并集；本地额外数据不会删除。"));
         result.put("conflicts", conflicts);
         externalBackup.analyze(doc, conflicts, result);
+        recommendationBackup.analyze(doc, conflicts, result);
         result.put("valid", conflicts.isEmpty());
         return new Analysis(matches, groupMatches, conflicts, result);
     }
@@ -281,7 +285,11 @@ public class BackupService {
             else {
                 require(root.isObject() && "otakulog-backup".equals(root.path("format").asText()), "备份格式不受支持");
                 require(root.path("version").isIntegralNumber()
-                        && root.path("version").longValue() >= 1 && root.path("version").longValue() <= 4, "备份版本不受支持");
+                        && root.path("version").longValue() >= 1 && root.path("version").longValue() <= 5, "备份版本不受支持");
+                if(root.path("version").intValue()<5){
+                    require(!root.has("recommendationPreferences")&&!root.has("recommendationFeedback"),"旧版本不能包含推荐状态，请使用版本五");
+                    ((ObjectNode)root).putArray("recommendationPreferences");((ObjectNode)root).putArray("recommendationFeedback");
+                }
                 if (root.path("version").intValue() < 4) {
                     require(!root.has("externalCollections") && !root.has("importBatches"), "旧版本不能包含外部收藏或导入批次，请使用版本四");
                     ((ObjectNode) root).putArray("externalCollections"); ((ObjectNode) root).putArray("importBatches");
@@ -295,6 +303,9 @@ public class BackupService {
                     ((ObjectNode) root).putArray("memories");
                 }
                 fields(root, BackupDocument.class);
+                require(root.path("recommendationPreferences").isArray()&&root.path("recommendationFeedback").isArray(),"推荐集合须为数组");
+                for(var entry:root.path("recommendationPreferences"))RecommendationJson.strict(entry,com.otakulog.dto.RecommendationDTO.PreferenceEntry.class,false);
+                for(var entry:root.path("recommendationFeedback"))RecommendationJson.strict(entry,com.otakulog.dto.RecommendationDTO.FeedbackEntry.class,false);
                 require(root.path("externalCollections").isArray() && root.path("importBatches").isArray(), "外部集合必须为数组");
                 for (JsonNode entry : root.path("externalCollections")) { fields(entry, ExternalEntry.class); auditFields(entry); }
                 for (JsonNode entry : root.path("importBatches")) { fields(entry, ImportBatchEntry.class); auditFields(entry); }
@@ -322,6 +333,7 @@ public class BackupService {
             }
             validate(document);
             externalBackup.validate(document);
+            recommendationBackup.validate(document);
             return new Input(document, legacy);
         } catch (IllegalArgumentException e) { throw e; }
         catch (Exception e) { throw new IllegalArgumentException("备份结构、字段或日期格式无效", e); }

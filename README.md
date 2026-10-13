@@ -54,8 +54,11 @@
 - 上传图片即可匹配番剧名/集数/时间点
 - 服务端通过 POST 请求体转发图片，避免普通截图生成过长请求地址；联动范围与验收见[以图搜番与外部服务](docs/以图搜番与外部服务.md)
 
-### 智能推荐
-- 基于用户标签频率自动推荐 Bangumi 相似作品
+### 可控推荐
+- 保存首播年份范围与永久排除标签，按候选完整实际标签核对，结果不足时不放宽条件
+- 手选喜欢的标签，或使用评分至少7分且未放弃作品的标签；未评分收藏不自动当作喜欢
+- 默认避开库内及外部已看、在看、搁置、放弃作品；逐条“不感兴趣”“已看过”反馈可撤销，不生成观看日期
+- 实际展示后记录7天去重，可明确查看近期推荐；规则、备份与接口见[可控推荐](docs/可控推荐.md)
 
 ### 数据同步
 - 完整 JSON 备份恢复（逐集日期与来源、观影记忆、观点、非秘密AI调用历史、标签、分组及关联，支持预览、冲突拒绝与原子合并）
@@ -90,7 +93,7 @@
 | Spring Data JPA | - | ORM |
 | Spring Security | - | 表单登录、API 认证、CSRF 写入保护 |
 | Spring Cache + Caffeine | - | Bangumi API 响应缓存 |
-| Flyway | 9.22.3 | 数据库迁移（V0–V13，含 V6.1、V8 Java 迁移） |
+| Flyway | 9.22.3 | 数据库迁移（V0–V14，含 V6.1、V8 Java 迁移） |
 | Flyway MySQL | 9.22.3 | MySQL 方言支持 |
 | MySQL | 8.0+ | 生产数据库 |
 | H2 | - | 测试环境内存数据库 |
@@ -217,7 +220,8 @@ OtakuLog/
 │   │   ├── V10__add_anime_memory.sql         # 多次观影记忆与稳定编号
 │   │   ├── V11__add_memory_insight.sql       # 观点及模型原建议
 │   │   ├── V12__add_ai_call_budget.sql       # 非秘密调用历史与预算
-│   │   └── V13__external_collections.sql     # 外部收藏、导入历史与固定锁
+│   │   ├── V13__external_collections.sql     # 外部收藏、导入历史与固定锁
+│   │   └── V14__recommendation_controls.sql  # 推荐条件、反馈与展示缓存
 │   └── application.properties                # 应用配置
 ├── src/test/java/com/otakulog/
 │   ├── config/
@@ -253,6 +257,7 @@ OtakuLog/
 | `memory_insight` | V11 新增，可核对观点、来源版本及原模型建议 |
 | `ai_call` / `ai_quota` | V12 新增，非秘密调用历史与唯一预算行 |
 | `external_collection` / `import_batch` / `import_lock` | V13 新增，来源镜像、确认防重及固定锁 |
+| `recommendation_preference` / `recommendation_feedback` / `recommendation_shown` | V14 新增，永久条件、可撤销反馈与7天展示缓存 |
 
 V6.1 Java 迁移负责迁移旧字符串标签；V8 Java 迁移负责对齐状态列类型，两者位于 `src/main/java/com/otakulog/`。V0 补齐空库初始化，历史迁移文件保持不变。
 

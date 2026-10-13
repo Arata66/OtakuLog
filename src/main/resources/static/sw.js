@@ -1,10 +1,11 @@
-const CACHE_NAME = 'otakulog-v22';
+const CACHE_NAME = 'otakulog-v23';
 const STATIC_ASSETS = [
     '/css/anime.css',
     '/css/vendor/phosphor/regular.css',
     '/css/vendor/phosphor/Phosphor.woff2',
     '/js/anime-app.js',
     '/js/bangumi-import.js',
+    '/js/recommendations.js',
     '/js/anime-memory.js',
     '/js/taste-profile.js',
     '/js/episode-history.js',

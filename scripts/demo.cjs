@@ -83,7 +83,14 @@ async function runDemo(config, signal, onReady = () => {}) {
             if (!ended?.cancelled) throw new Error('演示应用意外退出，日志：' + logPath);
         } finally {
             if (!stopped) {
-                child.kill();
+                if (process.platform === 'win32') {
+                    // Windows 的 Java 启动器可能再启动 JVM，必须连同本次子进程树停止。
+                    const killed = spawnSync('taskkill', ['/PID', String(child.pid), '/T', '/F'], { windowsHide: true, timeout: 10000, stdio: 'ignore' });
+                    if (killed.error || killed.status !== 0) {
+                        const error = new Error('演示进程树未确认停止，保留库供核对：' + config.database);
+                        error.preserveDemoDatabase = true; throw error;
+                    }
+                } else child.kill();
                 await Promise.race([exited, delay(10000, undefined, { ref: false }).then(() => {
                     const error = new Error('演示进程未停止，保留库供核对：' + config.database);
                     error.preserveDemoDatabase = true; throw error;

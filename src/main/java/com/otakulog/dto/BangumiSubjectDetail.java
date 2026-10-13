@@ -5,6 +5,8 @@ import java.util.Map;
 
 public class BangumiSubjectDetail {
     private int id;
+    private Integer type;
+    private List<String> allTags;
     private String name;
     private String nameCn;
     private String summary;
@@ -19,6 +21,10 @@ public class BangumiSubjectDetail {
     private Integer rank;
 
     public int getId() { return id; }
+    public Integer getType() { return type; }
+    public void setType(Integer type) { this.type = type; }
+    public List<String> getAllTags() { return allTags; }
+    public void setAllTags(List<String> allTags) { this.allTags = allTags; }
     public void setId(int id) { this.id = id; }
     public String getName() { return name; }
     public void setName(String name) { this.name = name; }

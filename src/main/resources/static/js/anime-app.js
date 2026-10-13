@@ -1064,29 +1064,7 @@
         }
 
         /* Recommendations */
-        async function loadRecommendations() {
-            const grid = document.getElementById('recGrid');
-            if (!grid) return;
-            grid.innerHTML = inlineStateHtml('loading', '正在加载推荐...');
-            const r = await fetchApi('/api/anime/recommendations');
-            if (!r || r.code !== 200) { grid.innerHTML = inlineStateHtml('error', '推荐加载失败', '请稍后再试。'); return; }
-            if (r.data && r.data.length > 0) {
-                grid.innerHTML = '';
-                r.data.forEach(item => {
-                    const card = document.createElement('div');
-                    card.className = 'browse-card';
-                    const img = item.image ? `<img src="${esc(item.image)}" class="browse-cover" onerror="this.outerHTML='<div class=browse-cover-empty>${esc((item.nameCn||item.name||'').charAt(0))}</div>'">` : `<div class="browse-cover-empty">${esc((item.nameCn||item.name||'').charAt(0))}</div>`;
-                    card.innerHTML = `${img}<div class="browse-info"><div class="browse-name">${esc(item.nameCn || item.name)}</div><div class="browse-meta">${item.score ? '评分 ' + item.score : ''} ${item.date || ''}</div><div class="browse-reason">${esc(item.reason)}</div></div>`;
-                    card.onclick = () => {
-                        document.getElementById('animeName').value = item.nameCn || item.name;
-                        searchBangumi();
-                    };
-                    grid.appendChild(card);
-                });
-            } else {
-                grid.innerHTML = inlineStateHtml('empty', '暂无推荐', '多追几部番后会出现推荐。');
-            }
-        }
+        async function loadRecommendations() { return loadRecommendationPanel(); }
 
         /* Heatmap */
         async function loadHeatmap() {
@@ -1479,7 +1457,9 @@
                 + `观点 ${preview.insights || 0} 条，其中新增 ${preview.newInsights || 0} 条\n`
                 + `AI调用 ${preview.aiCalls || 0} 条，其中新增 ${preview.newAiCalls || 0} 条\n`
                 + `外部收藏 ${preview.externalCollections || 0} 条，其中新增 ${preview.newExternalCollections || 0} 条\n`
-                + `导入历史 ${preview.importBatches || 0} 条，其中新增 ${preview.newImportBatches || 0} 条`;
+                + `导入历史 ${preview.importBatches || 0} 条，其中新增 ${preview.newImportBatches || 0} 条\n`
+                + `推荐条件 ${preview.recommendationPreferences || 0} 条，其中新增 ${preview.newRecommendationPreferences || 0} 条\n`
+                + `反馈历史 ${preview.recommendationFeedback || 0} 条，其中新增 ${preview.newRecommendationFeedback || 0} 条（含已撤销）`;
             return confirm(`${label}\n\n${counts}\n\n${(preview.warnings || []).join('\n')}\n\n确认恢复？`);
         }
 

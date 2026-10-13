@@ -52,7 +52,7 @@ test('当推送后取消或确认WebDAV恢复时应该保留完整备份并刷�
     await expect(page.locator('#memoryStatus')).toHaveText('感想已保存。');
     await page.locator('#detailModal').getByRole('button', { name: '关闭', exact: true }).click();
     const before = await readExport(page, demo);
-    expect(before.version).toBe(4); expect(before.memories).toHaveLength(1);
+    expect(before.version).toBe(5); expect(before.memories).toHaveLength(1);
     const pushed = page.waitForResponse(r => r.url().endsWith('/api/sync/push'));
     await clickSync(page, 'btnSyncPush'); expect((await (await pushed).json()).code).toBe(200);
     await expect(page.locator('#btnSyncPush')).toBeEnabled();

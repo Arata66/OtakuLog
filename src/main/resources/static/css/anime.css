@@ -1209,6 +1209,25 @@
         .taste-panel h5 { color: var(--text-mid); font-size: 0.83em; margin: 12px 0 8px; }
         .taste-form { margin: 18px 0; padding: 16px; background: var(--card); border: 1px solid var(--border-light); border-radius: 8px; }
         .taste-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+        .rec-heading, .rec-dialog-heading { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px; }
+        .rec-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+        .rec-actions .btn-sm, .rec-dialog .btn-sm { min-height: 44px; }
+        .rec-check { display: flex; align-items: center; gap: 8px; min-height: 44px; font-size: 0.82em; color: var(--text-mid); }
+        .rec-check input { width: 18px; height: 18px; flex-shrink: 0; accent-color: var(--primary); }
+        .rec-help { color: var(--text-dim); font-size: 0.78em; line-height: 1.8; overflow-wrap: anywhere; }
+        .rec-card { cursor: default; }
+        .rec-name { display: block; width: 100%; border: 0; padding: 0; background: transparent; color: var(--text); font: inherit; font-size: 0.86em; font-weight: 600; text-align: left; cursor: pointer; overflow-wrap: anywhere; }
+        .rec-name:focus-visible { outline: 2px solid var(--primary); outline-offset: 4px; }
+        .rec-badges { font-size: 0.76em; color: var(--primary); }
+        .rec-dialog { background: var(--bg); color: var(--text); width: min(640px,95vw); max-height: 90vh; overflow-y: auto; border: 1px solid var(--border); border-radius: 12px; padding: 24px; box-shadow: var(--shadow-lg); }
+        .rec-dialog > label, .rec-years label { display: block; min-width: 0; margin-top: 14px; font-size: 0.84em; }
+        .rec-dialog input:not([type="checkbox"]), .rec-dialog textarea { width: 100%; min-height: 44px; margin-top: 6px; padding: 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--card); color: var(--text); font: inherit; }
+        .rec-dialog .rec-check { display: flex; }
+        .rec-years { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 12px; }
+        .rec-feedback-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; border-top: 1px solid var(--border-light); padding: 14px 0; }
+        .rec-feedback-row span { min-width: 0; overflow-wrap: anywhere; }
+        .rec-feedback-row small { display: block; color: var(--text-dim); }
+        @media(max-width:600px) { .rec-dialog { padding: 16px; } .rec-actions { gap: 4px; } }
         .taste-panel label { display: block; min-width: 0; font-size: 0.82em; color: var(--text-mid); margin-top: 12px; }
         .taste-panel .app-input { display: block; width: 100%; min-height: 44px; margin-top: 6px; padding: 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--text); font: inherit; }
         .taste-panel textarea { resize: vertical; line-height: 1.8; }

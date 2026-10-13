@@ -46,12 +46,13 @@ public class AnimeServiceImpl implements AnimeService {
     private final BackupService backup;
     private final BangumiImportService bangumiImport;
     private final com.otakulog.repository.ExternalCollectionRepository externalCollections;
+    private final com.otakulog.service.RecommendationService recommendations;
 
     public AnimeServiceImpl(AnimeRepository animeRepository, BangumiService bangumiService,
                             EpisodeRecordRepository episodeRecordRepository, TagRepository tagRepository,
                             WatchProgressService watchProgress, BackupService backup, BangumiImportService bangumiImport,
                             AnimeMemoryRepository memoryRepository, MemoryInsightRepository insightRepository,
-                            com.otakulog.repository.ExternalCollectionRepository externalCollections) {
+                            com.otakulog.repository.ExternalCollectionRepository externalCollections,com.otakulog.service.RecommendationService recommendations) {
         this.animeRepository = animeRepository;
         this.memoryRepository = memoryRepository;
         this.insightRepository = insightRepository;
@@ -62,6 +63,7 @@ public class AnimeServiceImpl implements AnimeService {
         this.backup = backup;
         this.bangumiImport = bangumiImport;
         this.externalCollections = externalCollections;
+        this.recommendations = recommendations;
     }
 
     @Override
@@ -538,63 +540,12 @@ public class AnimeServiceImpl implements AnimeService {
 
     @Override
     public List<Map<String, Object>> getRecommendations() {
-        List<Anime> all = animeRepository.findAll();
-
-        // 统计用户标签频率（从 tag 关联表）
-        Map<String, Integer> tagCounts = new HashMap<>();
-        Set<String> trackedNames = new HashSet<>();
-        Set<Integer> trackedBangumiIds = new HashSet<>();
-        // 无法恢复进度的搁置或未知集数作品，仍有明确外部收藏依据。
-        trackedBangumiIds.addAll(externalCollections.findExcludedSubjectIds());
-        for (Anime a : all) {
-            trackedNames.add(a.getName().toLowerCase());
-            if (a.getBangumiId() != null) trackedBangumiIds.add(a.getBangumiId());
-            if (a.getTags() != null) {
-                for (Tag tag : a.getTags()) {
-                    tagCounts.merge(tag.getName(), 1, Integer::sum);
-                }
-            }
-        }
-
-        // 取 TOP 3 标签
-        List<String> topTags = tagCounts.entrySet().stream()
-                .sorted(Map.Entry.<String, Integer>comparingByValue().reversed())
-                .limit(3)
-                .map(Map.Entry::getKey)
-                .collect(Collectors.toList());
-
-        if (topTags.isEmpty()) return List.of();
-
-        // 用标签搜索 Bangumi
-        List<Map<String, Object>> recommendations = new ArrayList<>();
-        Set<Integer> seenIds = new HashSet<>();
-        for (String tag : topTags) {
-            try {
-                List<BangumiResult> results = bangumiService.searchByTag(tag, 10);
-                for (BangumiResult r : results) {
-                    if (trackedBangumiIds.contains(r.getId())) continue;
-                    if (seenIds.contains(r.getId())) continue;
-                    if (trackedNames.contains(r.getName().toLowerCase())) continue;
-                    if (r.getNameCn() != null && trackedNames.contains(r.getNameCn().toLowerCase())) continue;
-
-                    Map<String, Object> rec = new LinkedHashMap<>();
-                    rec.put("id", r.getId());
-                    rec.put("name", r.getName());
-                    rec.put("nameCn", r.getNameCn());
-                    rec.put("image", r.getImage());
-                    rec.put("score", r.getScore());
-                    rec.put("date", r.getDate());
-                    rec.put("reason", "标签: " + tag);
-                    recommendations.add(rec);
-                    seenIds.add(r.getId());
-
-                    if (recommendations.size() >= 10) return recommendations;
-                }
-            } catch (Exception e) {
-                // 单个标签搜索失败不影响其他标签
-            }
-        }
-        return recommendations;
+        return recommendations.recommend("legacy", false).entries().stream().map(item -> {
+            Map<String,Object> result = new LinkedHashMap<>();
+            result.put("id",item.id());result.put("name",item.name());result.put("nameCn",item.nameCn());
+            result.put("image",item.image());result.put("score",item.score());result.put("date",item.date());result.put("reason",item.reason());
+            return result;
+        }).toList();
     }
 
     @Override

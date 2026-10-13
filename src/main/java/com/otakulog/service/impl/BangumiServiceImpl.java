@@ -68,6 +68,7 @@ public class BangumiServiceImpl implements BangumiService {
 
         BangumiSubjectDetail detail = new BangumiSubjectDetail();
         detail.setId(((Number) response.get("id")).intValue());
+        if (response.get("type") instanceof Number n && n.doubleValue() == n.intValue()) detail.setType(n.intValue());
         detail.setName((String) response.get("name"));
         detail.setNameCn((String) response.getOrDefault("name_cn", ""));
         detail.setSummary((String) response.getOrDefault("summary", ""));
@@ -88,6 +89,10 @@ public class BangumiServiceImpl implements BangumiService {
             @SuppressWarnings("unchecked")
             List<Map<String, Object>> tagList = (List<Map<String, Object>>) (List<?>) tags;
             detail.setTags(tagList.stream().limit(10).collect(Collectors.toList()));
+            // 展示摘要不能作为永久排除的完整题材依据。
+            if (tags.size() <= 500 && tags.stream().allMatch(t -> t instanceof Map<?, ?> m
+                    && m.get("name") instanceof String s && !s.isBlank() && s.length() <= 200))
+                detail.setAllTags(tags.stream().map(t -> (String) ((Map<?, ?>) t).get("name")).toList());
         }
 
         Object platformObj = response.get("platform");
@@ -255,6 +260,31 @@ public class BangumiServiceImpl implements BangumiService {
 
         List<Map<String, Object>> data = (List<Map<String, Object>>) response.get("data");
         return data.stream().map(this::mapResult).collect(Collectors.toList());
+    }
+
+    @Override
+    @Cacheable(value = "bangumiTaggedSearch", sync = true)
+    public List<BangumiResult> searchTaggedSubjects(String tag, int limit, Integer minYear, Integer maxYear) {
+        if (tag == null || tag.isBlank() || tag.length() > 200 || limit < 1 || limit > 20) throw new IllegalArgumentException("推荐标签或数量无效");
+        Map<String, Object> filter = new LinkedHashMap<>(); filter.put("type", List.of(2)); filter.put("tag", List.of(tag));
+        List<String> dates = new ArrayList<>();
+        if (minYear != null) dates.add(String.format(Locale.ROOT, ">=%04d-01-01", minYear));
+        if (maxYear != null) dates.add(String.format(Locale.ROOT, "<=%04d-12-31", maxYear));
+        if (!dates.isEmpty()) filter.put("air_date", dates);
+        Map<String, Object> response = client.post().uri(builder -> builder.path("/v0/search/subjects").queryParam("limit",limit).build())
+                .contentType(MediaType.APPLICATION_JSON).body(Map.of("keyword","","sort","heat","filter",filter)).retrieve()
+                .body(new ParameterizedTypeReference<>() {});
+        if (response == null || !(response.get("data") instanceof List<?> data) || data.size() > limit)
+            throw new ExternalApiException("推荐候选响应无效，请稍后重试");
+        var result = new ArrayList<BangumiResult>();
+        for (var raw : data) {
+            if (!(raw instanceof Map<?, ?> m) || !(m.get("id") instanceof Number n)
+                    || n.longValue() < 1 || n.longValue() > Integer.MAX_VALUE || n.doubleValue() != n.intValue())
+                throw new ExternalApiException("推荐候选编号无效");
+            @SuppressWarnings("unchecked") var row = (Map<String,Object>) raw;
+            result.add(mapResult(row));
+        }
+        return List.copyOf(result);
     }
 
     @Override

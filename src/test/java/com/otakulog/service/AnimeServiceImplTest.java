@@ -23,6 +23,7 @@ import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
@@ -327,18 +328,21 @@ class AnimeServiceImplTest {
         animeService.addAnime(createDetailedDTO("葬送的芙莉莲", 28, "2023秋", 9.5, "奇幻,冒险", 3001, null, false, "2024-01-01", null));
         animeService.addAnime(createDetailedDTO("迷宫饭", 24, "2024冬", 8.8, "奇幻,美食", null, null, false, "2024-02-01", null));
 
-        when(bangumiService.searchByTag(eq("奇幻"), anyInt())).thenReturn(List.of(
+        when(bangumiService.searchTaggedSubjects(eq("奇幻"), anyInt(), any(), any())).thenReturn(List.of(
                 createBangumiResult(3001, "葬送的芙莉莲", "葬送的芙莉莲", null, 9.5),
                 createBangumiResult(4001, "奇幻新作", "奇幻新作", "https://img.test/fantasy.jpg", 8.0)
         ));
-        when(bangumiService.searchByTag(eq("冒险"), anyInt())).thenReturn(List.of(
+        when(bangumiService.searchTaggedSubjects(eq("冒险"), anyInt(), any(), any())).thenReturn(List.of(
                 createBangumiResult(4001, "奇幻新作", "奇幻新作", "https://img.test/fantasy.jpg", 8.0),
                 createBangumiResult(4002, "冒险物语", "冒险物语", "https://img.test/adventure.jpg", 7.8)
         ));
-        when(bangumiService.searchByTag(eq("美食"), anyInt())).thenReturn(List.of(
+        when(bangumiService.searchTaggedSubjects(eq("美食"), anyInt(), any(), any())).thenReturn(List.of(
                 createBangumiResult(4003, "美食之旅", "美食之旅", "https://img.test/food.jpg", 7.5)
         ));
 
+        when(bangumiService.getSubject(anyInt())).thenAnswer(call -> {
+            int id=call.getArgument(0);var d=new com.otakulog.dto.BangumiSubjectDetail();d.setId(id);d.setType(2);d.setName("虚构候选"+id);d.setNameCn(d.getName());d.setAllTags(List.of("奇幻","冒险","美食"));d.setAirDate("2024-01-01");d.setRating(8.0);return d;
+        });
         List<Map<String, Object>> recommendations = animeService.getRecommendations();
 
         assertFalse(recommendations.isEmpty());

@@ -9,7 +9,13 @@ public record BackupDocument(String format, Integer version, LocalDateTime expor
         List<AnimeEntry> anime, List<TagEntry> tags, List<GroupEntry> groups,
         List<Membership> memberships, List<EpisodeEntry> episodes, List<MemoryEntry> memories,
         List<InsightEntry> insights, List<AiCallEntry> aiCalls,
-        List<ExternalEntry> externalCollections, List<ImportBatchEntry> importBatches) {
+        List<ExternalEntry> externalCollections, List<ImportBatchEntry> importBatches,
+        List<RecommendationDTO.PreferenceEntry> recommendationPreferences, List<RecommendationDTO.FeedbackEntry> recommendationFeedback) {
+    public BackupDocument(String format,Integer version,LocalDateTime exportedAt,List<AnimeEntry> anime,List<TagEntry> tags,
+            List<GroupEntry> groups,List<Membership> memberships,List<EpisodeEntry> episodes,List<MemoryEntry> memories,
+            List<InsightEntry> insights,List<AiCallEntry> aiCalls,List<ExternalEntry> externalCollections,List<ImportBatchEntry> importBatches){
+        this(format,version,exportedAt,anime,tags,groups,memberships,episodes,memories,insights,aiCalls,externalCollections,importBatches,List.of(),List.of());
+    }
     public BackupDocument(String format, Integer version, LocalDateTime exportedAt,
             List<AnimeEntry> anime, List<TagEntry> tags, List<GroupEntry> groups, List<Membership> memberships,
             List<EpisodeEntry> episodes, List<MemoryEntry> memories, List<InsightEntry> insights, List<AiCallEntry> aiCalls) {

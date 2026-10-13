@@ -234,10 +234,12 @@
                 </div>
             </div>
             <div class="chart-card">
-                <div class="cal-top-bar">
+                <div class="cal-top-bar rec-heading">
                     <h4 class="card-title-compact">猜你想看</h4>
-                    <button class="btn-sm" onclick="loadRecommendations()">换一批</button>
+                    <div class="rec-actions"><button class="btn-sm" onclick="openRecommendationSettings()">推荐条件</button><button class="btn-sm" onclick="openRecommendationFeedback()">反馈列表</button><button class="btn-sm" onclick="loadRecommendations()">换一批</button></div>
                 </div>
+                <label class="rec-check"><input id="recIncludeRecent" type="checkbox" onchange="loadRecommendations()">查看近期推荐（仍遵守永久排除）</label>
+                <p id="recSummary" class="rec-help"></p><p id="recStatus" role="status" class="rec-help"></p>
                 <div class="browse-grid" id="recGrid"></div>
             </div>
             <div class="detail-row">
@@ -383,6 +385,7 @@
     <script th:src="@{/js/share-card.js}"></script>
     <script th:src="@{/js/anime-app.js}"></script>
     <script th:src="@{/js/bangumi-import.js}"></script>
+    <script th:src="@{/js/recommendations.js}"></script>
     <script th:src="@{/js/anime-memory.js}"></script>
     <script th:src="@{/js/taste-profile.js}"></script>
     <script th:src="@{/js/episode-history.js}"></script>

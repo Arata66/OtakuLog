@@ -698,7 +698,7 @@ class MySqlDeploymentTest {
                 value.setName("虚构并发恢复"); value.setBangumiId(914001); value.setTotalEpisodes(12); anime.saveAndFlush(value);
                 var backup = app.getBean(BackupService.class);
                 var legacy = (com.fasterxml.jackson.databind.node.ObjectNode) new com.fasterxml.jackson.databind.ObjectMapper().readTree(backup.exportJson());
-                legacy.put("version", 3); legacy.remove("externalCollections"); legacy.remove("importBatches"); anime.deleteAll();
+                legacy.put("version", 3); legacy.remove("externalCollections"); legacy.remove("importBatches"); legacy.remove("recommendationPreferences"); legacy.remove("recommendationFeedback"); anime.deleteAll();
                 var service = app.getBean(com.otakulog.service.BangumiImportPreviewService.class);
                 var preview = service.preview("tester", "test");
                 var request = new com.otakulog.dto.BangumiImportDTO.ConfirmRequest(preview.previewKey(), UUID.randomUUID().toString(), false, false);
@@ -727,6 +727,45 @@ class MySqlDeploymentTest {
                     assertEquals("0", query(database, "SELECT COUNT(*) FROM import_batch"));
                 } finally { release.countDown(); executor.shutdownNow(); repository.removeAdvice(pause); }
             } finally { server.stop(0); }
+        });
+    }
+
+    @Test
+    void 当MySQL从V13升级并并发反馈后重启时应该保留条件与撤销历史且不写观看数据() throws Exception {
+        withDatabase(database -> {
+            flyway(database,"13").migrate();var count=new java.util.concurrent.atomic.AtomicInteger();
+            var server=com.sun.net.httpserver.HttpServer.create(new java.net.InetSocketAddress("127.0.0.1",0),0);
+            var mapper=new com.fasterxml.jackson.databind.ObjectMapper();
+            server.createContext("/",exchange -> {
+                count.incrementAndGet();Object value;
+                if(exchange.getRequestURI().getPath().equals("/v0/search/subjects"))value=java.util.Map.of("data",java.util.List.of(java.util.Map.of("id",951001,"name","虚构推荐一"),java.util.Map.of("id",951002,"name","虚构推荐二")));
+                else {int id=Integer.parseInt(exchange.getRequestURI().getPath().substring("/v0/subjects/".length()));var tags=new java.util.ArrayList<Object>();tags.add(java.util.Map.of("name","剧情","count",1));
+                    for(int i=0;i<10;i++)tags.add(java.util.Map.of("name","补充标签"+i,"count",1));if(id==951002)tags.add(java.util.Map.of("name","机战","count",1));
+                    value=java.util.Map.of("id",id,"type",2,"name","虚构推荐"+id,"date","2020-01-01","tags",tags);}
+                byte[] bytes=mapper.writeValueAsBytes(value);exchange.getResponseHeaders().set("Content-Type","application/json; charset=utf-8");exchange.sendResponseHeaders(200,bytes.length);exchange.getResponseBody().write(bytes);exchange.close();
+            });server.start();String config="--otakulog.bangumi.base-url=http://127.0.0.1:"+server.getAddress().getPort();
+            com.otakulog.dto.RecommendationDTO.FeedbackRequest request;String exported;
+            try {
+                try(var app=startApplication(database,config)){
+                    var state=app.getBean(com.otakulog.service.RecommendationState.class);var service=app.getBean(com.otakulog.service.RecommendationService.class);
+                    state.save(new com.otakulog.dto.RecommendationDTO.Settings(null,0L,2020,2020,java.util.List.of("机战"),java.util.List.of("剧情"),false));
+                    var batch=service.recommend("tester",false);assertEquals(1,batch.entries().size());assertEquals(951001,batch.entries().get(0).id());
+                    request=new com.otakulog.dto.RecommendationDTO.FeedbackRequest(UUID.randomUUID().toString(),batch.batchKey(),951001,com.otakulog.dto.RecommendationDTO.Kind.NOT_INTERESTED);
+                    var executor=Executors.newFixedThreadPool(2);
+                    try{var first=executor.submit(() -> service.feedback("tester",request));var second=executor.submit(() -> service.feedback("tester",request));assertEquals(first.get(20,TimeUnit.SECONDS),second.get(20,TimeUnit.SECONDS));}finally{executor.shutdownNow();}
+                    state.remove(request.requestKey(),0);service.shown("tester",new com.otakulog.dto.RecommendationDTO.ShownRequest(batch.batchKey(),java.util.List.of(951001)));
+                    exported=app.getBean(BackupService.class).exportJson();assertEquals(true,app.getBean(BackupService.class).previewJson(exported).get("valid"));
+                    assertEquals("1",query(database,"SELECT COUNT(*) FROM recommendation_feedback"));assertEquals("0",query(database,"SELECT COUNT(*) FROM anime"));assertEquals("0",query(database,"SELECT COUNT(*) FROM episode_record"));
+                    assertEquals("1",query(database,"SELECT COUNT(*) FROM recommendation_shown"));
+                }
+                int before=count.get();
+                try(var app=startApplication(database,config)){
+                    var state=app.getBean(com.otakulog.service.RecommendationState.class);assertEquals(2020,state.settings().minYear());
+                    assertEquals(false,app.getBean(com.otakulog.service.RecommendationService.class).feedback("tester",request).active());
+                    var backup=app.getBean(BackupService.class);backup.importJson(exported);
+                    var expected=mapper.readTree(exported);var actual=mapper.readTree(backup.exportJson());assertEquals(expected.path("recommendationPreferences"),actual.path("recommendationPreferences"));assertEquals(expected.path("recommendationFeedback"),actual.path("recommendationFeedback"));assertEquals(before,count.get());
+                }
+            }finally{server.stop(0);}
         });
     }
 

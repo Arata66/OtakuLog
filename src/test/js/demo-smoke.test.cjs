@@ -40,6 +40,13 @@ test('当隔离演示启动并操作时应该可写可核对且退出后只清�
         const [code] = await exit;
         assert.equal(code, 0, output);
     }
+    const listening = await new Promise(resolve => {
+        const socket = net.connect({ host: '127.0.0.1', port });
+        socket.once('connect', () => { socket.destroy(); resolve(true); });
+        socket.once('error', () => resolve(false));
+        socket.setTimeout(2000, () => { socket.destroy(); resolve(true); });
+    });
+    assert.equal(listening, false, '演示退出后应停止实际应用并释放端口');
     const endpoint = /^(127\.0\.0\.1|localhost):(\d+)$/.exec(process.env.OTAKULOG_MYSQL_SERVER || '127.0.0.1:3306');
     const result = spawnSync('mysql', ['--protocol=TCP', '--host=127.0.0.1', '--port=' + endpoint[2], '--user=' + (process.env.DB_USER || 'root'),
         '--batch', '--skip-column-names', "--execute=SELECT COUNT(*) FROM information_schema.schemata WHERE schema_name='" + ready.database + "'"],

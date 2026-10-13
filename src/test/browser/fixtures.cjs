@@ -4,7 +4,7 @@ const net = require('node:net');
 const { runDemo } = require('../../../scripts/demo.cjs');
 const { createDemoConfig, executeSql } = require('../../../scripts/lib/demo-config.cjs');
 
-async function configureContext(context, demo) {
+async function configureContext(context, demo, recommendationsLive = false) {
     const assets = {
         '/npm/chart.js@4.4.1/dist/chart.umd.min.js': 'chart.js/dist/chart.umd.js',
         '/npm/sortablejs@1.15.0/Sortable.min.js': 'sortablejs/Sortable.min.js',
@@ -16,6 +16,8 @@ async function configureContext(context, demo) {
         // 浏览器验收使用虚构结果，上游匹配和故障分支由后端回归覆盖。
         if (url.origin === demo.url && url.pathname === '/api/watch/airing')
             return route.fulfill({ json: { code: 200, data: { airingStatus: 'UNAVAILABLE', todayAiringCount: null, todayAiring: [] } } });
+        if (!recommendationsLive && url.origin === demo.url && url.pathname === '/api/recommendations' && route.request().method() === 'GET')
+            return route.fulfill({ json: { code: 200, data: { status: 'COLD_START', entries: [], excludedCounts: {} } } });
         if (url.origin === demo.url) return route.continue();
         const asset = url.origin === 'https://cdn.jsdelivr.net' && assets[url.pathname];
         if (asset) return route.fulfill({ path: path.join(demo.config.root, 'node_modules', asset), contentType: 'application/javascript' });
@@ -35,6 +37,7 @@ const test = base.extend({
     bangumiBaseUrl: ['', { option: true }],
     webdavConfig: [{}, { option: true }],
     aiBaseUrl: [null, { option: true }],
+    recommendationsLive: [false, { option: true }],
     demo: async ({ bangumiBaseUrl, webdavConfig, aiBaseUrl }, use, testInfo) => {
         const server = net.createServer();
         await new Promise((resolve, reject) => { server.once('error', reject); server.listen(0, '127.0.0.1', resolve); });
@@ -59,19 +62,19 @@ const test = base.extend({
             await testInfo.attach('演示清理核对', { body: Buffer.from(JSON.stringify({ database: config.database, cleaned: true })), contentType: 'application/json' });
         }
     },
-    page: async ({ page, context, demo }, use) => {
+    page: async ({ page, context, demo, recommendationsLive }, use) => {
         const errors = [];
         page.on('pageerror', error => errors.push(error.message));
-        await configureContext(context, demo);
+        await configureContext(context, demo, recommendationsLive);
         await login(page, demo);
         await use(page);
         expect(errors, '页面不应发生脚本异常').toEqual([]);
     },
-    secondPage: async ({ browser, demo }, use, testInfo) => {
+    secondPage: async ({ browser, demo, recommendationsLive }, use, testInfo) => {
         const context = await browser.newContext({ serviceWorkers: 'block', timezoneId: 'Asia/Shanghai' });
         const errors = [];
         try {
-            await configureContext(context, demo);
+            await configureContext(context, demo, recommendationsLive);
             const page = await context.newPage();
             page.on('pageerror', error => errors.push(error.message));
             await login(page, demo);

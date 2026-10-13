@@ -67,7 +67,7 @@ class BackupServiceTest {
     void 当导出时应该包含版本及所有数据集合() throws Exception {
         var root = new ObjectMapper().readTree(service.exportJson());
         assertTrue(root.isObject());
-        assertEquals(4, root.path("version").asInt());
+        assertEquals(5, root.path("version").asInt());
         for (String collection : new String[]{"anime", "tags", "groups", "memberships", "episodes", "memories", "insights", "aiCalls"})
             assertTrue(root.path(collection).isArray(), collection);
     }
