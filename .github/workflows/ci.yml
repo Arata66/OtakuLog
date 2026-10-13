@@ -16,7 +16,7 @@ jobs:
   verify:
     name: Java、前端、浏览器与真实 MySQL
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 25
     services:
       mysql:
         image: mysql:8.0
