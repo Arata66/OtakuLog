@@ -208,8 +208,14 @@ class DesktopSecurityTest {
         var servletContext = (org.apache.catalina.Context) server.getTomcat().getHost().findChildren()[0];
         var session = servletContext.getManager().findSession(cookie.substring(cookie.indexOf('=') + 1));
         assertThat(session).isNotNull();
-        // 只推进本次测试会话的闲置时间，避免让回归真实等待三十一分钟。
-        session.setCreationTime(System.currentTimeMillis() - idle.toMillis());
+        // 响应已到达时服务端仍可能更新访问时间，先由 Tomcat 确认闲置状态再发下一请求。
+        assertTimeoutPreemptively(Duration.ofSeconds(5), () -> {
+            while (true) {
+                session.setCreationTime(System.currentTimeMillis() - idle.toMillis());
+                if (!session.isValid() || session.getMaxInactiveInterval() <= 0) return;
+                Thread.sleep(1);
+            }
+        });
     }
 
     @RestController
