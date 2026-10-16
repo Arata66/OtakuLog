@@ -2,12 +2,16 @@
   "name": "otakulog-browser-checks",
   "private": true,
   "version": "1.0.0",
-  "description": "OtakuLog浏览器回归开发工具，不参与应用构建",
+  "description": "OtakuLog 浏览器回归与桌面开发工具",
   "engines": {
     "node": ">=22"
   },
   "scripts": {
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "desktop:lint": "npm --prefix desktop run lint",
+    "desktop:typecheck": "npm --prefix desktop run typecheck",
+    "desktop:test": "npm --prefix desktop test",
+    "desktop:package": "npm --prefix desktop run package:win"
   },
   "devDependencies": {
     "@playwright/test": "1.64.0",

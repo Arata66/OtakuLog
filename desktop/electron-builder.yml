@@ -1,0 +1,31 @@
+appId: com.arata66.otakulog
+productName: OtakuLog
+asar: true
+directories:
+  output: release
+files:
+  - dist/**
+  - src/startup.html
+  - package.json
+extraResources:
+  - from: staging/backend
+    to: backend
+  - from: staging/runtime
+    to: runtime
+  - from: staging/build-info.json
+    to: build-info.json
+win:
+  target:
+    - portable
+    - nsis
+    - zip
+  artifactName: OtakuLog-${version}-win-${arch}.${ext}
+portable:
+  artifactName: OtakuLog-${version}-win-${arch}-portable.${ext}
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  deleteAppDataOnUninstall: false
+  artifactName: OtakuLog-${version}-win-${arch}-setup.${ext}

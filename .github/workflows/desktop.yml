@@ -1,0 +1,98 @@
+name: Windows桌面基础检查
+
+on:
+  push:
+    paths:
+      - 'desktop/**'
+      - 'src/main/**'
+      - 'src/test/java/com/otakulog/desktop/**'
+      - 'pom.xml'
+      - 'package*.json'
+      - '.github/workflows/desktop.yml'
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: desktop-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  desktop:
+    runs-on: windows-latest
+    timeout-minutes: 35
+    env:
+      OTAKULOG_MYSQL_TEST: 'false'
+      TZ: Asia/Shanghai
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: 配置Java17
+        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+      - name: 配置Node22
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: '22'
+      - name: 安装锁定依赖
+        run: |
+          npm ci
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          npm --prefix desktop ci
+      - name: 类型语法与行为检查
+        run: |
+          npm --prefix desktop run lint
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          npm --prefix desktop run typecheck
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          npm --prefix desktop test
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          git diff --check
+      - name: 文件数据库与Java回归
+        run: mvn --batch-mode --no-transfer-progress -Pdesktop clean verify
+      - name: 核对并准备内置运行时
+        run: |
+          $runtime = Get-Content desktop/runtime-windows-x64.json -Raw | ConvertFrom-Json
+          $archive = Join-Path $env:RUNNER_TEMP $runtime.archive
+          Invoke-WebRequest -Uri $runtime.url -OutFile $archive
+          if ((Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash.ToLowerInvariant() -ne $runtime.sha256) { throw '运行时校验和不一致' }
+          $runtimeBase = Join-Path $env:RUNNER_TEMP 'otakulog-runtime'
+          Expand-Archive -LiteralPath $archive -DestinationPath $runtimeBase
+          $runtimeRoot = Join-Path $runtimeBase $runtime.root
+          $version = (Get-Content desktop/package.json -Raw | ConvertFrom-Json).version
+          node desktop/scripts/stage-backend.cjs --jar "target/otakulog-$version.jar" --runtime $runtimeRoot
+      - name: 独立窗口真实联动
+        run: npm --prefix desktop run test:e2e
+      - name: 生成Windows验证包
+        run: npm --prefix desktop run package:win
+      - name: 验证打包后的程序
+        run: |
+          $env:OTAKULOG_DESKTOP_EXECUTABLE = Join-Path $pwd 'desktop/release/win-unpacked/OtakuLog.exe'
+          npm --prefix desktop run test:e2e
+      - name: 生成校验和
+        run: |
+          Get-ChildItem desktop/release -File | Where-Object Extension -In '.exe','.zip' | ForEach-Object {
+            $digest = (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+            "$digest  $($_.Name)"
+          } | Set-Content desktop/release/SHA256SUMS.txt -Encoding utf8NoBOM
+      - name: 保存验证包与报告
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: windows-desktop-validation
+          path: |
+            desktop/release/*.exe
+            desktop/release/*.zip
+            desktop/release/SHA256SUMS.txt
+            desktop/staging/build-info.json
+            desktop/test-results/
+            target/surefire-reports/
+          if-no-files-found: warn
+          retention-days: 7

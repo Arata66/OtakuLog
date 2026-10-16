@@ -2,6 +2,8 @@
 
 一个基于 Spring Boot 的个人动漫追番管理系统，帮助你管理追番记录、追踪观看进度，并保存每次观看留下的感受与回忆。
 
+Windows 桌面版正在实施：已打通 Electron 独立窗口、内置 Java、H2 本地文件库和免登录启动，并生成内部 exe/zip 验证包。当前尚未公开发布，离线资源、个人 AI 设置、完整业务兼容和升级备份继续按阶段验收。开发与验证命令见[桌面版开发与验收](docs/桌面版开发与验收.md)，整体范围见[实施计划](docs/superpowers/plans/2026-10-15-Windows桌面版.md)。
+
 ## 核心功能
 
 ### 番剧管理
@@ -98,7 +100,9 @@
 | Flyway | 9.22.3 | 数据库迁移（V0–V15，含 V6.1、V8 Java 迁移） |
 | Flyway MySQL | 9.22.3 | MySQL 方言支持 |
 | MySQL | 8.0+ | 生产数据库 |
-| H2 | - | 测试环境内存数据库 |
+| H2 | 2.2.224 | 测试内存库、桌面配置文件库 |
+| Electron | 44.7.2 | Windows 桌面窗口与内置网页运行环境 |
+| electron-builder | 26.15.3 | 免安装 exe、安装版与 zip 验证包 |
 | Thymeleaf | - | 服务端模板引擎 |
 | Thymeleaf Spring Security | - | 模板层安全标签 |
 | Springdoc OpenAPI | 2.3.0 | Swagger UI API 文档 |

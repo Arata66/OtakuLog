@@ -7,7 +7,7 @@
 
     <groupId>com.otakulog</groupId>
     <artifactId>otakulog</artifactId>
-    <version>1.0.0</version>
+    <version>${revision}</version>
     <packaging>jar</packaging>
 
     <name>OtakuLog</name>
@@ -22,6 +22,8 @@
 
     <properties>
         <java.version>17</java.version>
+        <revision>1.0.0</revision>
+        <h2.scope>test</h2.scope>
     </properties>
 
     <dependencies>
@@ -107,7 +109,7 @@
         <dependency>
             <groupId>com.h2database</groupId>
             <artifactId>h2</artifactId>
-            <scope>test</scope>
+            <scope>${h2.scope}</scope>
         </dependency>
 
         <!-- Lombok -->
@@ -154,4 +156,14 @@
             </plugin>
         </plugins>
     </build>
+
+    <profiles>
+        <profile>
+            <id>desktop</id>
+            <properties>
+                <h2.scope>runtime</h2.scope>
+                <revision>1.1.0-beta.1</revision>
+            </properties>
+        </profile>
+    </profiles>
 </project>

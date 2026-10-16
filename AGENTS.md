@@ -46,6 +46,7 @@ src/main/resources/
 ## 关键约束
 
 - **JPA DDL 策略**：`validate`（禁止自动建表，迁移全靠 Flyway）
+- **桌面配置**：仅 `desktop` profile 使用显式绝对目录的 H2 文件库与 `db/desktop` 迁移；禁止复用 MySQL 历史迁移或自用数据做写入验收。免登录链还须 `app.desktop.managed=true`，业务 CSRF 不关闭。
 - **Security**：表单登录 + 静态资源白名单 `/css/**`, `/js/**`, `/manifest.json`, `/sw.js`
 - **CORS**：允许 `http://localhost:5173`（前端开发跨域）
 - **前端**：单页应用（anime.html），原生 JS + Chart.js，无构建工具
@@ -102,4 +103,5 @@ src/main/resources/
 | `docs/日常追番入口.md` | 首页排序、放送参考边界、统一进退集与 API |
 | `docs/持续集成与演示.md` | CI、独立演示、虚构样例与退出清理边界 |
 | `docs/浏览器核心回归.md` | 原生弹窗、双窗口冲突、隔离清理与运行命令 |
+| `docs/桌面版开发与验收.md` | 内置运行时、独立窗口、构建、资料目录与验收边界 |
 | `~/.Codex/plans/OtakuLog-可靠自用第一阶段.md` | 当前实施工作区与阶段入口 |
