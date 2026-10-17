@@ -49,6 +49,7 @@ class DesktopDatabaseTest {
             assertEquals("classpath:db/desktop", flyway.getConfiguration().getLocations()[0].getDescriptor());
             assertFalse(flyway.getConfiguration().isBaselineOnMigrate());
             assertTrue(flyway.getConfiguration().isCleanDisabled());
+            assertEquals(0, flyway.getConfiguration().getIgnoreMigrationPatterns().length);
             flyway.validate();
 
             var jdbc = new JdbcTemplate(application.getBean(DataSource.class));
@@ -106,6 +107,53 @@ class DesktopDatabaseTest {
              var result = statement.executeQuery("SELECT COUNT(*) FROM anime WHERE name = '虚构桌面持久化验收'")) {
             assertTrue(result.next());
             assertEquals(1, result.getInt(1));
+        }
+    }
+
+    @Test
+    void 当资料库结构比当前程序更新时应该拒绝启动且保留原有数据() throws Exception {
+        Path directory = temporaryDirectory.resolve("桌面新版资料");
+        Long animeId;
+        String url;
+        try (var application = startApplication(directory)) {
+            animeId = application.getBean(AnimeRepository.class).saveAndFlush(fictionalAnime()).getId();
+            try (var connection = application.getBean(DataSource.class).getConnection()) {
+                url = connection.getMetaData().getURL();
+            }
+        }
+
+        Path migrations = Files.createDirectories(temporaryDirectory.resolve("新版迁移"));
+        Files.writeString(migrations.resolve("V2__future_marker.sql"),
+                "ALTER TABLE anime ADD COLUMN future_schema_marker VARCHAR(40) DEFAULT 'future-version' NOT NULL;\n");
+        var newerVersion = Flyway.configure().dataSource(url, "sa", "")
+                .locations("classpath:db/desktop", "filesystem:" + migrations.toString().replace('\\', '/'))
+                .load();
+        assertEquals(1, newerVersion.migrate().migrationsExecuted);
+        assertEquals("2", newerVersion.info().current().getVersion().getVersion());
+
+        RuntimeException failure = assertThrows(RuntimeException.class, () -> {
+            try (var ignored = startApplication(directory)) {
+            }
+        }, "当前程序不能打开比自己更新的资料结构");
+        assertTrue(messages(failure).contains("Detected applied migration not resolved locally: 2"), messages(failure));
+        try (var connection = DriverManager.getConnection(url, "sa", "");
+             var statement = connection.createStatement()) {
+            try (var result = statement.executeQuery("SELECT name, future_schema_marker FROM anime WHERE id = " + animeId)) {
+                assertTrue(result.next());
+                assertEquals("虚构桌面持久化验收", result.getString(1));
+                assertEquals("future-version", result.getString(2));
+                assertFalse(result.next());
+            }
+            try (var result = statement.executeQuery(
+                    "SELECT \"version\", \"success\" FROM \"flyway_schema_history\" WHERE \"type\" <> 'TABLE' ORDER BY \"installed_rank\"")) {
+                assertTrue(result.next());
+                assertEquals("1", result.getString(1));
+                assertTrue(result.getBoolean(2));
+                assertTrue(result.next());
+                assertEquals("2", result.getString(1));
+                assertTrue(result.getBoolean(2));
+                assertFalse(result.next());
+            }
         }
     }
 

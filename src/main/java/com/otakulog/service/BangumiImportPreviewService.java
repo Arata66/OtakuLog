@@ -10,6 +10,7 @@ import com.otakulog.entity.*;
 import com.otakulog.enums.AnimeStatus;
 import com.otakulog.repository.*;
 import org.springframework.data.domain.*;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.*;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -36,12 +37,13 @@ public class BangumiImportPreviewService {
 
     public BangumiImportPreviewService(BangumiService bangumi, AnimeRepository anime, ExternalCollectionRepository collections,
             ImportBatchRepository batches, ImportLockRepository locks, TagRepository tags, WatchProgressService watch,
-            PlatformTransactionManager manager, ObjectMapper mapper) {
+            PlatformTransactionManager manager, ObjectMapper mapper,
+            @Value("${app.import.transaction-isolation:ISOLATION_SERIALIZABLE}") String isolation) {
         this.bangumi = bangumi; this.anime = anime; this.collections = collections; this.batches = batches;
         this.locks = locks; this.tags = tags; this.watch = watch; this.mapper = mapper.copy()
                 .enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
         transaction = new TransactionTemplate(manager);
-        transaction.setIsolationLevel(TransactionDefinition.ISOLATION_SERIALIZABLE);
+        transaction.setIsolationLevelName(isolation);
     }
 
     public Preview preview(String owner, String username) {

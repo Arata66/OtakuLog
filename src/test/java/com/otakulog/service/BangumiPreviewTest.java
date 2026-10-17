@@ -61,6 +61,28 @@ class BangumiPreviewTest {
     String request(String key, String requestKey) throws Exception {
         return mapper.writeValueAsString(Map.of("previewKey", key, "requestKey", requestKey, "importScores", true, "importTags", true));
     }
+    @Test void 当默认网站配置读取预览并确认时应该保持可串行化事务隔离() {
+        var isolationLevels = new java.util.ArrayList<Integer>();
+        var repository = (org.springframework.aop.framework.Advised) locks;
+        org.aopalliance.intercept.MethodInterceptor inspect = invocation -> {
+            if (invocation.getMethod().getName().equals("lockSingleton")) {
+                // 读取服务事务实际绑定的连接，避免只验证配置名称而漏掉执行边界。
+                var source = java.util.Objects.requireNonNull(jdbc.getDataSource());
+                assertTrue(org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive());
+                var connection = org.springframework.jdbc.datasource.DataSourceUtils.getConnection(source);
+                try { isolationLevels.add(connection.getTransactionIsolation()); }
+                finally { org.springframework.jdbc.datasource.DataSourceUtils.releaseConnection(connection, source); }
+            }
+            return invocation.proceed();
+        };
+        repository.addAdvice(0, inspect);
+        try {
+            var result = previewService.preview("tester", "test");
+            previewService.confirm("tester", new com.otakulog.dto.BangumiImportDTO.ConfirmRequest(
+                    result.previewKey(), UUID.randomUUID().toString(), false, false));
+            assertEquals(List.of(java.sql.Connection.TRANSACTION_SERIALIZABLE, java.sql.Connection.TRANSACTION_SERIALIZABLE), isolationLevels);
+        } finally { repository.removeAdvice(inspect); }
+    }
     @Test void 当读取预览时应该零写入并逐条显示需要核对的原因() throws Exception {
         preview(); assertEquals(0, anime.count()); assertEquals(0, episodes.count());
     }

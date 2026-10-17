@@ -2,6 +2,7 @@ package com.otakulog.desktop;
 
 import com.zaxxer.hikari.HikariDataSource;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.flyway.FlywayConfigurationCustomizer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
@@ -14,6 +15,12 @@ import java.nio.file.Path;
 @Configuration(proxyBeanMethods = false)
 @Profile("desktop")
 public class DesktopDataDirectoryConfiguration {
+
+    @Bean
+    public FlywayConfigurationCustomizer desktopFlywayConfigurationCustomizer() {
+        // 旧程序必须拒绝尚不认识的迁移版本，避免写坏新版资料。
+        return configuration -> configuration.ignoreMigrationPatterns(new String[0]);
+    }
 
     @Bean(destroyMethod = "close")
     public HikariDataSource desktopDataSource(@Value("${app.desktop.data-dir:}") String directory) {
