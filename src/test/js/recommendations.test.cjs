@@ -15,7 +15,7 @@ function setup(replies = []) {
         fetchApi: async (url, options = {}) => { calls.push({ url, options }); const reply = replies.shift(); if (reply instanceof Error) throw reply; return await reply; },
         esc, inlineStateHtml: (kind, title, detail) => esc(title) + esc(detail), toast: value => messages.push(value),
         crypto: { randomUUID: () => '11111111-1111-4111-8111-111111111111' }, AbortController, trapFocus() {}, restoreFocus() {}, confirm: () => false, searchBangumi() {} };
-    vm.createContext(context); vm.runInContext(fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : '', context);
+    vm.createContext(context); require('./helpers/ui-events.cjs')(context); vm.runInContext(fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : '', context);
     return { context, field, calls, messages };
 }
 test('当缺少偏好依据时应该提示选标签且不写入近期记录', async () => {

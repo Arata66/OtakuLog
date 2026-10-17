@@ -1,0 +1,3 @@
+src/main/resources/static/js/vendor/** -text
+src/main/resources/static/js/vendor/licenses/sortablejs-LICENSE whitespace=cr-at-eol
+src/main/resources/static/js/vendor/licenses/dompurify-LICENSE-MPL whitespace=-blank-at-eol

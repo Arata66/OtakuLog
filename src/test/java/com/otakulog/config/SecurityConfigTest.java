@@ -34,7 +34,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrlPattern;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@SpringBootTest
+@SpringBootTest(properties = "app.desktop.managed=true")
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 class SecurityConfigTest {
@@ -138,9 +138,12 @@ class SecurityConfigTest {
         MockHttpSession session = login("test");
         MvcResult page = mvc.perform(get("/").session(session))
                 .andExpect(status().isOk())
+                .andExpect(header().doesNotExist("Content-Security-Policy"))
                 .andExpect(content().string(containsString("name=\"_csrf_header\"")))
                 .andReturn();
         String html = page.getResponse().getContentAsString();
+        assertThat(html).contains("<meta name=\"otakulog-desktop-managed\" content=\"false\">")
+                .contains("action=\"/logout\"", "fonts.googleapis.com");
         String token = extract(html, "<meta name=\"_csrf\" content=\"([^\"]+)\"");
         String headerName = extract(html, "<meta name=\"_csrf_header\" content=\"([^\"]+)\"");
 

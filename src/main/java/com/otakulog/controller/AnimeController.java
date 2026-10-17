@@ -16,9 +16,12 @@ import jakarta.validation.Valid;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.core.env.Environment;
+import org.springframework.core.env.Profiles;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.Map;
@@ -29,14 +32,18 @@ public class AnimeController {
 
     private final AnimeService animeService;
     private final AiringScheduleService airingScheduleService;
+    private final Environment environment;
 
-    public AnimeController(AnimeService animeService, AiringScheduleService airingScheduleService) {
+    public AnimeController(AnimeService animeService, AiringScheduleService airingScheduleService, Environment environment) {
         this.animeService = animeService;
         this.airingScheduleService = airingScheduleService;
+        this.environment = environment;
     }
 
     @GetMapping("/")
-    public String index() {
+    public String index(Model model) {
+        model.addAttribute("desktopManaged", environment.acceptsProfiles(Profiles.of("desktop"))
+                && environment.getProperty("app.desktop.managed", Boolean.class, false));
         return "anime";
     }
 

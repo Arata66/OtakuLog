@@ -69,8 +69,8 @@ function resetMemoryDraft(state, entry = null, context = 'NOTE') {
 
 function renderMemoryForm(state) {
     state.section.innerHTML = `<div class="memory-heading"><div><h3>观影记忆</h3><p class="memory-note">留下一句话或一篇长文。此刻的感受与以后的回望，都可以各自保留。</p></div>
-        <div class="memory-heading-actions"><button type="button" class="a-btn" onclick="focusAnimeMemories(${state.id})">回看感想</button><button type="button" class="a-btn" onclick="writeAnimeReflection(${state.id})">写一条回望</button></div></div>
-        <form id="memoryForm" class="memory-form" onsubmit="event.preventDefault();saveAnimeMemory(${state.id})">
+        <div class="memory-heading-actions"><button type="button" class="a-btn" ${uiAction('focusAnimeMemories', [state.id])}>回看感想</button><button type="button" class="a-btn" ${uiAction('writeAnimeReflection', [state.id])}>写一条回望</button></div></div>
+        <form id="memoryForm" class="memory-form" ${uiAction('saveAnimeMemory', [state.id], 'submit')}>
             <label id="memoryFormTitle" class="memory-prompt" for="memoryContent">此刻有什么想留下的？</label>
             <textarea id="memoryContent" class="app-input memory-content-input" rows="5" required maxlength="16000" placeholder="写下现在的感想，不必整理成结论。"></textarea>
             <details id="memoryOptional" class="memory-optional"><summary>补充语境、原因、范围或观看日期（可选）</summary><div class="memory-optional-fields">
@@ -81,7 +81,7 @@ function renderMemoryForm(state) {
                 <label for="memoryScope">评价范围<input id="memoryScope" class="app-input" maxlength="200" placeholder="如：第一季、电影、原作后续" value=""></label>
                 <label for="memoryWatchedDate">观看日期<input id="memoryWatchedDate" class="app-input" type="date" min="1000-01-01" max="${memoryToday()}" value=""><small>只填记得的实际日期，不确定就留空。</small></label>
             </div></details>
-            <div class="memory-form-actions"><button id="memorySave" type="submit" class="a-btn">保存感想</button><button id="memoryCancelEdit" type="button" class="a-btn" hidden onclick="cancelAnimeMemoryEdit(${state.id})">取消编辑</button></div>
+            <div class="memory-form-actions"><button id="memorySave" type="submit" class="a-btn">保存感想</button><button id="memoryCancelEdit" type="button" class="a-btn" hidden ${uiAction('cancelAnimeMemoryEdit', [state.id])}>取消编辑</button></div>
         </form><p id="memoryStatus" class="memory-note" role="status" aria-live="polite"></p><div id="tasteMount"></div><div id="memoryList" class="memory-list" tabindex="-1" role="region" aria-label="已保存的感想"></div><div id="memoryPages" class="memory-pages"></div>`;
     resetMemoryDraft(state);
 }
@@ -104,7 +104,7 @@ async function fetchMemoryList(state, page, successMessage = '') {
     // 关闭、切换作品或重新加载后，过期响应不能覆盖当前感想。
     if (!memoryCurrent(state) || generation !== state.generation) return;
     if (!result || result.code !== 200) {
-        document.getElementById('memoryList').innerHTML = `<p class="memory-note">感想加载失败，可稍后重试。</p><button type="button" class="a-btn" onclick="loadAnimeMemories(${state.id},${page})">重试</button>`;
+        document.getElementById('memoryList').innerHTML = `<p class="memory-note">感想加载失败，可稍后重试。</p><button type="button" class="a-btn" ${uiAction('loadAnimeMemories', [state.id,page])}>重试</button>`;
         memoryStatus(state, successMessage ? successMessage + '，列表刷新失败，请重新加载核对。' : result?.message || '感想加载失败，请重试。');
         return;
     }
@@ -133,13 +133,13 @@ function memoryTextHtml(content) {
 
 function renderMemoryList(state) {
     const optional = (label, value) => value ? `<div class="memory-reason"><h4>${label}</h4><p>${esc(value)}</p></div>` : '';
-    document.getElementById('memoryList').innerHTML = `<div class="memory-list-heading"><div><h4>已保存的感想</h4><p class="memory-note">${state.totalEntries} 条 · 最新记录在前</p></div><button type="button" class="a-btn" onclick="openAnimeMemory(${state.id})">回到输入</button></div>` + (state.entries.map(entry => `<article class="memory-entry" data-memory-id="${entry.id}">
-        <div class="memory-entry-heading"><span class="memory-context">${esc(memoryContexts[entry.context] || '随手记')}</span><div class="memory-entry-actions"><button type="button" class="a-btn" onclick="openTasteMemory(${state.id},${entry.id})">整理观点</button><button type="button" class="a-btn" onclick="editAnimeMemory(${state.id},${entry.id})">编辑</button><button type="button" class="a-btn del" onclick="deleteAnimeMemory(${state.id},${entry.id})">删除</button></div></div>
+    document.getElementById('memoryList').innerHTML = `<div class="memory-list-heading"><div><h4>已保存的感想</h4><p class="memory-note">${state.totalEntries} 条 · 最新记录在前</p></div><button type="button" class="a-btn" ${uiAction('openAnimeMemory', [state.id])}>回到输入</button></div>` + (state.entries.map(entry => `<article class="memory-entry" data-memory-id="${entry.id}">
+        <div class="memory-entry-heading"><span class="memory-context">${esc(memoryContexts[entry.context] || '随手记')}</span><div class="memory-entry-actions"><button type="button" class="a-btn" ${uiAction('openTasteMemory', [state.id,entry.id])}>整理观点</button><button type="button" class="a-btn" ${uiAction('editAnimeMemory', [state.id,entry.id])}>编辑</button><button type="button" class="a-btn del" ${uiAction('deleteAnimeMemory', [state.id,entry.id])}>删除</button></div></div>
         ${memoryTextHtml(entry.content)}${optional('打动我的地方', entry.liked)}${optional('不满意的地方', entry.disliked)}
         <div class="memory-entry-meta">${entry.scope ? `<span>评价范围：${esc(entry.scope)}</span>` : ''}<span>观看日期：${esc(entry.watchedDate || '未填写')}</span><span>书写：${esc(entry.createdAt || '').replace('T', ' ')}</span><span>修改：${esc(entry.updatedAt || '').replace('T', ' ')}</span></div>
     </article>`).join('') || '<p class="memory-empty">还没有观影记忆。一句话也可以，之后再追加回望；观看日期不确定时留空。</p>');
     const lastPage = Math.max(0, Math.ceil(state.totalEntries / state.size) - 1);
-    document.getElementById('memoryPages').innerHTML = `<button type="button" class="a-btn" onclick="loadAnimeMemories(${state.id},${state.page - 1})" ${state.page <= 0 ? 'disabled' : ''}>上一页</button><span>第 ${state.page + 1} / ${lastPage + 1} 页 · ${state.totalEntries} 条感想</span><button type="button" class="a-btn" onclick="loadAnimeMemories(${state.id},${state.page + 1})" ${state.page >= lastPage ? 'disabled' : ''}>下一页</button><button type="button" class="a-btn" onclick="loadAnimeMemories(${state.id},${state.page})">重新加载</button>`;
+    document.getElementById('memoryPages').innerHTML = `<button type="button" class="a-btn" ${uiAction('loadAnimeMemories', [state.id,state.page - 1])} ${state.page <= 0 ? 'disabled' : ''}>上一页</button><span>第 ${state.page + 1} / ${lastPage + 1} 页 · ${state.totalEntries} 条感想</span><button type="button" class="a-btn" ${uiAction('loadAnimeMemories', [state.id,state.page + 1])} ${state.page >= lastPage ? 'disabled' : ''}>下一页</button><button type="button" class="a-btn" ${uiAction('loadAnimeMemories', [state.id,state.page])}>重新加载</button>`;
 }
 
 function editAnimeMemory(id, memoryId) {

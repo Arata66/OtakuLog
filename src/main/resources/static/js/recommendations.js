@@ -72,10 +72,10 @@ function renderRecommendationRows() {
     }
     grid.innerHTML = data.entries.map((item, index) => {
         const pending = recommendationView.requests.get(item.id);
-        const image = item.image ? `<img class="browse-cover" src="${esc(item.image)}" alt="" onerror="this.hidden=true">` : `<div class="browse-cover-empty">${esc((item.nameCn || item.name || '').charAt(0))}</div>`;
-        const actions = pending ? `<button class="btn-sm" onclick="retryRecommendationFeedback(${index})">重试提交反馈</button>`
-            : `<button class="btn-sm" onclick="feedbackRecommendation(${index},'NOT_INTERESTED')">不感兴趣</button><button class="btn-sm" onclick="feedbackRecommendation(${index},'WATCHED')">已看过</button>`;
-        return `<article class="browse-card rec-card" data-subject="${item.id}">${image}<div class="browse-info"><button class="rec-name" onclick="selectRecommendation(${index})">${esc(item.nameCn || item.name)}</button>
+        const image = item.image ? `<img class="browse-cover" src="${esc(item.image)}" alt="" data-ui-image="hide">` : `<div class="browse-cover-empty">${esc((item.nameCn || item.name || '').charAt(0))}</div>`;
+        const actions = pending ? `<button class="btn-sm" ${uiAction('retryRecommendationFeedback', [index])}>重试提交反馈</button>`
+            : `<button class="btn-sm" ${uiAction('feedbackRecommendation', [index,'NOT_INTERESTED'])}>不感兴趣</button><button class="btn-sm" ${uiAction('feedbackRecommendation', [index,'WATCHED'])}>已看过</button>`;
+        return `<article class="browse-card rec-card" data-subject="${item.id}">${image}<div class="browse-info"><button class="rec-name" ${uiAction('selectRecommendation', [index])}>${esc(item.nameCn || item.name)}</button>
             <div class="browse-meta">${item.score ? 'Bangumi评分 ' + esc(item.score) : '未评分'} ${esc(item.date || '首播日期未知')}</div>
             <div class="browse-reason">${esc(item.reason || '')}</div><div class="rec-badges">${item.watched ? '已看 · ' : ''}${item.tracked ? '已在库 · ' : ''}${item.recent ? '近期展示' : ''}</div>
             <div class="rec-actions">${actions}</div></div></article>`;
@@ -122,7 +122,7 @@ function showRecommendationModal(kind, body) {
     if (recommendationModal?.busy) return null;
     closeRecommendationModal(); const overlay = document.createElement('div'); overlay.id = kind === 'settings' ? 'recommendationSettingsModal' : kind === 'bases' ? 'recommendationBasesModal' : 'recommendationFeedbackModal'; overlay.className = 'modal-overlay';
     const title = kind === 'settings' ? '推荐条件' : kind === 'bases' ? '推荐依据' : '推荐反馈';
-    overlay.innerHTML = `<section class="rec-dialog" role="dialog" aria-modal="true" aria-label="${title}"><div class="rec-dialog-heading"><h3>${title}</h3><button class="btn-sm" onclick="closeRecommendationModal()" aria-label="关闭推荐面板">关闭</button></div>${body}<p id="recModalStatus" role="status"></p></section>`;
+    overlay.innerHTML = `<section class="rec-dialog" role="dialog" aria-modal="true" aria-label="${title}"><div class="rec-dialog-heading"><h3>${title}</h3><button class="btn-sm" data-ui-click="closeRecommendationModal" aria-label="关闭推荐面板">关闭</button></div>${body}<p id="recModalStatus" role="status"></p></section>`;
     document.body.appendChild(overlay); recommendationModal = { kind, overlay, busy: false, settings: null, page: 0, entries: [], origin: document.activeElement };
     if (typeof trapFocus === 'function') recommendationModal.cleanup = trapFocus(overlay, closeRecommendationModal);
     return recommendationModal;
@@ -144,7 +144,7 @@ async function openRecommendationSettings() {
         <label>永不推荐这些标签<textarea id="recExcludedTags" rows="2" placeholder="例如：机战，每个标签用逗号分开"></textarea></label><p class="rec-help">最多50个，按作品真实标签精确匹配，不自动扩大题材。</p>
         <label>用这些喜欢的标签找<input id="recRecallTags" placeholder="例如：剧情、奇幻，最多3个"></label><p class="rec-help">留空时，使用评分至少7分且未放弃作品的标签。</p>
         <label class="rec-check"><input id="recIncludeTracked" type="checkbox">包括已在库／已看作品</label><p class="rec-help">外部在看、搁置或放弃仍会避开；不感兴趣始终排除。</p>
-        <div class="rec-actions"><button id="recSaveSettings" class="btn-sm" onclick="saveRecommendationSettings()">保存条件并推荐</button><button class="btn-sm" onclick="readRecommendationSettings()">重新读取条件</button></div>`);
+        <div class="rec-actions"><button id="recSaveSettings" class="btn-sm" data-ui-click="saveRecommendationSettings">保存条件并推荐</button><button class="btn-sm" data-ui-click="readRecommendationSettings">重新读取条件</button></div>`);
     if (modal) await readRecommendationSettings();
 }
 async function readRecommendationSettings() {
@@ -177,7 +177,7 @@ async function saveRecommendationSettings() {
 }
 
 async function openRecommendationFeedback() {
-    const modal = showRecommendationModal('feedback', `<p class="rec-help">这些标记只影响推荐，不生成观看日期。撤销后仍保留防重历史。</p><div id="recFeedbackRows"></div><div class="rec-actions"><button id="recFeedbackPrevious" class="btn-sm" onclick="recommendationFeedbackPage(-1)">上一页</button><button id="recFeedbackNext" class="btn-sm" onclick="recommendationFeedbackPage(1)">下一页</button></div>`);
+    const modal = showRecommendationModal('feedback', `<p class="rec-help">这些标记只影响推荐，不生成观看日期。撤销后仍保留防重历史。</p><div id="recFeedbackRows"></div><div class="rec-actions"><button id="recFeedbackPrevious" class="btn-sm" data-ui-click="recommendationFeedbackPage" data-ui-args="[-1]">上一页</button><button id="recFeedbackNext" class="btn-sm" data-ui-click="recommendationFeedbackPage" data-ui-args="[1]">下一页</button></div>`);
     if (modal) await readRecommendationFeedback();
 }
 async function readRecommendationFeedback() {
@@ -188,7 +188,7 @@ async function readRecommendationFeedback() {
         if (recommendationModal !== modal) return;
         if (!response || response.code !== 200) throw new Error(response?.msg || response?.message || '反馈读取失败。');
         modal.entries = response.data.entries;
-        document.getElementById('recFeedbackRows').innerHTML = modal.entries.length ? modal.entries.map((entry,index) => `<div class="rec-feedback-row"><span>${esc(entry.name)} <small>${entry.kind === 'WATCHED' ? '已看过' : '不感兴趣'}</small></span><button class="btn-sm" onclick="removeRecommendationFeedback(${index})">撤销</button></div>`).join('') : '<p>没有活动的推荐反馈。</p>';
+        document.getElementById('recFeedbackRows').innerHTML = modal.entries.length ? modal.entries.map((entry,index) => `<div class="rec-feedback-row"><span>${esc(entry.name)} <small>${entry.kind === 'WATCHED' ? '已看过' : '不感兴趣'}</small></span><button class="btn-sm" ${uiAction('removeRecommendationFeedback', [index])}>撤销</button></div>`).join('') : '<p>没有活动的推荐反馈。</p>';
         recommendationModalBusy(false);
         document.getElementById('recFeedbackPrevious').disabled = modal.page === 0;
         document.getElementById('recFeedbackNext').disabled = (modal.page + 1) * 20 >= response.data.total;

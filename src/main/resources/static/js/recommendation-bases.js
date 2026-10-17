@@ -43,7 +43,7 @@ function applyRecommendationBasisPage(data) {
 function renderRecommendationBasisSelection() {
     const host = document.getElementById('recBasisSelection'); if (!host || !recommendationBasisPage) return;
     const entries = recommendationBasisPage.entries.filter(e => e.state === 'ACTIVE');
-    host.innerHTML = '<p class="rec-help">只使用本轮勾选的有效关联，最多3条喜欢与50条避开；同标签正负同时选中会提示冲突。</p>' + (entries.length ? entries.map(e => `<label class="rec-check rec-basis-choice"><input type="checkbox" data-key="${esc(e.data.key)}" ${recommendationBasisSelection.has(e.data.key) ? 'checked' : ''} onchange="toggleRecommendationBasis(this.dataset.key,this.checked)"><span>${e.data.direction === 'LIKE' ? '喜欢' : '避开'} · ${esc(e.source.factor)} → ${esc(e.data.tag || '作品 ' + e.data.subjectId)}</span></label>`).join('') : '<p class="rec-help">还没有有效关联。先在“推荐依据”里把确认观点关联到标签或作品。</p>');
+    host.innerHTML = '<p class="rec-help">只使用本轮勾选的有效关联，最多3条喜欢与50条避开；同标签正负同时选中会提示冲突。</p>' + (entries.length ? entries.map(e => `<label class="rec-check rec-basis-choice"><input type="checkbox" data-key="${esc(e.data.key)}" ${recommendationBasisSelection.has(e.data.key) ? 'checked' : ''} data-ui-change="toggleRecommendationBasis"><span>${e.data.direction === 'LIKE' ? '喜欢' : '避开'} · ${esc(e.source.factor)} → ${esc(e.data.tag || '作品 ' + e.data.subjectId)}</span></label>`).join('') : '<p class="rec-help">还没有有效关联。先在“推荐依据”里把确认观点关联到标签或作品。</p>');
 }
 function toggleRecommendationBasis(key, enabled) { if (enabled) recommendationBasisSelection.add(key); else recommendationBasisSelection.delete(key); invalidateRecommendationChoice(); }
 async function readRecommendationBasisSelection() {
@@ -53,7 +53,7 @@ async function readRecommendationBasisSelection() {
     } catch (error) { document.getElementById('recStatus').textContent = error.message; }
 }
 async function openRecommendationBases(focusKey) {
-    const modal = showRecommendationModal('bases', '<p class="rec-help">选择已确认的观点，明确关联标签或作品；先预览影响，再保存。来源变动后暂停使用。</p><div id="recBasisForm"></div><div id="recBasisRows"></div><button class="btn-sm" onclick="readRecommendationBases()">重新读取依据</button>');
+    const modal = showRecommendationModal('bases', '<p class="rec-help">选择已确认的观点，明确关联标签或作品；先预览影响，再保存。来源变动后暂停使用。</p><div id="recBasisForm"></div><div id="recBasisRows"></div><button class="btn-sm" data-ui-click="readRecommendationBases">重新读取依据</button>');
     if (!modal) return; modal.focusKey = focusKey || ''; modal.previewGeneration = 0; modal.draft = null; modal.requestKey = null;
     await readRecommendationBases();
 }
@@ -63,10 +63,10 @@ async function readRecommendationBases() {
         const response = await fetchApi('/api/recommendations/bases', { returnError: true });
         if (!response || response.code !== 200) throw new Error(response?.msg || response?.message || '推荐依据读取失败。');
         if (recommendationModal !== modal) return; applyRecommendationBasisPage(response.data); modal.pageData = response.data;
-        document.getElementById('recBasisForm').innerHTML = response.data.sources.length ? `<label>当前确认观点<select id="recBasisSource" onchange="selectRecommendationBasisSource()">${response.data.sources.map(s => `<option value="${esc(s.insightKey)}">${s.direction === 'LIKE' ? '喜欢' : '不喜欢'} · ${esc(s.animeName)} · ${esc(s.factor)}</option>`).join('')}</select></label><div id="recBasisEvidence"></div>
-            <label>关联方式<select id="recBasisKind" onchange="recommendationBasisKindChanged()"><option value="TAG">明确标签</option><option id="recBasisSeedOption" value="SEED">一部喜欢的作品</option></select></label>
-            <label id="recBasisTagField">Bangumi标签<input id="recBasisTag" placeholder="例如：剧情" oninput="recommendationBasisFormChanged()"></label><label id="recBasisSeedField" hidden>Bangumi作品编号<input id="recBasisSeed" type="number" min="1" oninput="recommendationBasisFormChanged()"></label>
-            <div class="rec-actions"><button class="btn-sm" onclick="previewRecommendationBasis()">预览关联影响</button><button id="recBasisSave" class="btn-sm" onclick="saveRecommendationBasis()" disabled>确认保存关联</button></div>` : '<p class="rec-help">暂无当前有效的确认观点。先在观影记忆中整理并确认，未确认和已失效观点不会列入。</p>';
+        document.getElementById('recBasisForm').innerHTML = response.data.sources.length ? `<label>当前确认观点<select id="recBasisSource" data-ui-change="selectRecommendationBasisSource">${response.data.sources.map(s => `<option value="${esc(s.insightKey)}">${s.direction === 'LIKE' ? '喜欢' : '不喜欢'} · ${esc(s.animeName)} · ${esc(s.factor)}</option>`).join('')}</select></label><div id="recBasisEvidence"></div>
+            <label>关联方式<select id="recBasisKind" data-ui-change="recommendationBasisKindChanged"><option value="TAG">明确标签</option><option id="recBasisSeedOption" value="SEED">一部喜欢的作品</option></select></label>
+            <label id="recBasisTagField">Bangumi标签<input id="recBasisTag" placeholder="例如：剧情" data-ui-input="recommendationBasisFormChanged"></label><label id="recBasisSeedField" hidden>Bangumi作品编号<input id="recBasisSeed" type="number" min="1" data-ui-input="recommendationBasisFormChanged"></label>
+            <div class="rec-actions"><button class="btn-sm" data-ui-click="previewRecommendationBasis">预览关联影响</button><button id="recBasisSave" class="btn-sm" data-ui-click="saveRecommendationBasis" disabled>确认保存关联</button></div>` : '<p class="rec-help">暂无当前有效的确认观点。先在观影记忆中整理并确认，未确认和已失效观点不会列入。</p>';
         renderRecommendationBasisRows(modal);
         if (response.data.sources.length) { document.getElementById('recBasisSource').value = response.data.sources.some(s => s.insightKey === modal.focusKey) ? modal.focusKey : response.data.sources[0].insightKey; selectRecommendationBasisSource(); }
         document.getElementById('recModalStatus').textContent = '';
@@ -74,7 +74,7 @@ async function readRecommendationBases() {
     finally { if (recommendationModal === modal) { recommendationModalBusy(false); const save = document.getElementById('recBasisSave'); if (save) save.disabled = !modal.draft; } }
 }
 function renderRecommendationBasisRows(modal) {
-    document.getElementById('recBasisRows').innerHTML = '<h4>已保存的关联</h4>' + (modal.pageData.entries.map((e, index) => `<div class="rec-feedback-row"><span>${e.data.direction === 'LIKE' ? '喜欢' : '避开'} · ${esc(e.data.tag || '作品 ' + e.data.subjectId)}<small>${e.state === 'ACTIVE' ? '来源有效' : e.state === 'DISABLED' ? '已停用' : '来源已变化或缺失，暂停使用'}</small></span>${e.data.enabled ? `<button class="btn-sm" onclick="disableRecommendationBasis(${index})">停用</button>` : ''}</div>`).join('') || '<p class="rec-help">暂无保存的关联。</p>');
+    document.getElementById('recBasisRows').innerHTML = '<h4>已保存的关联</h4>' + (modal.pageData.entries.map((e, index) => `<div class="rec-feedback-row"><span>${e.data.direction === 'LIKE' ? '喜欢' : '避开'} · ${esc(e.data.tag || '作品 ' + e.data.subjectId)}<small>${e.state === 'ACTIVE' ? '来源有效' : e.state === 'DISABLED' ? '已停用' : '来源已变化或缺失，暂停使用'}</small></span>${e.data.enabled ? `<button class="btn-sm" ${uiAction('disableRecommendationBasis', [index])}>停用</button>` : ''}</div>`).join('') || '<p class="rec-help">暂无保存的关联。</p>');
 }
 function selectRecommendationBasisSource() {
     const modal = recommendationModal; if (!modal?.pageData) return;

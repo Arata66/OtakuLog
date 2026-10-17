@@ -6,18 +6,18 @@ function openBangumiImport() {
     toggleSyncMenu();
     const modal = document.createElement('div'); modal.id = 'bangumiImportModal'; modal.className = 'modal-overlay';
     modal.innerHTML = `<div class="modal-card bangumi-import-card" role="dialog" aria-modal="true" aria-labelledby="bgmImportTitle">
-        <div class="memory-list-heading"><h3 id="bgmImportTitle">从 Bangumi 导入</h3><button type="button" class="a-btn" onclick="closeBangumiImport()">关闭</button></div>
+        <div class="memory-list-heading"><h3 id="bgmImportTitle">从 Bangumi 导入</h3><button type="button" class="a-btn" data-ui-click="closeBangumiImport">关闭</button></div>
         <p class="memory-note">读取公开动画收藏，先预览再确认。搁置或集数未知会保留为外部收藏；观看日期不确定时保持为空。</p>
-        <form onsubmit="event.preventDefault();readBangumiImport()" class="bangumi-import-form">
+        <form data-ui-submit="readBangumiImport" class="bangumi-import-form">
             <label for="bgmImportUsername">个人主页 /user/ 后的账号标识<input id="bgmImportUsername" class="app-input" maxlength="100" required autocomplete="off" placeholder="账号标识，不是显示昵称"></label>
             <button id="bgmImportRead" type="submit" class="a-btn">读取并预览</button>
-            <button id="bgmImportExternal" type="button" class="a-btn" onclick="showBangumiCollections(0)">查看外部收藏</button>
+            <button id="bgmImportExternal" type="button" class="a-btn" data-ui-click="showBangumiCollections" data-ui-args="[0]">查看外部收藏</button>
         </form>
         <div class="bangumi-import-options"><label><input id="bgmImportScores" type="checkbox">给新增作品导入个人评分</label><label><input id="bgmImportTags" type="checkbox">给新增作品复制收藏标签</label></div>
         <p class="memory-note">已有作品不覆盖。原始评论、评分与标签保留来源；评论不会自动生成感想或发送给 AI。</p>
         <p id="bgmImportStatus" class="memory-note" role="status" aria-live="polite">填写账号后读取预览，尚未写入任何数据。</p>
         <div id="bgmImportRows" class="bangumi-import-rows"></div><div id="bgmImportPages" class="memory-pages"></div>
-        <button id="bgmImportConfirm" type="button" class="a-btn" disabled onclick="confirmBangumiImport()">确认导入</button>
+        <button id="bgmImportConfirm" type="button" class="a-btn" disabled data-ui-click="confirmBangumiImport">确认导入</button>
     </div>`;
     const state = { modal, preview: null, busy: null, page: 0, request: null, external: null, returnFocus: document.activeElement };
     bangumiImportState = state;
@@ -67,8 +67,8 @@ function bangumiImportRowHtml(source, reason, index, external = null) {
     return `<article class="memory-entry"><div class="memory-entry-heading"><strong>${esc(title)}</strong><span>${esc(bangumiCollectionTypes[source.type] || '未知状态')}</span></div>
         <p class="memory-note">${esc(reason)}</p><p class="memory-note">集数：${source.eps > 0 ? esc(source.eps) : '未知'} · 进度：${esc(source.epStatus ?? '未知')} · 个人评分：${source.rate ? esc(source.rate) : '未评分'}</p>
         <details class="memory-optional"><summary>查看原始收藏标签与评论</summary><p class="memory-original">收藏标签：${esc((source.tags || []).join('、') || '未填写')}</p>
-        <p class="memory-original">${esc(source.comment || '没有收藏评论')}</p>${source.comment ? `<button type="button" class="a-btn" onclick="copyBangumiComment(${index})">复制收藏评论</button>` : ''}</details>
-        ${external ? `<p class="memory-note">来源：Bangumi / ${esc(external.username)} · 抓取：${esc(external.capturedAt)}</p><button type="button" class="a-btn del" onclick="removeBangumiCollection('${esc(external.key)}',${external.version})">删除外部收藏</button>` : ''}</article>`;
+        <p class="memory-original">${esc(source.comment || '没有收藏评论')}</p>${source.comment ? `<button type="button" class="a-btn" ${uiAction('copyBangumiComment', [index])}>复制收藏评论</button>` : ''}</details>
+        ${external ? `<p class="memory-note">来源：Bangumi / ${esc(external.username)} · 抓取：${esc(external.capturedAt)}</p><button type="button" class="a-btn del" ${uiAction('removeBangumiCollection', [external.key,external.version])}>删除外部收藏</button>` : ''}</article>`;
 }
 
 function renderBangumiImportPreview(page = bangumiImportState?.page || 0) {
@@ -79,7 +79,7 @@ function renderBangumiImportPreview(page = bangumiImportState?.page || 0) {
     document.getElementById('bgmImportRows').innerHTML = state.preview.rows.slice(start, start + 20)
         .map((row, index) => bangumiImportRowHtml(row.source, row.reason, start + index)).join('') || '<p class="memory-note">没有公开动画收藏。</p>';
     const pages = Math.max(1, Math.ceil(state.preview.rows.length / 20));
-    document.getElementById('bgmImportPages').innerHTML = `<button type="button" class="a-btn" onclick="renderBangumiImportPreview(${state.page - 1})" ${state.page === 0 ? 'disabled' : ''}>上一页</button><span>第 ${state.page + 1} / ${pages} 页</span><button type="button" class="a-btn" onclick="renderBangumiImportPreview(${state.page + 1})" ${state.page + 1 >= pages ? 'disabled' : ''}>下一页</button>`;
+    document.getElementById('bgmImportPages').innerHTML = `<button type="button" class="a-btn" ${uiAction('renderBangumiImportPreview', [state.page - 1])} ${state.page === 0 ? 'disabled' : ''}>上一页</button><span>第 ${state.page + 1} / ${pages} 页</span><button type="button" class="a-btn" ${uiAction('renderBangumiImportPreview', [state.page + 1])} ${state.page + 1 >= pages ? 'disabled' : ''}>下一页</button>`;
     document.getElementById('bgmImportConfirm').hidden = false; bangumiImportBusy(state, state.busy);
 }
 
@@ -122,8 +122,8 @@ async function showBangumiCollections(page = 0) {
         state.external = result.data; const data = state.external;
         document.getElementById('bgmImportRows').innerHTML = data.entries.map((record, index) => bangumiImportRowHtml(record.source,
             '独立外部收藏；不会自动转换成感想或实际观看日期。', index, record)).join('') || '<p class="memory-note">还没有外部收藏。</p>';
-        document.getElementById('bgmImportPages').innerHTML = `<button type="button" class="a-btn" onclick="showBangumiCollections(${page - 1})" ${page <= 0 ? 'disabled' : ''}>上一页</button><span>共 ${data.total} 条 · 第 ${page + 1} 页</span><button type="button" class="a-btn" onclick="showBangumiCollections(${page + 1})" ${(page + 1) * 20 >= data.total ? 'disabled' : ''}>下一页</button>`
-            + (state.preview ? '<button type="button" class="a-btn" onclick="renderBangumiImportPreview()">回到导入预览</button>' : '');
+        document.getElementById('bgmImportPages').innerHTML = `<button type="button" class="a-btn" ${uiAction('showBangumiCollections', [page - 1])} ${page <= 0 ? 'disabled' : ''}>上一页</button><span>共 ${data.total} 条 · 第 ${page + 1} 页</span><button type="button" class="a-btn" ${uiAction('showBangumiCollections', [page + 1])} ${(page + 1) * 20 >= data.total ? 'disabled' : ''}>下一页</button>`
+            + (state.preview ? '<button type="button" class="a-btn" data-ui-click="renderBangumiImportPreview">回到导入预览</button>' : '');
         document.getElementById('bgmImportConfirm').hidden = true; bangumiImportMessage(`已保存的外部收藏 ${data.total} 条；删除这里的记录不会删除本地作品。`);
     } catch { if (bangumiImportState === state) bangumiImportMessage('外部收藏读取失败，请重试。'); }
     finally { if (bangumiImportState === state) bangumiImportBusy(state, null); }

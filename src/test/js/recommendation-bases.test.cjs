@@ -12,7 +12,7 @@ function setup(replies = []) {
         fetchApi: async (url, options = {}) => { calls.push({ url, options }); const r = replies.shift(); if (r instanceof Error) throw r; return await r; },
         crypto: { randomUUID: () => '11111111-1111-4111-8111-111111111111' }, AbortController, URLSearchParams, esc: x => String(x ?? '').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;'),
         inlineStateHtml: (_, title, detail) => title + detail, toast() {}, confirm: () => true, trapFocus() {}, restoreFocus() {} };
-    vm.createContext(context);
+    vm.createContext(context); require('./helpers/ui-events.cjs')(context);
     for (const name of ['recommendations.js', 'recommendation-bases.js']) { const file = path.join(__dirname, '../../main/resources/static/js', name); if (fs.existsSync(file)) vm.runInContext(fs.readFileSync(file, 'utf8'), context); }
     return { context, field, fields, calls };
 }

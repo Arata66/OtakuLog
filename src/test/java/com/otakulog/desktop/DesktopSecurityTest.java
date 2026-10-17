@@ -103,6 +103,13 @@ class DesktopSecurityTest {
 
         var page = request("GET", "/", null, cookie, null, null);
         assertThat(page.statusCode()).isEqualTo(200);
+        assertThat(page.headers().firstValue("Content-Security-Policy").orElse("")).isEqualTo(
+                "default-src 'none'; script-src 'self'; script-src-attr 'none'; connect-src 'self'; "
+                        + "style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' https: data: blob:; "
+                        + "media-src 'self' https: blob:; object-src 'none'; base-uri 'none'; "
+                        + "frame-src 'none'; frame-ancestors 'none'; worker-src 'none'");
+        assertThat(page.body()).doesNotContain("fonts.googleapis.com", "cdn.jsdelivr.net")
+                .contains("/js/vendor/chart.umd.js", "/js/vendor/Sortable.min.js", "/js/vendor/marked.min.js", "/js/vendor/purify.min.js");
         String csrf = extract(page.body(), "<meta name=\"_csrf\" content=\"([^\"]+)\"");
         String csrfHeader = extract(page.body(), "<meta name=\"_csrf_header\" content=\"([^\"]+)\"");
         var save = HttpRequest.newBuilder(URI.create(base() + "/api/groups"))
@@ -152,10 +159,51 @@ class DesktopSecurityTest {
             assertThat(client.send(HttpRequest.newBuilder(URI.create(unmanagedBase + "/api/groups"))
                             .header("Cookie", session).GET().build(), HttpResponse.BodyHandlers.ofString())
                     .statusCode()).isEqualTo(200);
+            var home = client.send(HttpRequest.newBuilder(URI.create(unmanagedBase + "/"))
+                    .header("Cookie", session).GET().build(), HttpResponse.BodyHandlers.ofString());
+            assertThat(home.statusCode()).isEqualTo(200);
+            assertThat(home.headers().firstValue("Content-Security-Policy")).isEmpty();
+            assertThat(home.body()).contains("<meta name=\"otakulog-desktop-managed\" content=\"false\">")
+                    .contains("action=\"/logout\"", "fonts.googleapis.com");
+            assertThat(client.send(HttpRequest.newBuilder(URI.create(unmanagedBase + "/api/groups"))
+                    .header("Cookie", session).header("Content-Type", "application/json")
+                    .POST(HttpRequest.BodyPublishers.ofString("{\"name\":\"无令牌不得新增\"}")).build(), HttpResponse.BodyHandlers.ofString())
+                    .statusCode()).isEqualTo(403);
             simulateIdle(unmanaged, session, Duration.ofMinutes(31));
             assertThat(client.send(HttpRequest.newBuilder(URI.create(unmanagedBase + "/api/groups"))
                             .header("Cookie", session).GET().build(), HttpResponse.BodyHandlers.ofString())
                     .statusCode()).isEqualTo(401);
+        }
+    }
+
+    @Test
+    @Order(2)
+    void 当仅网站设置受管参数但未启用桌面配置时应该保留网站策略() throws Exception {
+        var launcher = new SpringApplication(OtakuLogApplication.class);
+        try (var website = launcher.run("--spring.profiles.active=test", "--app.desktop.managed=true", "--server.port=0",
+                "--spring.datasource.url=jdbc:h2:mem:csp-website-" + java.util.UUID.randomUUID() + ";DB_CLOSE_DELAY=-1",
+                "--spring.main.banner-mode=off")) {
+            int websitePort = ((ServletWebServerApplicationContext) website).getWebServer().getPort();
+            String websiteBase = "http://127.0.0.1:" + websitePort;
+            assertThat(website.getBeansOfType(DesktopRuntime.class)).isEmpty();
+            var loginPage = client.send(HttpRequest.newBuilder(URI.create(websiteBase + "/login")).GET().build(),
+                    HttpResponse.BodyHandlers.ofString());
+            assertThat(loginPage.statusCode()).isEqualTo(200);
+            assertThat(loginPage.headers().firstValue("Content-Security-Policy")).isEmpty();
+            String csrf = extract(loginPage.body(), "name=\"_csrf\"[^>]*value=\"([^\"]+)\"");
+            String cookie = loginPage.headers().firstValue("set-cookie").orElseThrow().split(";", 2)[0];
+            var login = client.send(HttpRequest.newBuilder(URI.create(websiteBase + "/login"))
+                    .header("Cookie", cookie).header("Content-Type", "application/x-www-form-urlencoded")
+                    .POST(HttpRequest.BodyPublishers.ofString("username=test&password=test&_csrf="
+                            + java.net.URLEncoder.encode(csrf, StandardCharsets.UTF_8))).build(), HttpResponse.BodyHandlers.ofString());
+            assertThat(login.statusCode()).isEqualTo(302);
+            String session = login.headers().firstValue("set-cookie").orElseThrow().split(";", 2)[0];
+            var home = client.send(HttpRequest.newBuilder(URI.create(websiteBase + "/"))
+                    .header("Cookie", session).GET().build(), HttpResponse.BodyHandlers.ofString());
+            assertThat(home.statusCode()).isEqualTo(200);
+            assertThat(home.headers().firstValue("Content-Security-Policy")).isEmpty();
+            assertThat(home.body()).contains("<meta name=\"otakulog-desktop-managed\" content=\"false\">")
+                    .contains("action=\"/logout\"", "fonts.googleapis.com").doesNotContain("cdn.jsdelivr.net");
         }
     }
 

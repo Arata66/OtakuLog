@@ -79,6 +79,9 @@ async function openWindow() {
   };
   if (info.version !== app.getVersion()) throw new Error('应用文件与桌面程序版本不同，请重新下载完整程序');
   const profile = session.fromPartition('persist:otakulog');
+  // 随机端口仍可能复用旧站点缓存，只清除桌面专用会话的工作线程与缓存。
+  await profile.clearStorageData({ storages: ['serviceworkers', 'cachestorage'] });
+  if (stopping || allowQuit) return;
   profile.setPermissionCheckHandler(() => false);
   profile.setPermissionRequestHandler((_contents, _permission, callback) => callback(false));
   profile.on('will-download', (_event, item) => {
@@ -104,6 +107,9 @@ async function openWindow() {
     if (selected === 1) event.preventDefault();
   });
   window.webContents.on('will-navigate', (event, target) => {
+    if (!connection || new URL(target).origin !== connection.origin) event.preventDefault();
+  });
+  window.webContents.on('will-redirect', (event, target) => {
     if (!connection || new URL(target).origin !== connection.origin) event.preventDefault();
   });
   window.webContents.setWindowOpenHandler(({ url }) => {

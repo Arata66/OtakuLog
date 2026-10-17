@@ -8,6 +8,8 @@ on:
       - 'src/test/java/com/otakulog/desktop/**'
       - 'pom.xml'
       - 'package*.json'
+      - 'scripts/vendor-assets.cjs'
+      - '.gitattributes'
       - '.github/workflows/desktop.yml'
   pull_request:
   workflow_dispatch:
@@ -44,6 +46,8 @@ jobs:
       - name: 安装锁定依赖
         run: |
           npm ci
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          node scripts/vendor-assets.cjs --check
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           npm --prefix desktop ci
       - name: 类型语法与行为检查

@@ -1,0 +1,73 @@
+{
+  "packages": [
+    {
+      "name": "chart.js",
+      "version": "4.4.1",
+      "files": [
+        {
+          "source": "dist/chart.umd.js",
+          "path": "chart.umd.js",
+          "sha256": "74401d738dd3e03ee5dfb3b6841210fe2c4ead8a960c4011ca4ba0b78a9fd8f3"
+        },
+        {
+          "source": "LICENSE.md",
+          "path": "licenses/chart.js-LICENSE.md",
+          "sha256": "5a0877ad6d818529be4f33009d0942cdf7e2ed7656156f4aba7308459a546030"
+        }
+      ]
+    },
+    {
+      "name": "sortablejs",
+      "version": "1.15.0",
+      "files": [
+        {
+          "source": "Sortable.min.js",
+          "path": "Sortable.min.js",
+          "sha256": "8a9889aecc2f011e15031fed87eeb35ac75e62655a7b4889ba247ee8ea872474"
+        },
+        {
+          "source": "LICENSE",
+          "path": "licenses/sortablejs-LICENSE",
+          "sha256": "e94dfc31e800d169257569db270457c9f028440c9ccae41e7eb78b2db18f1298"
+        }
+      ]
+    },
+    {
+      "name": "marked",
+      "version": "12.0.2",
+      "files": [
+        {
+          "source": "marked.min.js",
+          "path": "marked.min.js",
+          "sha256": "15fabce5b65898b32b03f5ed25e9f891a729ad4c0d6d877110a7744aa847a894"
+        },
+        {
+          "source": "LICENSE.md",
+          "path": "licenses/marked-LICENSE.md",
+          "sha256": "8e3a3f82f59a60958f56ca08f445647c32a4733dc7ca6c2c46f6eb898471ab9c"
+        }
+      ]
+    },
+    {
+      "name": "dompurify",
+      "version": "3.4.16",
+      "files": [
+        {
+          "source": "dist/purify.min.js",
+          "path": "purify.min.js",
+          "sha256": "2c90a9b46d6463f26038a29b686e82bc91de01fdac9d5229e7cfe3b360134ea2"
+        },
+        {
+          "source": "LICENSE",
+          "path": "licenses/dompurify-LICENSE",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+        },
+        {
+          "source": "LICENSE-MPL",
+          "path": "licenses/dompurify-LICENSE-MPL",
+          "sha256": "fab3dd6bdab226f1c08630b1dd917e11fcb4ec5e1e020e2c16f83a0a13863e85"
+        }
+      ]
+    }
+  ]
+}

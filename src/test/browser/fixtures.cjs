@@ -1,16 +1,9 @@
 const { test: base, expect } = require('@playwright/test');
-const path = require('node:path');
 const net = require('node:net');
 const { runDemo } = require('../../../scripts/demo.cjs');
 const { createDemoConfig, executeSql } = require('../../../scripts/lib/demo-config.cjs');
 
 async function configureContext(context, demo, recommendationsLive = false) {
-    const assets = {
-        '/npm/chart.js@4.4.1/dist/chart.umd.min.js': 'chart.js/dist/chart.umd.js',
-        '/npm/sortablejs@1.15.0/Sortable.min.js': 'sortablejs/Sortable.min.js',
-        '/npm/marked@12/marked.min.js': 'marked/marked.min.js',
-        '/npm/dompurify@3/dist/purify.min.js': 'dompurify/dist/purify.min.js'
-    };
     await context.route('**/*', async route => {
         const url = new URL(route.request().url());
         // 浏览器验收使用虚构结果，上游匹配和故障分支由后端回归覆盖。
@@ -19,8 +12,6 @@ async function configureContext(context, demo, recommendationsLive = false) {
         if (!recommendationsLive && url.origin === demo.url && url.pathname === '/api/recommendations' && route.request().method() === 'GET')
             return route.fulfill({ json: { code: 200, data: { status: 'COLD_START', entries: [], excludedCounts: {} } } });
         if (url.origin === demo.url) return route.continue();
-        const asset = url.origin === 'https://cdn.jsdelivr.net' && assets[url.pathname];
-        if (asset) return route.fulfill({ path: path.join(demo.config.root, 'node_modules', asset), contentType: 'application/javascript' });
         return route.abort();
     });
 }

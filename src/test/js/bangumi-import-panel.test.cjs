@@ -21,7 +21,7 @@ function setup(replies = []) {
         canLeaveAnimeMemory: () => true, beginAnimeMemoryOperation: () => ({}), endAnimeMemoryOperation() {},
         toast: text => messages.push(text), performSearch: async () => calls.push('search'), updateStats: async () => calls.push('stats'),
         loadDailyWatch: async () => calls.push('daily'), loadHeatmap: async () => calls.push('heatmap') };
-    vm.createContext(context); vm.runInContext(fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : '', context);
+    vm.createContext(context); require('./helpers/ui-events.cjs')(context); vm.runInContext(fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : '', context);
     return { context, field, calls, messages };
 }
 const preview = { code: 200, data: { previewKey: '22222222-2222-4222-8222-222222222222', username: 'test', total: 1, readCount: 1, newCount: 0,

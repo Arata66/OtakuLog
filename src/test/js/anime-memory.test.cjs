@@ -29,6 +29,7 @@ function app(accepted = true) {
         esc: value => String(value ?? '').replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;'),
         fetchApi: async (url, options) => { requests.push({ url, options }); return { code: 200, data: options?.method ? entry : { animeId: 7, page: 0, size: 20, totalEntries: 1, entries: [entry] } }; }
     });
+    require('./helpers/ui-events.cjs')(context);
     const file = path.resolve(__dirname, '../../main/resources/static/js/anime-memory.js');
     if (fs.existsSync(file)) vm.runInContext(fs.readFileSync(file, 'utf8'), context);
     return { context, section, entry, nodes, requests, confirmations, field: id => nodes.get(id), replaceSection: value => { current = value; } };

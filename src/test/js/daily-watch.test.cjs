@@ -24,6 +24,7 @@ function app() {
             return { code: 200, data: options ? item.anime : daily };
         }
     });
+    require('./helpers/ui-events.cjs')(context);
     vm.runInContext('const _cache = {};', context);
     for (const name of ['watch-actions.js', 'daily-watch.js']) {
         const file = path.resolve(__dirname, '../../main/resources/static/js', name);
@@ -45,7 +46,7 @@ test('当首页加载日常入口时应该只读并说明放送参考和日期�
 test('当没有可继续作品时应该提供空状态而不渲染写入按钮', async () => {
     const a = app(); a.daily.continueWatching = []; a.daily.todayAiring = []; a.daily.ongoingCount = 0;
     a.airing.todayAiring = []; a.airing.todayAiringCount = 0;
-    await a.context.loadDailyWatch(); assert.match(a.panel.innerHTML, /暂无可继续/); assert.doesNotMatch(a.panel.innerHTML, /nextEpisode\(/);
+    await a.context.loadDailyWatch(); assert.match(a.panel.innerHTML, /暂无可继续/); assert.doesNotMatch(a.panel.innerHTML, /data-ui-click="nextEpisode"/);
 });
 
 test('当日常作品不在当前筛选列表时应该仍能打开完整详情', async () => {

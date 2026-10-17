@@ -50,8 +50,9 @@
                 }
                 const r = await fetch(url, requestOptions);
                 if (r.status === 401) {
-                    toast('登录已失效，请重新登录', 'error');
-                    window.location.assign('/login');
+                    const desktopManaged = document.querySelector('meta[name="otakulog-desktop-managed"]')?.content === 'true';
+                    toast(desktopManaged ? '本地会话已失效，请重新启动 OtakuLog' : '登录已失效，请重新登录', 'error');
+                    if (!desktopManaged) window.location.assign('/login');
                     return null;
                 }
                 if (options.responseType === 'blob') return r;
@@ -118,13 +119,13 @@
             if (!text) return '';
             if (typeof marked === 'undefined' || typeof DOMPurify === 'undefined') return esc(text);
             const raw = marked.parse(text, { breaks: true, gfm: true });
-            return DOMPurify.sanitize(raw, { USE_PROFILES: { html: true } });
+            return DOMPurify.sanitize(raw, { USE_PROFILES: { html: true }, ALLOW_DATA_ATTR: false });
         }
         function progressPercent(anime) { return anime.totalEpisodes > 0 ? Math.round(anime.currentEpisode / anime.totalEpisodes * 100) : 0; }
         function firstLetter(text) { return text ? text.charAt(0) : '?'; }
         function coverHtml(anime, className, emptyClass, emptyText) {
             if (anime.coverUrl) {
-                return `<img data-src="${esc(anime.coverUrl)}" loading="lazy" class="${className}" onerror="this.outerHTML='<div class=${emptyClass}>${esc(firstLetter(anime.name))}</div>'">`;
+                return `<img data-src="${esc(anime.coverUrl)}" loading="lazy" class="${className}" data-ui-image="placeholder" data-ui-empty-class="${emptyClass}" data-ui-empty-text="${esc(firstLetter(anime.name))}">`;
             }
             return `<div class="${emptyClass}">${esc(emptyText || firstLetter(anime.name))}</div>`;
         }
@@ -137,22 +138,22 @@
             return `<span class="${cls} ${scoreClass(score)}">${esc(String(score))}</span>`;
         }
         function statusSelectHtml(anime) {
-            return `<select class="e-select" id="ss-${anime.id}" onchange="changeStatus(${anime.id})"><option value="watching" ${anime.status==='watching'?'selected':''}>追中</option><option value="finished" ${anime.status==='finished'?'selected':''}>已完成</option><option value="planning" ${anime.status==='planning'?'selected':''}>计划</option><option value="dropped" ${anime.status==='dropped'?'selected':''}>放弃</option></select>`;
+            return `<select class="e-select" id="ss-${anime.id}" ${uiAction('changeStatus', [anime.id], 'change')}><option value="watching" ${anime.status==='watching'?'selected':''}>追中</option><option value="finished" ${anime.status==='finished'?'selected':''}>已完成</option><option value="planning" ${anime.status==='planning'?'selected':''}>计划</option><option value="dropped" ${anime.status==='dropped'?'selected':''}>放弃</option></select>`;
         }
         function actionHtml(anime, type) {
             if (type === 'gallery') {
-                return `<div class="g-actions"><button type="button" class="g-btn memory-entry-button" onclick="openAnimeMemory(${anime.id})">写感想</button><button class="g-btn" onclick="openEditModal(${anime.id})">编辑</button><button class="g-btn ep" data-watch-id="${anime.id}" aria-label="上一集" title="上一集" onclick="prevEpisode(${anime.id})">-</button><button class="g-btn ep" data-watch-id="${anime.id}" aria-label="下一集" title="下一集" onclick="nextEpisode(${anime.id})">+</button><button class="g-btn del" onclick="deleteAnime(${anime.id})">删</button></div>`;
+                return `<div class="g-actions"><button type="button" class="g-btn memory-entry-button" ${uiAction('openAnimeMemory', [anime.id])}>写感想</button><button class="g-btn" ${uiAction('openEditModal', [anime.id])}>编辑</button><button class="g-btn ep" data-watch-id="${anime.id}" aria-label="上一集" title="上一集" ${uiAction('prevEpisode', [anime.id])}>-</button><button class="g-btn ep" data-watch-id="${anime.id}" aria-label="下一集" title="下一集" ${uiAction('nextEpisode', [anime.id])}>+</button><button class="g-btn del" ${uiAction('deleteAnime', [anime.id])}>删</button></div>`;
             }
-            return `<div class="acts"><button type="button" class="a-btn" onclick="openAnimeMemory(${anime.id})">写感想</button><button class="a-btn" onclick="openEditModal(${anime.id})">编辑</button><button class="a-btn ep-btn" data-watch-id="${anime.id}" aria-label="上一集" title="上一集" onclick="prevEpisode(${anime.id})">-</button><button class="a-btn ep-btn" data-watch-id="${anime.id}" aria-label="下一集" title="下一集" onclick="nextEpisode(${anime.id})">+</button></div>`;
+            return `<div class="acts"><button type="button" class="a-btn" ${uiAction('openAnimeMemory', [anime.id])}>写感想</button><button class="a-btn" ${uiAction('openEditModal', [anime.id])}>编辑</button><button class="a-btn ep-btn" data-watch-id="${anime.id}" aria-label="上一集" title="上一集" ${uiAction('prevEpisode', [anime.id])}>-</button><button class="a-btn ep-btn" data-watch-id="${anime.id}" aria-label="下一集" title="下一集" ${uiAction('nextEpisode', [anime.id])}>+</button></div>`;
         }
         function detailActionHtml(anime) {
-            return `<div class="dt-actions"><button type="button" class="dt-btn" onclick="openAnimeMemory(${anime.id})">写感想</button><button class="dt-btn" onclick="openEditModal(${anime.id})">编辑</button><button class="dt-btn ep" data-watch-id="${anime.id}" aria-label="上一集" title="上一集" onclick="prevEpisode(${anime.id})">-</button><button class="dt-btn ep" data-watch-id="${anime.id}" aria-label="下一集" title="下一集" onclick="nextEpisode(${anime.id})">+</button><button class="dt-btn del" onclick="deleteAnime(${anime.id})">删除</button></div>`;
+            return `<div class="dt-actions"><button type="button" class="dt-btn" ${uiAction('openAnimeMemory', [anime.id])}>写感想</button><button class="dt-btn" ${uiAction('openEditModal', [anime.id])}>编辑</button><button class="dt-btn ep" data-watch-id="${anime.id}" aria-label="上一集" title="上一集" ${uiAction('prevEpisode', [anime.id])}>-</button><button class="dt-btn ep" data-watch-id="${anime.id}" aria-label="下一集" title="下一集" ${uiAction('nextEpisode', [anime.id])}>+</button><button class="dt-btn del" ${uiAction('deleteAnime', [anime.id])}>删除</button></div>`;
         }
         function renderAnimeRow(anime, index, keyword) {
             const r = document.createElement('tr');
             r.id = 'r-' + anime.id;
-            r.innerHTML = `<td class="drag-handle">⠿</td><td class="table-col-select"><input type="checkbox" class="batch-cb" data-id="${anime.id}" onchange="toggleRowSelect(${anime.id}, this.checked)"></td><td>${coverHtml(anime, 'cover-img lazy-cover', 'cover-empty', 'N/A')}</td><td class="row-index">${index + 1}</td>
-                <td><button type="button" class="clickable-name" onclick="openDetailModal(${anime.id})">${highlightText(anime.name, keyword)}</button>${anime.tags ? '<div class="tag-row">' + renderTags(anime.tags) + '</div>' : ''}</td>
+            r.innerHTML = `<td class="drag-handle">⠿</td><td class="table-col-select"><input type="checkbox" class="batch-cb" data-id="${anime.id}" ${uiAction('toggleRowSelect', [anime.id], 'change')}></td><td>${coverHtml(anime, 'cover-img lazy-cover', 'cover-empty', 'N/A')}</td><td class="row-index">${index + 1}</td>
+                <td><button type="button" class="clickable-name" ${uiAction('openDetailModal', [anime.id])}>${highlightText(anime.name, keyword)}</button>${anime.tags ? '<div class="tag-row">' + renderTags(anime.tags) + '</div>' : ''}</td>
                 <td><span class="season-tag">${esc(anime.season)}</span></td>
                 <td>${statusSelectHtml(anime)}</td>
                 <td>${scoreBadgeHtml(anime.score)}</td>
@@ -167,7 +168,7 @@
             card.className = 'dt-card';
             card.innerHTML = `<div class="dt-cover-wrap">${coverHtml(anime, 'dt-cover lazy-cover', 'dt-cover-empty')}</div>${statusBadgeHtml(anime.status)}
                 <div class="dt-body">
-                    <button type="button" class="dt-name clickable-name" onclick="openDetailModal(${anime.id})">${highlightText(anime.name, keyword)}</button>
+                    <button type="button" class="dt-name clickable-name" ${uiAction('openDetailModal', [anime.id])}>${highlightText(anime.name, keyword)}</button>
                     <div class="dt-meta"><span class="dt-tag dt-season">${esc(anime.season)}</span>${scoreBadgeHtml(anime.score, 'dt-tag dt-score')}${anime.tags ? renderTags(anime.tags) : ''}</div>
                     <div class="dt-progress-wrap"><div class="dt-progress-label"><span>${anime.currentEpisode} / ${anime.totalEpisodes} ep</span><span>${pct}%</span></div><div class="dt-progress"><div class="dt-progress-bar ${anime.status}" style="--progress:${pct}%"></div></div></div>
                     ${anime.remark ? `<div class="dt-remark">${renderRemark(anime.remark)}</div>` : '<div class="dt-remark placeholder-hidden">-</div>'}
@@ -182,7 +183,7 @@
             card.id = 'gc-' + anime.id;
             card.innerHTML = `${coverHtml(anime, 'g-cover lazy-cover', 'g-cover-empty')}
                 <div class="g-body">
-                    <button type="button" class="g-name clickable-name" onclick="openDetailModal(${anime.id})">${highlightText(anime.name, keyword)}</button>
+                    <button type="button" class="g-name clickable-name" ${uiAction('openDetailModal', [anime.id])}>${highlightText(anime.name, keyword)}</button>
                     <div class="g-meta"><span class="g-tag g-season">${esc(anime.season)}</span>${scoreBadgeHtml(anime.score, 'g-tag g-score')}${anime.tags ? renderTags(anime.tags) : ''}</div>
                     <div class="g-progress"><div class="g-progress-bar ${anime.status}" style="--progress:${pct}%"></div></div>
                     <div class="g-ep">${anime.currentEpisode} / ${anime.totalEpisodes} ep / ${SM[anime.status] || anime.status}</div>
@@ -405,7 +406,7 @@
             grid.innerHTML = '';
             list.forEach(item => {
                 const card = document.createElement('div'); card.className = 'bg-card';
-                const cover = item.image ? `<img src="${esc(item.image)}" class="bg-cover" onerror="this.outerHTML='<div class=bg-cover-empty>N/A</div>'">` : '<div class="bg-cover-empty">N/A</div>';
+                const cover = item.image ? `<img src="${esc(item.image)}" class="bg-cover" data-ui-image="placeholder" data-ui-empty-class="bg-cover-empty" data-ui-empty-text="N/A">` : '<div class="bg-cover-empty">N/A</div>';
                 const displayName = item.nameCn || item.name || '未知';
                 const score = item.score ? item.score.toFixed(1) : '-';
                 const eps = item.eps || '?';
@@ -484,12 +485,12 @@
                 const ep = r.episode != null ? `EP${r.episode}` : '';
                 const conf = r.confidence != null ? `${r.confidence}%` : '-';
                 const confClass = r.confidence >= 90 ? 'trace-confidence-high' : r.confidence >= 70 ? 'trace-confidence-mid' : 'trace-confidence-low';
-                const preview = r.image ? `<img src="${esc(r.image)}" class="trace-preview" onerror="this.classList.add('is-hidden')">` : '';
+                const preview = r.image ? `<img src="${esc(r.image)}" class="trace-preview" data-ui-image="hidden-class">` : '';
                 html += `<div class="trace-card">
                     ${preview}
                     <div class="trace-name">${esc(name)}</div>
                     <div class="trace-meta"><span>${ep}</span><span class="${confClass}">置信度 ${conf}</span></div>
-                    <button class="a-btn mt-8" onclick="closeTraceMoeModal();goToAddTracking('${esc(name).replace(/'/g, "\\'")}')">添加追踪</button>
+                    <button class="a-btn mt-8" ${uiAction('traceTracking', [name])}>添加追踪</button>
                 </div>`;
             });
             html += '</div>';
@@ -531,11 +532,11 @@
             const a = _cache[id];
             if (!a) { toast('未找到该番剧', 'error'); return; }
             const pct = a.totalEpisodes > 0 ? Math.round(a.currentEpisode / a.totalEpisodes * 100) : 0;
-            const cover = a.coverUrl ? `<img src="${esc(a.coverUrl)}" class="detail-cover" onerror="this.outerHTML='<div class=detail-cover-empty>${esc(a.name.charAt(0))}</div>'">` : `<div class="detail-cover-empty">${esc(a.name.charAt(0))}</div>`;
+            const cover = a.coverUrl ? `<img src="${esc(a.coverUrl)}" class="detail-cover" data-ui-image="placeholder" data-ui-empty-class="detail-cover-empty" data-ui-empty-text="${esc(a.name.charAt(0))}">` : `<div class="detail-cover-empty">${esc(a.name.charAt(0))}</div>`;
             const bangumiLink = a.bangumiId ? `<a href="https://bgm.tv/subject/${a.bangumiId}" target="_blank" rel="noopener" class="detail-bangumi-link">在 Bangumi 查看 ↗</a>` : '';
             const overlay = document.createElement('div'); overlay.className = 'detail-overlay'; overlay.id = 'detailModal'; overlay.dataset.animeId = String(id); overlay.onclick = function(e) { if (e.target === overlay) closeDetailModal(); };
             const card = document.createElement('div'); card.className = 'detail-card'; card.setAttribute('role', 'dialog'); card.setAttribute('aria-modal', 'true'); card.setAttribute('aria-label', '番剧详情');
-            card.innerHTML = `<div class="detail-toolbar"><span>作品详情</span><button type="button" class="a-btn" onclick="closeDetailModal()">关闭</button></div><div class="detail-header">
+            card.innerHTML = `<div class="detail-toolbar"><span>作品详情</span><button type="button" class="a-btn" data-ui-click="closeDetailModal">关闭</button></div><div class="detail-header">
                     <div class="detail-cover-wrap">${cover}<span id="detailBadge" class="detail-badge ${a.status}">${SM[a.status] || a.status}</span></div>
                     <div class="detail-info-col">
                         <div class="detail-title">${esc(a.name)}</div>
@@ -551,7 +552,7 @@
                 </div>
                 <div class="detail-body">
                     <div class="detail-progress-wrap"><div class="detail-progress-label"><span>进度</span><span id="detailProgressPercent">${pct}%</span></div><div class="detail-progress"><div id="detailProgressBar" class="detail-progress-bar ${a.status}" style="--progress:${pct}%"></div></div></div>
-                    <div class="detail-actions">${a.bangumiId ? `<button class="a-btn" onclick="useRecommendationSeed(${a.bangumiId})">找类似这部</button>` : ''}<button class="a-btn" onclick="shareAnimeCard(${a.id})">分享</button><button class="a-btn" onclick="if(closeDetailModal())openEditModal(${a.id})">编辑</button><button class="a-btn ep-btn" data-watch-id="${a.id}" onclick="prevEpisode(${a.id})">上一集</button><button class="a-btn ep-btn" data-watch-id="${a.id}" onclick="nextEpisode(${a.id})">下一集</button><button class="a-btn" onclick="showAddToGroup(${a.id})">分组</button><button class="a-btn del" onclick="deleteAnime(${a.id})">删除</button></div>
+                    <div class="detail-actions">${a.bangumiId ? `<button class="a-btn" ${uiAction('useRecommendationSeed', [a.bangumiId])}>找类似这部</button>` : ''}<button class="a-btn" ${uiAction('shareAnimeCard', [a.id])}>分享</button><button class="a-btn" ${uiAction('editDetail', [a.id])}>编辑</button><button class="a-btn ep-btn" data-watch-id="${a.id}" ${uiAction('prevEpisode', [a.id])}>上一集</button><button class="a-btn ep-btn" data-watch-id="${a.id}" ${uiAction('nextEpisode', [a.id])}>下一集</button><button class="a-btn" ${uiAction('showAddToGroup', [a.id])}>分组</button><button class="a-btn del" ${uiAction('deleteAnime', [a.id])}>删除</button></div>
                     ${a.remark ? `<div class="detail-remark">${renderRemark(a.remark)}</div>` : ''}
                     <section id="animeMemorySection" class="anime-memory" data-anime-id="${a.id}" aria-label="观影记忆"></section>
                     <section id="episodeHistorySection" class="episode-history" data-anime-id="${a.id}" aria-label="逐集观看记录"></section>
@@ -565,7 +566,7 @@
             syncWatchButtons();
             if (a.bangumiId) loadBangumiDetail(a.bangumiId);
             else {
-                document.getElementById('bangumiDetailSection').innerHTML = '<div class="detail-match-wrap"><button class="detail-match-btn" onclick="matchBangumiFor(' + a.id + ', this)">匹配 Bangumi 链接</button></div>';
+                document.getElementById('bangumiDetailSection').innerHTML = '<div class="detail-match-wrap"><button class="detail-match-btn" data-ui-click="matchBangumiFor" data-ui-args="[' + a.id + ']">匹配 Bangumi 链接</button></div>';
             }
         }
 
@@ -609,7 +610,7 @@
 
             if (episodesRes && episodesRes.code === 200 && episodesRes.data && episodesRes.data.length > 0) {
                 const eps = episodesRes.data;
-                html += `<div class="bg-section"><div class="bg-section-title bg-section-toggle" onclick="this.nextElementSibling.classList.toggle('is-hidden')">剧集列表 (${eps.length}) ▾</div><div class="bg-episodes">`;
+                html += `<div class="bg-section"><div class="bg-section-title bg-section-toggle" data-ui-click="toggleNextSection">剧集列表 (${eps.length}) ▾</div><div class="bg-episodes">`;
                 eps.slice(0, 24).forEach(ep => {
                     const name = ep.nameCn || ep.name || `EP${ep.sort}`;
                     const date = ep.airdate || '';
@@ -653,10 +654,10 @@
             recs.forEach(item => {
                 const initial = esc((item.nameCn || item.name || '').charAt(0));
                 const img = item.image
-                    ? `<img src="${esc(item.image)}" class="browse-img browse-img-small" onerror="this.outerHTML='<div class=&quot;browse-img-empty browse-img-small&quot;>${initial}</div>'">`
+                    ? `<img src="${esc(item.image)}" class="browse-img browse-img-small" data-ui-image="placeholder" data-ui-empty-class="browse-img-empty browse-img-small" data-ui-empty-text="${initial}">`
                     : `<div class="browse-img-empty browse-img-small">${initial}</div>`;
                 const score = item.score ? '评分 ' + item.score : '';
-                recHtml += `<div class="browse-card" onclick="window.open('https://bgm.tv/subject/${item.id}','_blank')">${img}<div class="browse-info"><div class="browse-name browse-name-small">${esc(item.nameCn || item.name)}</div><div class="browse-meta browse-meta-small">${score}</div></div></div>`;
+                recHtml += `<div class="browse-card" ${uiAction('openBangumiSubject', [item.id])}>${img}<div class="browse-info"><div class="browse-name browse-name-small">${esc(item.nameCn || item.name)}</div><div class="browse-meta browse-meta-small">${score}</div></div></div>`;
             });
             recHtml += '</div></div>';
 
@@ -755,7 +756,7 @@
                         <input type="checkbox" id="m-legacy" class="compact-check" ${a.legacy ? 'checked' : ''}>
                         <label for="m-legacy" class="check-label">旧番（不计入追番统计）</label>
                     </div>
-                    <div class="modal-actions"><button class="btn-h" onclick="closeEditModal()">取消</button><button class="btn-add" onclick="saveEditModal(${id})">保存</button></div>`;
+                    <div class="modal-actions"><button class="btn-h" data-ui-click="closeEditModal">取消</button><button class="btn-add" ${uiAction('saveEditModal', [id])}>保存</button></div>`;
                 overlay.appendChild(card); document.body.appendChild(overlay);
                 trapFocus(overlay);
             }
@@ -1190,7 +1191,7 @@
                 const card = document.createElement('div'); card.className = 'cal-card';
                 if (calViewMode === 'mine') {
                     card.onclick = () => openDetailModal(a.id);
-                    const cover = a.coverUrl ? `<img src="${esc(a.coverUrl)}" class="cc-cover" onerror="this.outerHTML='<div class=cc-cover-empty>${esc(a.name.charAt(0))}</div>'">` : `<div class="cc-cover-empty">${esc(a.name.charAt(0))}</div>`;
+                    const cover = a.coverUrl ? `<img src="${esc(a.coverUrl)}" class="cc-cover" data-ui-image="placeholder" data-ui-empty-class="cc-cover-empty" data-ui-empty-text="${esc(a.name.charAt(0))}">` : `<div class="cc-cover-empty">${esc(a.name.charAt(0))}</div>`;
                     const scClass = a.score >= 8 ? 'sc-high' : a.score >= 6 ? 'sc-mid' : 'sc-low';
                     const countdown = a.daysUntilAir != null ? (a.daysUntilAir > 0 ? `<div class="cc-countdown future">开播 ${a.daysUntilAir} 天后</div>` : a.daysUntilAir === 0 ? `<div class="cc-countdown future">今天开播</div>` : `<div class="cc-countdown past">已放送 ${Math.abs(a.daysUntilAir)} 天</div>`) : '';
                     const airDateHtml = a.airDate ? `<div class="cc-airdate">${a.airDate}</div>` : '';
@@ -1203,7 +1204,7 @@
                         </div>`;
                 } else {
                     const imgUrl = a.image ? (a.image.startsWith('//') ? 'https:' + a.image : a.image) : '';
-                    const cover = imgUrl ? `<img src="${esc(imgUrl)}" class="cc-cover" onerror="this.outerHTML='<div class=cc-cover-empty>${esc((a.nameCn||a.name||'?').charAt(0))}</div>'">` : `<div class="cc-cover-empty">${esc((a.nameCn||a.name||'?').charAt(0))}</div>`;
+                    const cover = imgUrl ? `<img src="${esc(imgUrl)}" class="cc-cover" data-ui-image="placeholder" data-ui-empty-class="cc-cover-empty" data-ui-empty-text="${esc((a.nameCn||a.name||'?').charAt(0))}">` : `<div class="cc-cover-empty">${esc((a.nameCn||a.name||'?').charAt(0))}</div>`;
                     const displayName = a.nameCn || a.name || '';
                     const scoreNum = a.score ? Number(a.score) : 0;
                     const scClass = scoreNum >= 8 ? 'sc-high' : scoreNum >= 6 ? 'sc-mid' : 'sc-low';
@@ -1289,7 +1290,7 @@
             const card = document.createElement('div'); card.className = 'browse-card';
             const isTracked = Object.values(_cache).some(a => a.bangumiId === item.id);
             const imgUrl = item.image ? (item.image.startsWith('//') ? 'https:' + item.image : item.image) : '';
-            const cover = imgUrl ? `<img src="${esc(imgUrl)}" class="browse-cover" onerror="this.outerHTML='<div class=browse-cover-empty>${esc((item.nameCn||item.name||'?').charAt(0))}</div>'">` : `<div class="browse-cover-empty">${esc((item.nameCn||item.name||'?').charAt(0))}</div>`;
+            const cover = imgUrl ? `<img src="${esc(imgUrl)}" class="browse-cover" data-ui-image="placeholder" data-ui-empty-class="browse-cover-empty" data-ui-empty-text="${esc((item.nameCn||item.name||'?').charAt(0))}">` : `<div class="browse-cover-empty">${esc((item.nameCn||item.name||'?').charAt(0))}</div>`;
             const displayName = item.nameCn || item.name || '';
             const scoreNum = item.score ? Number(item.score) : 0;
             const scClass = scoreNum >= 8 ? 'sc-high' : scoreNum >= 6 ? 'sc-mid' : 'sc-low';
@@ -1299,7 +1300,7 @@
                 <div class="browse-name" title="${esc(displayName)}">${esc(displayName)}</div>
                 <div class="browse-sub" title="${esc(item.name)}">${esc(item.name)}</div>
                 <div class="browse-meta">${rankBadge}<span class="browse-score ${scClass}">${scoreNum > 0 ? scoreNum.toFixed(1) : '-'}</span><span>${eps} 集</span><span>${esc(item.date || '')}</span></div>
-                <div class="browse-actions">${isTracked ? '<span class="browse-btn tracked">已追</span>' : `<button class="browse-btn" onclick="event.stopPropagation();addToTrackingFromBrowse(${item.id},'${esc(item.nameCn || item.name || '')}',${item.eps || 0},'${esc(item.date || '')}','${esc(imgUrl)}')">+ 添加</button>`}</div>
+                <div class="browse-actions">${isTracked ? '<span class="browse-btn tracked">已追</span>' : `<button class="browse-btn" ${uiAction('addToTrackingFromBrowse', [item.id,item.nameCn || item.name || '',item.eps || 0,item.date || '',imgUrl])} data-ui-stop="true">+ 添加</button>`}</div>
             </div>`;
             if (!isTracked) card.onclick = () => openBangumiDetailModal(item.id);
             return card;
@@ -1346,12 +1347,12 @@
             ]);
 
             if (!detailRes || detailRes.code !== 200 || !detailRes.data) {
-                card.innerHTML = '<div class="detail-body">' + stateHtml('error', '加载失败', '无法获取 Bangumi 详情，请稍后重试。') + '<div class="detail-actions"><button class="a-btn" onclick="closeDetailModal()">关闭</button></div></div>';
+                card.innerHTML = '<div class="detail-body">' + stateHtml('error', '加载失败', '无法获取 Bangumi 详情，请稍后重试。') + '<div class="detail-actions"><button class="a-btn" data-ui-click="closeDetailModal">关闭</button></div></div>';
                 return;
             }
             const d = detailRes.data;
             const displayName = d.nameCn || d.name || '';
-            const cover = d.coverUrl ? `<img src="${esc(d.coverUrl)}" class="detail-cover" onerror="this.outerHTML='<div class=detail-cover-empty>${esc(displayName.charAt(0))}</div>'">` : `<div class="detail-cover-empty">${esc(displayName.charAt(0))}</div>`;
+            const cover = d.coverUrl ? `<img src="${esc(d.coverUrl)}" class="detail-cover" data-ui-image="placeholder" data-ui-empty-class="detail-cover-empty" data-ui-empty-text="${esc(displayName.charAt(0))}">` : `<div class="detail-cover-empty">${esc(displayName.charAt(0))}</div>`;
 
             let tagsHtml = '';
             if (d.tags && d.tags.length > 0) {
@@ -1411,7 +1412,7 @@
                         <div class="detail-info-item"><div class="detail-info-label">开播</div><div class="detail-info-val">${esc(airDate)}</div></div>
                     </div>
                     ${ratingHtml}${tagsHtml}${summaryHtml}${epsHtml}
-                    <div class="detail-actions"><button class="a-btn" onclick="useRecommendationSeed(${bangumiId})">找类似这部</button><button class="a-btn" onclick="goToAddTracking(this.dataset.name)" data-name="${esc(displayName)}">添加追踪</button><button class="a-btn" onclick="closeDetailModal()">关闭</button></div>
+                    <div class="detail-actions"><button class="a-btn" ${uiAction('useRecommendationSeed', [bangumiId])}>找类似这部</button><button class="a-btn" data-ui-click="trackNamedAnime" data-name="${esc(displayName)}">添加追踪</button><button class="a-btn" data-ui-click="closeDetailModal">关闭</button></div>
                 </div>`;
         }
 
@@ -1497,7 +1498,7 @@
         // 点击外部关闭色板
         document.addEventListener('click', function(e) {
             const picker = document.getElementById('accentPicker');
-            if (picker && !e.target.closest('.accent-picker') && !e.target.closest('[onclick*="toggleAccentPicker"]')) {
+            if (picker && !e.target.closest('.accent-picker') && !e.target.closest('#accentBtn')) {
                 picker.classList.remove('active');
             }
         });
@@ -1751,7 +1752,7 @@
             updateThemeButton();
             if (typeof i18n !== 'undefined') i18n.translatePage();
             updateChartColors();
-            if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
+            registerServiceWorker();
             updateStats(); performSearch();
             const savedTab = localStorage.getItem('otakulog-tab');
             if (savedTab && savedTab !== 'list') switchTab(savedTab);
@@ -1883,7 +1884,7 @@
             r.data.forEach(g => {
                 const div = document.createElement('div');
                 div.className = 'group-item';
-                div.innerHTML = `<div class="group-main"><span class="group-dot" style="background:${esc(g.color || '#4a6ad0')};"></span><strong>${esc(g.name)}</strong><span class="group-count">(${g.animeCount})</span></div><div class="group-actions"><button class="btn-sm" onclick="viewGroup(${g.id},'${esc(g.name).replace(/'/g, "\\'")}')">查看</button><button class="btn-sm danger-text" onclick="deleteGroup(${g.id})">删除</button></div>`;
+                div.innerHTML = `<div class="group-main"><span class="group-dot" style="background:${esc(g.color || '#4a6ad0')};"></span><strong>${esc(g.name)}</strong><span class="group-count">(${g.animeCount})</span></div><div class="group-actions"><button class="btn-sm" ${uiAction('viewGroup', [g.id,g.name])}>查看</button><button class="btn-sm danger-text" ${uiAction('deleteGroup', [g.id])}>删除</button></div>`;
                 list.appendChild(div);
             });
         }
@@ -1922,15 +1923,20 @@
             const currentGroups = await fetchApi('/api/anime/' + animeId + '/groups');
             const currentIds = (currentGroups && currentGroups.code === 200) ? currentGroups.data : [];
 
-            let html = '<div class="detail-overlay" onclick="if(event.target===this)this.remove()">';
+            let html = '<div class="detail-overlay" data-ui-click="removeOverlayBackdrop">';
             html += '<div class="group-card detail-card-narrow">';
             html += '<div class="group-header"><h3>选择分组</h3></div><div class="group-picker-list">';
             groups.forEach(g => {
                 const checked = currentIds.includes(g.id);
-                html += '<label class="group-option"><input type="checkbox" ' + (checked ? 'checked' : '') + ' onchange="toggleAnimeGroup(' + animeId + ',' + g.id + ',this.checked)"><span class="group-option-dot" style="background:' + esc(g.color || '#4a6ad0') + '"></span>' + esc(g.name) + '</label>';
+                html += '<label class="group-option"><input type="checkbox" ' + (checked ? 'checked' : '') + ' data-ui-change="toggleAnimeGroup" data-ui-args="[' + animeId + ',' + g.id + ']"><span class="group-option-dot" style="background:' + esc(g.color || '#4a6ad0') + '"></span>' + esc(g.name) + '</label>';
             });
-            html += '</div><div class="modal-actions-right"><button class="btn-sm" onclick="this.closest(\'.detail-overlay\').remove()">完成</button></div></div></div>';
+            html += '</div><div class="modal-actions-right"><button class="btn-sm" data-ui-click="removeOverlay">完成</button></div></div></div>';
             document.body.insertAdjacentHTML('beforeend', html);
+        }
+
+        function registerServiceWorker() {
+            const desktopManaged = document.querySelector('meta[name="otakulog-desktop-managed"]')?.content === 'true';
+            if (!desktopManaged && 'serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
         }
 
         async function toggleAnimeGroup(animeId, groupId, add) {

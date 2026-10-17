@@ -1,6 +1,7 @@
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
 import path from 'node:path';
+import { request as httpRequest } from 'node:http';
 
 export interface BackendLaunch {
   file: string;
@@ -99,15 +100,34 @@ export function startBackend(options: {
           ready = true;
           clearTimeout(timeout);
           const origin = 'http://127.0.0.1:' + info.port;
-          const control = async (operation: 'bootstrap' | 'shutdown', body?: unknown) => {
-            const response = await fetch(origin + '/internal/desktop/' + operation, {
-              method: 'POST', redirect: 'error', signal: AbortSignal.timeout(5000),
-              headers: { 'X-OtakuLog-Desktop-Token': controlToken, 'Content-Type': 'application/json' },
-              body: body === undefined ? undefined : JSON.stringify(body)
+          const control = (operation: 'bootstrap' | 'shutdown', body?: unknown) => new Promise<Response>((done, error) => {
+            // 仅连接已握手子进程的回环端口，避免 fetch 的网页端口限制误伤本机控制通道。
+            const signal = AbortSignal.timeout(5000);
+            const fail = (failure: Error) => error(signal.aborted ? new Error('后端控制请求超时') : failure);
+            const request = httpRequest({
+              hostname: '127.0.0.1', port: info.port, path: '/internal/desktop/' + operation,
+              method: 'POST', signal,
+              headers: { 'X-OtakuLog-Desktop-Token': controlToken, 'Content-Type': 'application/json' }
+            }, response => {
+              response.on('error', fail);
+              const status = response.statusCode ?? 500;
+              if (status < 200 || status >= 300) {
+                response.destroy();
+                error(new Error('后端控制请求失败：' + status));
+                return;
+              }
+              const chunks: Buffer[] = [];
+              response.on('data', (chunk: Buffer) => chunks.push(chunk));
+              response.on('end', () => {
+                const headers = new Headers();
+                for (let index = 0; index < response.rawHeaders.length; index += 2)
+                  headers.append(response.rawHeaders[index], response.rawHeaders[index + 1]);
+                done(new Response(status === 204 || status === 205 ? null : Buffer.concat(chunks), { status, headers }));
+              });
             });
-            if (!response.ok) throw new Error('后端控制请求失败：' + response.status);
-            return response;
-          };
+            request.on('error', fail);
+            request.end(body === undefined ? undefined : JSON.stringify(body));
+          });
           resolve({ child, origin, control, stop: async (timeoutMs = 15000) => {
             if (child.exitCode !== null || child.signalCode !== null) return;
             try { await control('shutdown'); } catch {

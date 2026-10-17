@@ -36,7 +36,7 @@ async function loadDailyAiring(request, panel) {
 
 function renderDailyWatch(panel, data, stale) {
     const note = stale ? '<p class="daily-note daily-error" role="alert">刷新失败，已显示内容可能过期，请重新加载后记进度。</p>' : '';
-    const refresh = '<button class="a-btn" onclick="loadDailyWatch()">重新加载</button>';
+    const refresh = '<button class="a-btn" data-ui-click="loadDailyWatch">重新加载</button>';
     if (!data) { panel.innerHTML = `<div class="daily-heading"><h2>今天从这里继续</h2>${refresh}</div>${note}`; return; }
     const days = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
     const verified = data.airingStatus === 'VERIFIED';
@@ -48,10 +48,10 @@ function renderDailyWatch(panel, data, stale) {
         : '仍可从继续观看中选择。';
     function rows(items, empty) {
         return items.length ? items.map(({ anime, lastWatchedDate }) => `<li class="daily-row">
-            <div class="daily-row-info"><button class="daily-title" onclick="openDailyAnime(${anime.id})">${esc(anime.name)}</button>
+            <div class="daily-row-info"><button class="daily-title" ${uiAction('openDailyAnime', [anime.id])}>${esc(anime.name)}</button>
                 <div class="daily-meta">${anime.currentEpisode} / ${anime.totalEpisodes} 集 · ${lastWatchedDate ? '最近观看 ' + esc(lastWatchedDate) : '最近观看日期未知'}</div></div>
-            <div class="daily-actions"><button type="button" class="a-btn" onclick="openAnimeMemory(${anime.id})">写感想</button>
-            <button class="a-btn daily-record" data-watch-id="${anime.id}" onclick="nextEpisode(${anime.id})" ${stale ? 'disabled' : ''}>记看第 ${anime.currentEpisode + 1} 集</button></div>
+            <div class="daily-actions"><button type="button" class="a-btn" ${uiAction('openAnimeMemory', [anime.id])}>写感想</button>
+            <button class="a-btn daily-record" data-watch-id="${anime.id}" ${uiAction('nextEpisode', [anime.id])} ${stale ? 'disabled' : ''}>记看第 ${anime.currentEpisode + 1} 集</button></div>
         </li>`).join('') : `<li class="daily-empty">${empty}</li>`;
     }
     panel.innerHTML = `<div class="daily-heading"><div><h2>今天从这里继续</h2><p class="daily-note">${esc(data.date)} · ${days[data.weekday - 1] || ''} · 可继续 ${data.ongoingCount} 部</p></div>${refresh}</div>${note}

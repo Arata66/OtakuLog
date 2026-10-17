@@ -20,6 +20,7 @@ function app(accepted = true) {
             return { code: 200, data: { animeId: 7, currentEpisode: 1, page: 0, size: 20, totalRows: 1, entries: [entry] } };
         }
     });
+    require('./helpers/ui-events.cjs')(context);
     const file = path.resolve(__dirname, '../../main/resources/static/js/episode-history.js');
     if (fs.existsSync(file)) vm.runInContext(fs.readFileSync(file, 'utf8'), context);
     return { context, section, status, input, entry, requests, messages, confirmations, replaceSection(value) { current = value; } };

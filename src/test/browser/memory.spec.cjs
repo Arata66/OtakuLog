@@ -93,8 +93,9 @@ test('当重复直达同作品并取消跨作品切换时应该保留草稿和�
     await expect(page.locator('#memoryContent')).toBeFocused();
     await expect(page.locator('#memoryContent')).toHaveValue('虚构的未完成草稿');
     expect(reads).toBe(0);
-    const anotherId = await page.locator('#dailyWatch [aria-label="继续观看"] .daily-row button[onclick^="openAnimeMemory"]')
-        .evaluateAll((buttons, id) => buttons.map(button => Number(button.getAttribute('onclick').match(/\d+/)[0])).find(value => value !== id), id);
+    const anotherId = await page.locator('#dailyWatch [aria-label="继续观看"] .daily-row button[data-ui-click="openAnimeMemory"]')
+        .evaluateAll((buttons, id) => buttons.map(button => JSON.parse(button.getAttribute('data-ui-args'))[0]).find(value => value !== id), id);
+    expect(anotherId).toBeGreaterThan(0);
     const dialog = handleDialog(page, /未保存的感想/, false);
     await page.evaluate(id => openAnimeMemory(id), anotherId); await dialog;
     await expect(page.locator('#detailModal')).toHaveAttribute('data-anime-id', String(id));

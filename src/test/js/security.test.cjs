@@ -6,7 +6,18 @@ const vm = require('node:vm');
 
 const assets = path.resolve(__dirname, '../../main/resources/static');
 
-function createApp(response = new Response('{"code":200}'), token = 'page-token') {
+test('当受管桌面加载页面时应该跳过工作线程且网站仍然注册', async () => {
+    for (const mode of ['true', 'false', null]) {
+        const app = createApp(undefined, 'page-token', mode), registrations = [];
+        app.context.navigator = { serviceWorker: { register: async url => registrations.push(url) } };
+        assert.equal(typeof app.context.registerServiceWorker, 'function', '应该统一核对桌面标志后注册');
+        app.context.registerServiceWorker();
+        await Promise.resolve();
+        assert.deepEqual(registrations, mode === 'true' ? [] : ['/sw.js']);
+    }
+});
+
+function createApp(response = new Response('{"code":200}'), token = 'page-token', desktopManaged = 'false') {
     const requests = [], messages = [], redirects = [];
     const context = vm.createContext({
         Headers, URL,
@@ -20,6 +31,7 @@ function createApp(response = new Response('{"code":200}'), token = 'page-token'
             querySelector(selector) {
                 if (selector === 'meta[name="_csrf"]') return token ? { content: token } : null;
                 if (selector === 'meta[name="_csrf_header"]') return { content: 'X-CSRF-TOKEN' };
+                if (selector === 'meta[name="otakulog-desktop-managed"]') return desktopManaged == null ? null : { content: desktopManaged };
                 return null;
             }
         },
@@ -198,6 +210,24 @@ test('当会话过期时应该引导登录并停止返回业务数据', async ()
     assert.deepEqual(redirects, ['/login']);
     assert.ok(messages.some(item => item.message.includes('登录')));
 });
+
+for (const options of [{}, { responseType: 'blob' }, { method: 'POST', returnError: true }]) {
+    test(`当受管桌面会话失效且使用${JSON.stringify(options)}时应该提示重启并停止业务响应`, async () => {
+        const app = createApp(new Response('{"code":401}', { status: 401 }), 'page-token', 'true');
+        assert.equal(await app.context.fetchApi('/api/anime/export', options), null);
+        assert.deepEqual(app.redirects, []);
+        assert.deepEqual(app.messages, [{ message: '本地会话已失效，请重新启动 OtakuLog', type: 'error' }]);
+    });
+}
+
+for (const flag of ['false', '', null, 'TRUE']) {
+    test(`当页面没有严格受管桌面标志${String(flag)}时应该保持网站重新登录`, async () => {
+        const app = createApp(new Response('{}', { status: 401 }), 'page-token', flag);
+        assert.equal(await app.context.fetchApi('/api/groups'), null);
+        assert.deepEqual(app.redirects, ['/login']);
+        assert.equal(app.messages[0].message, '登录已失效，请重新登录');
+    });
+}
 
 test('当导出时会话过期也应该引导登录', async () => {
     const { context, redirects } = createApp(new Response('{"code":401}', { status: 401 }));

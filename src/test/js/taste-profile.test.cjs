@@ -35,6 +35,7 @@ function app() {
             if (options?.method) return { code: 200, data: { ...insight, ...JSON.parse(options.body || '{}') } };
             return { code: 200, data: memory };
         } });
+    require('./helpers/ui-events.cjs')(context);
     const file = path.resolve(__dirname, '../../main/resources/static/js/taste-profile.js');
     if (fs.existsSync(file)) vm.runInContext(fs.readFileSync(file, 'utf8'), context);
     return { context, nodes, calls, memory, insight, dialogs, field: id => nodes.get(id) };

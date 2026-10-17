@@ -82,6 +82,11 @@ public class DesktopSecurityConfig {
                 .logout(logout -> logout.disable())
                 .requestCache(cache -> cache.disable())
                 .securityContext(context -> context.securityContextRepository(repository))
+                .headers(headers -> headers.contentSecurityPolicy(csp -> csp.policyDirectives(
+                        "default-src 'none'; script-src 'self'; script-src-attr 'none'; connect-src 'self'; "
+                                + "style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' https: data: blob:; "
+                                + "media-src 'self' https: blob:; object-src 'none'; base-uri 'none'; "
+                                + "frame-src 'none'; frame-ancestors 'none'; worker-src 'none'")))
                 .addFilterBefore(new DesktopRequestFilter(runtime, mapper), CsrfFilter.class)
                 .csrf(csrf -> csrf.ignoringRequestMatchers(
                         request -> Boolean.TRUE.equals(request.getAttribute(CONTROL_VERIFIED))))
