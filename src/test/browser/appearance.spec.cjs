@@ -50,7 +50,8 @@ test('当桌面平板手机切换深浅主题时应该完整显示表单且页�
             });
             expect(layout.scrollWidth).toBeLessThanOrEqual(layout.width);
             expect(layout.fits).toBe(true);
-            expect(layout.smallest).toBeGreaterThanOrEqual(44);
+            // 位移会给 44px 控件带来浮点噪声；千分之一像素精度仍能识别真实尺寸不足。
+            expect(Math.round(layout.smallest * 1000) / 1000).toBeGreaterThanOrEqual(44);
             if (width >= 1200) expect(layout.height, '桌面添加区应留出更多空间给番剧列表').toBeLessThanOrEqual(650);
             await page.locator('.header').screenshot({ path: testInfo.outputPath(`顶部-${width}-${theme}.png`), animations: 'disabled' });
             await page.locator('.add-form').screenshot({ path: testInfo.outputPath(`添加-${width}-${theme}.png`), animations: 'disabled', style: '.mobile-nav { visibility: hidden; }' });
