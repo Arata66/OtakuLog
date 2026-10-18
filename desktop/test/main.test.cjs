@@ -15,9 +15,11 @@ function startup(options = {}) {
     updateWindow: async value => { calls.push(['bounds', value]); },
     flush: async () => { calls.push('settings-flush'); await options.settingsFlushed; } };
   const child = new EventEmitter();
+  child.kill = () => calls.push('kill-owned-child');
+  let stopFailures = options.stopFailures || 0;
   const connection = { child, origin: 'http://127.0.0.1:12345',
     control: async () => new globalThis.Response(null, { headers: { 'Set-Cookie': 'JSESSIONID=fixture; Path=/' } }),
-    stop: async () => { calls.push('stop'); await options.stopped; },
+    stop: async () => { calls.push('stop'); if (stopFailures-- > 0) throw new Error('虚构退出等待超时'); await options.stopped; },
   };
   Object.assign(app, {
     setName() {}, setAppUserModelId() {}, setPath() {}, getAppPath: () => __dirname, getPath: () => __dirname,
@@ -234,3 +236,17 @@ test('当Windows恢复边界发生原生取整时应该保留未调整窗口的�
   const captured = run.calls.find(call => Array.isArray(call) && call[0] === 'bounds')[1];
   assert.deepEqual(JSON.parse(JSON.stringify(captured)), saved);
 });
+
+for (const choice of [0, 1]) {
+  test(`当退出等待超时并选择${choice === 0 ? '继续等待' : '强制退出'}时应该${choice === 0 ? '重试正常停止' : '只终止本次后端'}`, async () => {
+    const run = await running({ stopFailures: 1 });
+    run.windows[0].close(); run.app.emit('before-quit', { preventDefault() {} });
+    await setImmediate();
+    assert.equal(run.calls.filter(call => call === 'failure').length, 1);
+    assert.equal(run.calls.includes('kill-owned-child'), false, '用户未明确选择前不能强退');
+    run.finishDialog(choice); await setImmediate();
+    assert.equal(run.calls.filter(call => call === 'stop').length, choice === 0 ? 2 : 1);
+    assert.equal(run.calls.includes('kill-owned-child'), choice === 1);
+    assert.equal(run.calls.includes('relaunch'), false);
+  });
+}
