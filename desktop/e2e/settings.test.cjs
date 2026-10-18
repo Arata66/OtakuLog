@@ -30,7 +30,10 @@ test('当端口变化重开时应该保留偏好和窗口并支持菜单及输�
     .toEqual({ theme: 'dark', accent: 'jade', language: 'en' });
   const normal = await application.evaluate(({ BrowserWindow, screen }) => {
     const owner = BrowserWindow.getAllWindows()[0], area = screen.getPrimaryDisplay().workArea;
-    owner.setBounds({ x: area.x + 30, y: area.y + 30, width: 1000, height: 700 });
+    const width = Math.min(1000, area.width), height = Math.min(700, area.height);
+    // 初始位置留在当前工作区内，避免小屏幕上的正常回位被误判为恢复失败。
+    owner.setBounds({ x: area.x + Math.min(30, Math.floor((area.width - width) / 2)),
+      y: area.y + Math.min(30, Math.floor((area.height - height) / 2)), width, height });
     return owner.getNormalBounds();
   });
   await application.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].maximize());
