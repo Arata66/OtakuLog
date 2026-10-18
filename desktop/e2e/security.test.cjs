@@ -6,6 +6,16 @@ const path = require('node:path');
 const { expect } = require('@playwright/test');
 const { launchApplication } = require('./helpers/application.cjs');
 
+async function readBackup(page) {
+  // 受管会话在专用分区，备份必须由该页面同源读取。
+  const result = await page.evaluate(async () => {
+    const response = await globalThis.fetch('/api/anime/export');
+    return { status: response.status, body: await response.json() };
+  });
+  assert.equal(result.status, 200);
+  return result.body;
+}
+
 async function isolated(t) {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'otakulog-desktop-security-'));
   const remote = [], errors = [], scripts = [];
@@ -41,8 +51,16 @@ async function isolated(t) {
 
 test('当远程脚本字体不可用时应该用真实本地资源完成新增进度记忆Markdown与图表', { timeout: 180000 }, async t => {
   const current = await isolated(t), { page } = current;
-  const response = await page.request.get(page.url());
-  assert.match(response.headers()['content-security-policy'] || '', /script-src 'self'/);
+  const writes = [];
+  page.on('request', request => {
+    if (request.method() === 'POST') writes.push(new URL(request.url()).pathname);
+  });
+  const response = await page.evaluate(async () => {
+    const result = await globalThis.fetch('/');
+    return { status: result.status, csp: result.headers.get('content-security-policy') };
+  });
+  assert.equal(response.status, 200);
+  assert.match(response.csp || '', /script-src 'self'/);
   assert.deepEqual(current.remote, []);
   assert.equal(await page.locator('link[href*="fonts.googleapis.com"]').count(), 0);
   assert.deepEqual(current.scripts.filter(value => value.startsWith('/js/vendor/')).sort(),
@@ -59,15 +77,41 @@ test('当远程脚本字体不可用时应该用真实本地资源完成新增�
     page.waitForResponse(response => new URL(response.url()).pathname === '/api/anime/add' && response.request().method() === 'POST'),
     page.locator('#animeForm button[type="submit"]').click()
   ]);
-  assert.equal((await save.json()).code, 200);
+  assert.equal(save.status(), 200);
+  const created = await save.json();
+  assert.equal(created.code, 200);
+  assert.equal(save.request().postDataJSON().status, 'watching');
+  assert.equal(created.data.status, 'watching');
+  assert.equal(created.data.currentEpisode, 1);
+  const animeKey = 'a:' + created.data.id;
   const row = page.locator('.table-card tbody tr').filter({ hasText: '虚构本地资源验收' });
   await expect(row).toBeVisible();
+  await expect(row.locator('.ep')).toHaveText('1 / 12');
+  const before = await readBackup(page);
+  const storedBefore = before.anime.find(entry => entry.key === animeKey).data;
+  assert.equal(storedBefore.status, 'WATCHING');
+  assert.equal(storedBefore.currentEpisode, 1);
+  assert.equal(writes.filter(pathname => pathname === '/api/anime/add').length, 1);
+  const nextPath = '/api/anime/' + created.data.id + '/next-episode';
   const [progress] = await Promise.all([
-    page.waitForResponse(response => new URL(response.url()).pathname.endsWith('/next-episode') && response.request().method() === 'POST'),
+    page.waitForResponse(response => new URL(response.url()).pathname === nextPath && response.request().method() === 'POST'),
     row.getByRole('button', { name: '下一集', exact: true }).click()
   ]);
-  assert.equal((await progress.json()).code, 200);
-  await expect(row).toContainText('1 / 12');
+  assert.equal(progress.status(), 200);
+  const advanced = await progress.json();
+  assert.equal(advanced.code, 200);
+  assert.equal(advanced.data.status, 'watching');
+  assert.equal(advanced.data.currentEpisode, 2);
+  const after = await readBackup(page);
+  const storedAfter = after.anime.find(entry => entry.key === animeKey).data;
+  assert.equal(storedAfter.status, 'WATCHING');
+  assert.equal(storedAfter.currentEpisode, 2);
+  assert.deepEqual(after.episodes.filter(entry => entry.animeKey === animeKey).map(entry => entry.episodeNumber), [1, 2]);
+  assert.equal(writes.filter(pathname => pathname === nextPath).length, 1);
+  // 分别核对交互刷新和重载，避免新增时的第1集旧行瞬时通过。
+  await expect(row.locator('.ep')).toHaveText('2 / 12');
+  await page.reload();
+  await expect(row.locator('.ep')).toHaveText('2 / 12');
   await row.getByRole('button', { name: '写感想', exact: true }).click();
   await expect(page.locator('#detailModal .detail-remark strong')).toHaveText('虚构加粗');
   await page.locator('#memoryContent').fill('虚构的本地安全验收感想');
@@ -80,6 +124,7 @@ test('当远程脚本字体不可用时应该用真实本地资源完成新增�
   assert.equal(await page.evaluate(() => Boolean(globalThis.__remarkInjected)), false);
   assert.deepEqual(current.remote.filter(value => ['script', 'font', 'stylesheet'].includes(value.type)), []);
   assert.deepEqual(current.errors, []);
+  assert.equal(writes.filter(pathname => pathname === nextPath).length, 1);
 });
 
 test('当浏览器原生执行注入探针时应该仅允许同源脚本并拒绝行内事件外部脚本和动态求值', { timeout: 180000 }, async t => {
