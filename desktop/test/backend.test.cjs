@@ -69,10 +69,11 @@ test('当本次后端使用6679端口时应该以POST凭据正常控制并保留
     const chunks = [];
     request.on('data', chunk => chunks.push(chunk));
     request.on('end', () => {
-      requests.push({ method: request.method, path: request.url, token: request.headers['x-otakulog-desktop-token'],
+      requests.push({ method: request.method, path: request.url, token: request.headers['x-otakulog-desktop-token'], cookie: request.headers.cookie,
         contentType: request.headers['content-type'], body: Buffer.concat(chunks).toString() });
       response.setHeader('Set-Cookie', ['JSESSIONID=fixture-session; Path=/; HttpOnly', 'another=fixture; Path=/']);
-      response.end('{"code":200}');
+      response.setHeader('Content-Type', 'application/json');
+      response.end(request.url === '/api/anime/export' ? '{"format":"otakulog-backup","version":6,"anime":[]}' : '{"code":200}');
     });
   }, 6679);
   const connection = await localConnection(t, server);
@@ -85,6 +86,13 @@ test('当本次后端使用6679端口时应该以POST凭据正常控制并保留
   assert.match(requests[0].token, /^[a-f0-9]{64}$/);
   assert.equal(requests[0].contentType, 'application/json');
   assert.deepEqual(JSON.parse(requests[0].body), { fixture: '虚构控制正文' });
+  const { readLocalBackup } = require('../dist/backup-export.js');
+  const backup = await readLocalBackup(connection.origin, 'fixture-session');
+  assert.equal(JSON.parse(backup.toString()).format, 'otakulog-backup');
+  assert.equal(requests[1].method, 'GET');
+  assert.equal(requests[1].path, '/api/anime/export');
+  assert.equal(requests[1].cookie, 'JSESSIONID=fixture-session');
+  assert.equal(requests[1].token, undefined);
 });
 
 test('当控制响应重定向时应该拒绝且不向重定向目标发送凭据', async t => {

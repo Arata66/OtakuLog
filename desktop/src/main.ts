@@ -1,8 +1,9 @@
-import { app, BrowserWindow, dialog, session, shell } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, session, shell } from 'electron';
 import fs from 'node:fs';
 import path from 'node:path';
 import { createBackendLaunch, startBackend, type BackendConnection } from './backend';
 import { resolveDataRoot } from './paths';
+import { BACKUP_EXPORT_CHANNEL, createBackupExporter } from './backup-export';
 
 app.setName('OtakuLog');
 app.setAppUserModelId('com.arata66.otakulog');
@@ -26,6 +27,7 @@ let allowQuit = false;
 let stopping = false;
 let failureShown = false;
 let restartRequested = false;
+let faultQuitRequested = false;
 
 if (!app.requestSingleInstanceLock()) {
   allowQuit = true;
@@ -94,8 +96,28 @@ async function openWindow() {
   window = new BrowserWindow({
     title: 'OtakuLog', width: 1280, height: 880, minWidth: 760, minHeight: 560,
     backgroundColor: '#f4f5f7',
-    webPreferences: { session: profile, nodeIntegration: false, contextIsolation: true, sandbox: true }
+    webPreferences: { session: profile, preload: path.join(app.getAppPath(), 'dist', 'preload.js'),
+      nodeIntegration: false, contextIsolation: true, sandbox: true }
   });
+  const exporter = createBackupExporter({
+    getWindow: () => window,
+    getOrigin: () => !stopping && !allowQuit && !failureShown ? connection?.origin : undefined,
+    onIdle: () => {
+      // 只延续用户已确认的故障退出，普通关闭被阻止后仍保留窗口。
+      if (faultQuitRequested && !stopping && !allowQuit) app.quit();
+    },
+    sessionCookie: async origin => (await profile.cookies.get({ url: origin + '/api/anime/export' }))
+      .find(cookie => cookie.name === 'JSESSIONID')?.value,
+    choosePath: async owner => {
+      const result = await dialog.showSaveDialog(owner, { title: '保存完整备份',
+        defaultPath: path.join(app.getPath('documents'), 'otakulog_backup.json'),
+        filters: [{ name: 'JSON 备份', extensions: ['json'] }],
+        properties: ['showOverwriteConfirmation', 'createDirectory'] });
+      return result.canceled ? undefined : result.filePath;
+    }
+  });
+  ipcMain.handle(BACKUP_EXPORT_CHANNEL, (event, ...args) => exporter.exportBackup(event, ...args));
+  window.on('close', event => { if (exporter.isBusy()) event.preventDefault(); });
   window.removeMenu();
   window.on('closed', () => {
     window = undefined;
@@ -109,7 +131,7 @@ async function openWindow() {
       buttons: ['继续编辑', '放弃草稿并退出'], defaultId: 0, cancelId: 0
     });
     if (selected === 1) event.preventDefault();
-    else restartRequested = false;
+    else { restartRequested = false; faultQuitRequested = false; }
   });
   window.webContents.on('render-process-gone', () => {
     if (!stopping && !allowQuit) void showFailure(new Error('应用页面意外退出，请重新打开程序'));
@@ -168,5 +190,6 @@ async function showFailure(error: unknown) {
   });
   // 旧后端停止后才安排重新启动，避免同一个资料库同时被两个进程打开。
   restartRequested = result.response === 0;
+  faultQuitRequested = true;
   app.quit();
 }

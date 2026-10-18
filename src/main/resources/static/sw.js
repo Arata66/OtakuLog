@@ -1,4 +1,4 @@
-const CACHE_NAME = 'otakulog-v26';
+const CACHE_NAME = 'otakulog-v27';
 const STATIC_ASSETS = [
     '/js/vendor/chart.umd.js',
     '/js/vendor/Sortable.min.js',

@@ -110,6 +110,59 @@ function createBackupApp(preview, accepted = true) {
     return app;
 }
 
+for (const status of ['saved', 'cancelled', 'failed']) {
+    test(`当桌面原生备份返回${status}时应该仅按真实保存结果提示`, async () => {
+        const app = createApp(undefined, 'page-token', 'true'), downloads = [];
+        app.context.window.otakulogDesktop = { exportBackup: async () => ({ status, message: '虚构保存失败' }) };
+        app.context.URL = class extends URL {
+            static createObjectURL() { return 'blob:fixture'; }
+            static revokeObjectURL() {}
+        };
+        app.context.document.createElement = () => ({ click() { downloads.push('download'); } });
+        await app.context.exportData();
+        assert.deepEqual(app.requests, [], '桌面应由主进程读取和保存备份');
+        assert.deepEqual(downloads, []);
+        assert.deepEqual(app.messages, status === 'cancelled' ? [] : [status === 'saved'
+            ? { message: '备份已保存', type: 'success' } : { message: '虚构保存失败', type: 'error' }]);
+    });
+}
+
+test('当桌面原生导出桥不可用或调用失败时应该提示失败且不退回网页下载', async () => {
+    for (const bridge of [undefined, { exportBackup: async () => { throw new Error('虚构桥错误'); } }]) {
+        const app = createApp(undefined, 'page-token', 'true');
+        app.context.window.otakulogDesktop = bridge;
+        await app.context.exportData();
+        assert.deepEqual(app.requests, []);
+        assert.deepEqual(app.messages, [{ message: '导出失败，请重新打开程序后重试', type: 'error' }]);
+    }
+});
+
+test('当原生保存框等待时应该禁用导出按钮并阻止重复操作且取消后恢复', async () => {
+    const app = createApp(undefined, 'page-token', 'true'), button = { disabled: false };
+    let finish, calls = 0;
+    app.context.document.querySelectorAll = () => [button];
+    app.context.window.otakulogDesktop = { exportBackup: () => { calls++; return new Promise(resolve => { finish = resolve; }); } };
+    const pending = app.context.exportData();
+    assert.equal(button.disabled, true);
+    await app.context.exportData();
+    assert.equal(calls, 1);
+    finish({ status: 'cancelled' }); await pending;
+    assert.equal(button.disabled, false); assert.deepEqual(app.messages, []);
+});
+
+test('当网站导出时应该保留浏览器下载并提示用户确认保存', async () => {
+    const app = createApp(), anchor = { click() { this.clicked = true; } };
+    app.context.document.createElement = () => anchor;
+    app.context.URL = class extends URL {
+        static createObjectURL() { return 'blob:fixture'; }
+        static revokeObjectURL() {}
+    };
+    await app.context.exportData();
+    assert.equal(anchor.clicked, true); assert.equal(anchor.download, 'otakulog_export.json');
+    assert.equal(app.requests[0].url, '/api/anime/export');
+    assert.deepEqual(app.messages, [{ message: '已发起备份下载，请在浏览器中确认保存', type: 'success' }]);
+});
+
 test('当调用方需要处理记录冲突时应该返回冲突并保留默认错误提示行为', async () => {
     const app = createApp(new Response('{"message":"记录已变化"}', { status: 409 }));
     const result = await app.context.fetchApi('/api/anime/1/episodes/1', { method: 'PUT', returnConflict: true });

@@ -1460,7 +1460,28 @@
         }
 
         /* Export / Import */
-        async function exportData() { const r = await fetchApi('/api/anime/export', { responseType: 'blob' }); if (!r || !r.ok) { toast('导出失败', 'error'); return; } const b = await r.blob(); const u = URL.createObjectURL(b), a = document.createElement('a'); a.href = u; a.download = 'otakulog_export.json'; a.click(); URL.revokeObjectURL(u); toast('导出成功', 'success'); }
+        let exportingBackup = false;
+        async function exportData() {
+            if (exportingBackup) return;
+            exportingBackup = true;
+            const desktopManaged = document.querySelector('meta[name="otakulog-desktop-managed"]')?.content === 'true';
+            const buttons = [...(document.querySelectorAll?.('[data-ui-click="exportData"]') || [])].map(button => [button, button.disabled]);
+            buttons.forEach(([button]) => { button.disabled = true; });
+            try {
+                if (desktopManaged) {
+                    const result = await window.otakulogDesktop.exportBackup();
+                    if (result?.status === 'saved') toast('备份已保存', 'success');
+                    else if (result?.status !== 'cancelled') toast(result?.message || '导出失败', 'error');
+                    return;
+                }
+                const response = await fetchApi('/api/anime/export', { responseType: 'blob' });
+                if (!response?.ok) { toast('导出失败', 'error'); return; }
+                const url = URL.createObjectURL(await response.blob()), anchor = document.createElement('a');
+                anchor.href = url; anchor.download = 'otakulog_export.json'; anchor.click(); URL.revokeObjectURL(url);
+                toast('已发起备份下载，请在浏览器中确认保存', 'success');
+            } catch { toast(desktopManaged ? '导出失败，请重新打开程序后重试' : '导出失败', 'error'); }
+            finally { exportingBackup = false; buttons.forEach(([button, disabled]) => { button.disabled = disabled; }); }
+        }
         function confirmBackupImport(preview, label) {
             if (!preview || preview.valid !== true) {
                 alert('无法恢复：\n' + (preview?.conflicts || ['预览失败']).join('\n'));
