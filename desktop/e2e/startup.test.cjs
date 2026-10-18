@@ -11,8 +11,9 @@ test('当没有系统运行时入口时应该免登录打开独立窗口并在�
   if (!process.env.OTAKULOG_DESKTOP_EXECUTABLE)
     assert.ok(fs.existsSync(path.join(desktop, 'staging', 'build-info.json')), '请先准备内置后端与运行时分发目录');
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'otakulog-desktop-e2e-'));
-  let current;
+  let current, releaseAdd;
   t.after(async () => {
+    await releaseAdd?.();
     if (current && await current.page.locator('#memoryContent').count())
       await current.page.locator('#memoryContent').fill('').catch(() => {});
     await current?.application.close();
@@ -27,11 +28,24 @@ test('当没有系统运行时入口时应该免登录打开独立窗口并在�
   await current.page.locator('#animeSeason').fill('2026秋');
   await current.page.locator('#animeScore').fill('8');
   await current.page.locator('#animeStatus').selectOption('planning');
-  const [saved] = await Promise.all([
-    current.page.waitForResponse(response => new URL(response.url()).pathname === '/api/anime/add'
-      && response.request().method() === 'POST'),
-    current.page.locator('#animeForm button[type="submit"]').click()
-  ]);
+  let requestStarted;
+  const heldRequest = new Promise(resolve => { requestStarted = resolve; });
+  await current.page.route('**/api/anime/add', route => new Promise(resolve => {
+    releaseAdd = async () => { releaseAdd = null; await route.continue(); resolve(); };
+    requestStarted();
+  }));
+  const savedResponse = current.page.waitForResponse(response => new URL(response.url()).pathname === '/api/anime/add'
+    && response.request().method() === 'POST');
+  await current.page.locator('#animeForm button[type="submit"]').click();
+  await heldRequest;
+  await current.application.evaluate(({ app, BrowserWindow, dialog }) => new Promise(resolve => {
+    dialog.showMessageBoxSync = () => 0;
+    BrowserWindow.getAllWindows()[0].webContents.once('will-prevent-unload', resolve);
+    app.quit();
+  }));
+  assert.equal(await current.page.locator('#animeName').inputValue(), '虚构桌面联动验收');
+  await releaseAdd();
+  const saved = await savedResponse;
   assert.equal(saved.status(), 200);
   assert.equal((await saved.json()).code, 200);
   await current.page.getByText('虚构桌面联动验收', { exact: true }).first().waitFor();

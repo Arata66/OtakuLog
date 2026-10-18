@@ -28,8 +28,9 @@ public class DesktopDataDirectoryConfiguration {
         var dataSource = new HikariDataSource();
         dataSource.setDriverClassName("org.h2.Driver");
         // 从已验证目录派生连接，防止开发者的数据库环境变量切换桌面资料库。
+        // 确认保存后立即结束主进程也需保留记录，提交不能继续等待默认延迟落盘。
         dataSource.setJdbcUrl("jdbc:h2:file:" + dataDirectory.resolve("otakulog").toString().replace('\\', '/')
-                + ";DB_CLOSE_ON_EXIT=FALSE");
+                + ";DB_CLOSE_ON_EXIT=FALSE;WRITE_DELAY=0");
         dataSource.setUsername("sa");
         dataSource.setPassword("");
         return dataSource;

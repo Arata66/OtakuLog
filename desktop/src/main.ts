@@ -24,6 +24,8 @@ let connection: BackendConnection | undefined;
 let starting: Promise<BackendConnection> | undefined;
 let allowQuit = false;
 let stopping = false;
+let failureShown = false;
+let restartRequested = false;
 
 if (!app.requestSingleInstanceLock()) {
   allowQuit = true;
@@ -53,6 +55,7 @@ async function closeBackend() {
   try {
     if (!connection && starting) connection = await starting.catch(() => undefined);
     await connection?.stop();
+    if (restartRequested) app.relaunch();
     allowQuit = true;
     app.quit();
   } catch {
@@ -63,6 +66,7 @@ async function closeBackend() {
       buttons: ['继续等待', '强制退出'], defaultId: 0, cancelId: 0
     });
     if (result.response === 1) {
+      restartRequested = false;
       connection?.child.kill();
       allowQuit = true;
       app.quit();
@@ -105,6 +109,10 @@ async function openWindow() {
       buttons: ['继续编辑', '放弃草稿并退出'], defaultId: 0, cancelId: 0
     });
     if (selected === 1) event.preventDefault();
+    else restartRequested = false;
+  });
+  window.webContents.on('render-process-gone', () => {
+    if (!stopping && !allowQuit) void showFailure(new Error('应用页面意外退出，请重新打开程序'));
   });
   window.webContents.on('will-navigate', (event, target) => {
     if (!connection || new URL(target).origin !== connection.origin) event.preventDefault();
@@ -151,12 +159,14 @@ async function openWindow() {
 }
 
 async function showFailure(error: unknown) {
-  if (allowQuit || stopping) return;
+  if (allowQuit || stopping || failureShown) return;
+  failureShown = true;
   const result = await dialog.showMessageBox({
     type: 'error', title: '无法打开 OtakuLog', message: error instanceof Error ? error.message : '启动失败',
     detail: '资料未被自动删除。日志位于：' + path.join(dataRoot, 'logs'),
     buttons: ['重新启动', '退出'], defaultId: 1, cancelId: 1
   });
-  if (result.response === 0) app.relaunch();
+  // 旧后端停止后才安排重新启动，避免同一个资料库同时被两个进程打开。
+  restartRequested = result.response === 0;
   app.quit();
 }

@@ -56,8 +56,8 @@ export function startBackend(options: {
       failed = true;
       clearTimeout(timeout);
       // 启动尚未成功，只结束本次持有的子进程。
+      child.once('close', () => reject(error));
       child.kill();
-      reject(error);
     }
 
     function log(text: string) {

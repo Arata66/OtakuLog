@@ -18,7 +18,7 @@ test('当受管桌面加载页面时应该跳过工作线程且网站仍然注�
 });
 
 function createApp(response = new Response('{"code":200}'), token = 'page-token', desktopManaged = 'false') {
-    const requests = [], messages = [], redirects = [];
+    const requests = [], messages = [], redirects = [], events = new Map();
     const context = vm.createContext({
         Headers, URL,
         Chart: { defaults: { font: {} } },
@@ -35,13 +35,64 @@ function createApp(response = new Response('{"code":200}'), token = 'page-token'
                 return null;
             }
         },
-        window: { location: { href: 'http://localhost:8080/', origin: 'http://localhost:8080', assign(url) { redirects.push(url); } } },
+        window: { addEventListener(name, listener) { events.set(name, listener); }, location: { href: 'http://localhost:8080/', origin: 'http://localhost:8080', assign(url) { redirects.push(url); } } },
         fetch: async (url, options) => { requests.push({ url, options }); return response; }
     });
     vm.runInContext(fs.readFileSync(path.join(assets, 'js/anime-app.js'), 'utf8'), context);
     context.toast = (message, type) => messages.push({ message, type });
-    return { context, requests, messages, redirects };
+    return { context, requests, messages, redirects, leaving() {
+        let prevented = false;
+        events.get('beforeunload')?.({ preventDefault() { prevented = true; }, returnValue: undefined });
+        return prevented;
+    } };
 }
+
+test('当桌面列表有多个写入时应该持续保护退出直到最后一个响应读取完成', async () => {
+    const app = createApp(undefined, 'page-token', 'true'), responses = [];
+    app.context.fetch = () => new Promise(resolve => responses.push(resolve));
+    const first = app.context.fetchApi('/api/bangumi/import/confirm', { method: 'POST' });
+    const second = app.context.fetchApi('/api/anime/restore', { method: 'POST' });
+    assert.equal(app.leaving(), true, '没有详情面板时也应保护写入');
+    responses[0](new Response('{"code":200}'));
+    await first;
+    assert.equal(app.leaving(), true, '先完成的请求不能清掉另一个请求的保护');
+    let finishBody, bodyStarted;
+    const readingBody = new Promise(resolve => { bodyStarted = resolve; });
+    responses[1]({ status: 200, ok: true, json: () => new Promise(resolve => { finishBody = resolve; bodyStarted(); }) });
+    await readingBody;
+    assert.equal(app.leaving(), true, '响应正文尚未完成时应继续等待');
+    finishBody({ code: 200 });
+    await second;
+    assert.equal(app.leaving(), false);
+});
+
+for (const failure of ['network', 401, 409, 503]) {
+    test(`当桌面写入遇到${failure}时应该释放退出保护并保留原错误处理`, async () => {
+        const app = createApp(undefined, 'page-token', 'true');
+        let finish;
+        app.context.fetch = () => new Promise((resolve, reject) => { finish = () => failure === 'network'
+            ? reject(new Error('虚构断连')) : resolve(new Response('{"message":"虚构失败"}', { status: failure })); });
+        const pending = app.context.fetchApi('/api/anime/1/memories/1/insights/ai/extract', { method: 'POST', returnError: true, returnConflict: true });
+        assert.equal(app.leaving(), true);
+        finish();
+        const result = await pending;
+        assert.equal(app.leaving(), false);
+        assert.equal(result?.code ?? null, typeof failure === 'number' && failure !== 401 ? failure : null);
+    });
+}
+
+test('当读取数据或请求外站以及网站模式写入时应该保留既有退出行为', async () => {
+    for (const [mode, url, method] of [['true', '/api/anime/search', 'GET'], ['true', 'https://example.com/test', 'POST'], ['false', '/api/anime/add', 'POST']]) {
+        const app = createApp(undefined, 'page-token', mode);
+        let finish;
+        app.context.fetch = () => new Promise(resolve => { finish = resolve; });
+        const request = app.context.fetchApi(url, { method });
+        assert.equal(app.leaving(), false);
+        finish(new Response('{"code":200}'));
+        await request;
+        assert.equal(app.leaving(), false);
+    }
+});
 
 function createBackupApp(preview, accepted = true) {
     const app = createApp();

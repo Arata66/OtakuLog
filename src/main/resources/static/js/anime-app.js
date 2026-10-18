@@ -35,7 +35,9 @@
         function restoreFocus() { if (_lastFocusedBeforeModal && typeof _lastFocusedBeforeModal.focus === 'function' && document.contains(_lastFocusedBeforeModal)) { _lastFocusedBeforeModal.focus(); } _lastFocusedBeforeModal = null; }
         function debounce(fn, ms) { let t; return function(...a) { clearTimeout(t); t = setTimeout(() => fn.apply(this, a), ms); }; }
         function esc(s) { if (s == null) return ''; const d = document.createElement('div'); d.appendChild(document.createTextNode(s)); return d.innerHTML.replace(/"/g, '&quot;'); }
+        let pendingDesktopWrites = 0, desktopExitGuardRegistered = false;
         async function fetchApi(url, options = {}) {
+            let trackedWrite = false;
             try {
                 const requestOptions = { ...options, headers: new Headers(options.headers) };
                 delete requestOptions.returnConflict;
@@ -47,6 +49,18 @@
                     const token = document.querySelector('meta[name="_csrf"]')?.content;
                     const headerName = document.querySelector('meta[name="_csrf_header"]')?.content;
                     if (token && headerName) requestOptions.headers.set(headerName, token);
+                    if (document.querySelector('meta[name="otakulog-desktop-managed"]')?.content === 'true') {
+                        if (!desktopExitGuardRegistered) {
+                            // 列表导入、恢复和AI请求也需要退出保护，不能依赖详情面板是否打开。
+                            window.addEventListener('beforeunload', event => {
+                                if (pendingDesktopWrites === 0) return;
+                                event.preventDefault(); event.returnValue = '';
+                            });
+                            desktopExitGuardRegistered = true;
+                        }
+                        pendingDesktopWrites++;
+                        trackedWrite = true;
+                    }
                 }
                 const r = await fetch(url, requestOptions);
                 if (r.status === 401) {
@@ -67,6 +81,7 @@
                 }
                 return await r.json();
             } catch (e) { console.error('Network error:', url, e); toast('网络连接失败', 'error'); return null; }
+            finally { if (trackedWrite) pendingDesktopWrites--; }
         }
         function toast(m, t = 'info') { const c = document.getElementById('tw'), el = document.createElement('div'); el.className = 'toast ' + t; el.setAttribute('role', t === 'error' ? 'alert' : 'status'); el.textContent = m; if (c) c.appendChild(el); setTimeout(() => el.remove(), 3000); }
         function stateHtml(type, title, desc) {
