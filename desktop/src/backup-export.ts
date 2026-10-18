@@ -7,7 +7,7 @@ import path from 'node:path';
 export const BACKUP_EXPORT_CHANNEL = 'otakulog:backup-export';
 export type BackupExportResult = { status: 'saved' | 'cancelled' } | { status: 'failed'; message: string };
 
-function trustedSender(event: IpcMainInvokeEvent, owner: BrowserWindow | undefined, origin: string | undefined) {
+export function trustedSender(event: IpcMainInvokeEvent, owner: BrowserWindow | undefined, origin: string | undefined) {
   try {
     if (!owner || owner.isDestroyed() || !origin || event.sender !== owner.webContents
       || !event.senderFrame || event.senderFrame !== owner.webContents.mainFrame) return false;

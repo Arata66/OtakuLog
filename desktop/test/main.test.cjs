@@ -5,17 +5,22 @@ const path = require('node:path');
 const vm = require('node:vm');
 const { EventEmitter } = require('node:events');
 const { setImmediate } = require('node:timers/promises');
+const { clearTimeout } = require('node:timers');
 
 function startup(options = {}) {
   const calls = [], app = new EventEmitter();
-  let release, ready, loadFailed, finishDialog, finishExport;
+  let release, ready, loadFailed, finishDialog, finishExport, menu;
+  const store = { preferences: () => ({ theme: 'system', accent: 'indigo', language: 'zh' }),
+    window: () => options.savedWindow, warning() {},
+    updateWindow: async value => { calls.push(['bounds', value]); },
+    flush: async () => { calls.push('settings-flush'); await options.settingsFlushed; } };
   const child = new EventEmitter();
   const connection = { child, origin: 'http://127.0.0.1:12345',
     control: async () => new globalThis.Response(null, { headers: { 'Set-Cookie': 'JSESSIONID=fixture; Path=/' } }),
     stop: async () => { calls.push('stop'); await options.stopped; },
   };
   Object.assign(app, {
-    setName() {}, setAppUserModelId() {}, setPath() {}, getAppPath: () => __dirname,
+    setName() {}, setAppUserModelId() {}, setPath() {}, getAppPath: () => __dirname, getPath: () => __dirname,
     requestSingleInstanceLock: () => true, whenReady: async () => {}, getVersion: () => '1.1.0-beta.1',
     quit: () => calls.push('quit'), relaunch: () => calls.push('relaunch')
   });
@@ -25,8 +30,12 @@ function startup(options = {}) {
   };
   const windows = [];
   class Window extends EventEmitter {
-    constructor() { super(); calls.push('window'); windows.push(this); this.webContents = new EventEmitter(); this.webContents.setWindowOpenHandler = () => {}; }
+    constructor(config) { super(); this.config = config; calls.push('window'); windows.push(this); this.webContents = new EventEmitter(); this.webContents.setWindowOpenHandler = () => {}; }
     removeMenu() {}
+    getNormalBounds() { return this.normalBounds || { x: this.config.x, y: this.config.y, width: this.config.width + 5, height: this.config.height + 5 }; }
+    isMaximized() { return !!this.maximized; }
+    isMinimized() { return false; }
+    maximize() { this.maximized = true; this.emit('maximize'); }
     isDestroyed() { return !!this.closed; }
     close() {
       let prevented = false;
@@ -36,16 +45,22 @@ function startup(options = {}) {
     async loadFile() { calls.push('startup'); }
     async loadURL() { calls.push('loaded'); if (options.failLoad) await new Promise((_resolve, reject) => { loadFailed = reject; }); }
   }
-  const electron = { app, BrowserWindow: Window, ipcMain: { handle() {} }, dialog: { showMessageBoxSync: () => options.leave ?? 0,
+  const display = { id: 1, workArea: { x: 0, y: 0, width: 1920, height: 1080 } };
+  const electron = { app, BrowserWindow: Window, ipcMain: { handle() {} },
+    screen: { getPrimaryDisplay: () => display, getAllDisplays: () => [display] },
+    Menu: { buildFromTemplate: value => value, setApplicationMenu: value => { menu = value; } },
+    shell: { openPath: async value => { calls.push(['open', value]); return ''; } },
+    dialog: { showMessageBoxSync: () => options.leave ?? 0,
     showMessageBox: async () => { calls.push('failure'); return new Promise(resolve => { finishDialog = resolve; }); } },
     session: { fromPartition(name) { calls.push(['partition', name]); return profile; } } };
   vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../dist/main.js'), 'utf8'), {
-    exports: {}, process: { argv: [], env: {} }, Buffer,
+    exports: {}, process: { argv: [], env: {} }, Buffer, setTimeout, clearTimeout,
     require(name) {
       if (name === 'electron') return electron;
       if (name === 'node:fs') return { mkdirSync() {}, realpathSync: value => value, readFileSync: () => '{"version":"1.1.0-beta.1"}' };
       if (name === 'node:path') return path;
       if (name === './paths') return { resolveDataRoot: () => __dirname };
+      if (name === './settings') return { ...require('../dist/settings.js'), createSettingsStore: async () => store };
       if (name === './backup-export') {
         if (!options.exporting) return require('../dist/backup-export.js');
         return { BACKUP_EXPORT_CHANNEL: 'otakulog:backup-export', createBackupExporter(config) {
@@ -60,7 +75,7 @@ function startup(options = {}) {
   });
   return { app, calls, child, windows, release: () => release(), ready: () => ready(connection),
     failLoad: () => loadFailed(new Error('虚构页面加载失败')), finishDialog: response => finishDialog({ response }),
-    finishExport: () => finishExport() };
+    finishExport: () => finishExport(), menu: () => menu };
 }
 
 test('当专用桌面资料启动时应该先仅清理工作线程和缓存再打开窗口与后端', async () => {
@@ -178,4 +193,44 @@ test('当普通关闭被导出阻止时应该在导出结束后保留正常窗�
   assert.equal(run.windows[0].isDestroyed(), false);
   run.finishExport();
   assert.equal(run.calls.includes('quit'), false);
+});
+
+test('当窗口关闭时应该先保存正常边界并等待设置落盘再停止后端', async () => {
+  let finish;
+  const run = await running({ settingsFlushed: new Promise(resolve => { finish = resolve; }) });
+  run.windows[0].normalBounds = { x: 40, y: 50, width: 1000, height: 700 };
+  run.windows[0].close();
+  run.app.emit('before-quit', { preventDefault() {} });
+  await setImmediate();
+  assert.ok(run.calls.some(call => Array.isArray(call) && call[0] === 'bounds' && call[1].width === 1000));
+  assert.equal(run.calls.includes('stop'), false, '设置未落盘前不应完成退出');
+  finish(); await setImmediate();
+  assert.equal(run.calls.includes('stop'), true);
+});
+
+test('当有已保存窗口设置时应该恢复正常位置并恢复最大化', async () => {
+  const run = await running({ savedWindow: { x: 40, y: 50, width: 1000, height: 700, maximized: true } });
+  assert.equal(run.windows[0].config.x, 40);
+  assert.equal(run.windows[0].config.width, 1000);
+  assert.equal(run.windows[0].isMaximized(), true);
+});
+
+test('当桌面菜单打开目录时应该只使用本资料固定目录并提供编辑缩放', async () => {
+  const run = await running(), menus = run.menu();
+  assert.ok(Array.isArray(menus), '桌面应提供应用菜单');
+  const items = menus.flatMap(menu => menu.submenu);
+  for (const [label, directory] of [['打开数据目录', 'data'], ['打开日志目录', 'logs']]) {
+    await items.find(item => item.label === label).click();
+    assert.ok(run.calls.some(call => Array.isArray(call) && call[0] === 'open' && call[1] === path.join(__dirname, directory)));
+  }
+  for (const role of ['undo', 'redo', 'cut', 'copy', 'paste', 'selectAll', 'resetZoom', 'zoomIn', 'zoomOut'])
+    assert.ok(items.some(item => item.role === role));
+});
+
+test('当Windows恢复边界发生原生取整时应该保留未调整窗口的原始尺寸而不逐次放大', async () => {
+  const saved = { x: 40, y: 50, width: 1000, height: 700, maximized: true };
+  const run = await running({ savedWindow: saved });
+  run.windows[0].close();
+  const captured = run.calls.find(call => Array.isArray(call) && call[0] === 'bounds')[1];
+  assert.deepEqual(JSON.parse(JSON.stringify(captured)), saved);
 });

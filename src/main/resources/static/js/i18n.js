@@ -1,5 +1,5 @@
 const i18n = {
-    lang: localStorage.getItem('otakulog-lang') || 'zh',
+    lang: 'zh',
     translations: {
         zh: {
             'app.title': '追番列表 | OtakuLog',
@@ -333,7 +333,8 @@ const i18n = {
     },
     setLang(lang) {
         this.lang = lang;
-        localStorage.setItem('otakulog-lang', lang);
+        void window.otakulogPreferences.set('language', lang);
+        document.documentElement.lang = lang === 'en' ? 'en' : 'zh-CN';
         this.translatePage();
     },
     translatePage() {

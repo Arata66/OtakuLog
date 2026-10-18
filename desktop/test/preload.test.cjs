@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 
-test('当隔离预加载脚本初始化时应该只向主框架暴露无参数的固定导出操作', async () => {
+test('当隔离预加载脚本初始化时应该只向主框架暴露固定导出与白名单偏好操作', async () => {
   for (const isMainFrame of [true, false]) {
     const exposed = [], calls = [];
     vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../dist/preload.js'), 'utf8'), {
@@ -17,9 +17,12 @@ test('当隔离预加载脚本初始化时应该只向主框架暴露无参数�
     });
     if (!isMainFrame) { assert.deepEqual(exposed, []); continue; }
     assert.equal(exposed[0].key, 'otakulogDesktop');
-    assert.deepEqual(Object.keys(exposed[0].value), ['exportBackup']);
+    assert.deepEqual(Object.keys(exposed[0].value), ['exportBackup', 'getPreferences', 'updatePreferences']);
     assert.equal(Object.isFrozen(exposed[0].value), true);
     assert.deepEqual(await exposed[0].value.exportBackup('/任意路径', '任意通道'), { status: 'cancelled' });
     assert.deepEqual(calls, [['otakulog:backup-export']]);
+    await exposed[0].value.getPreferences('/任意路径');
+    await exposed[0].value.updatePreferences({ theme: 'dark' }, '任意通道');
+    assert.deepEqual(JSON.parse(JSON.stringify(calls.slice(1))), [['otakulog:preferences-read'], ['otakulog:preferences-update', { theme: 'dark' }]]);
   }
 });

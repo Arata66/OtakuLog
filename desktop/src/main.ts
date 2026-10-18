@@ -1,9 +1,10 @@
-import { app, BrowserWindow, dialog, ipcMain, session, shell } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, Menu, screen, session, shell } from 'electron';
 import fs from 'node:fs';
 import path from 'node:path';
 import { createBackendLaunch, startBackend, type BackendConnection } from './backend';
 import { resolveDataRoot } from './paths';
 import { BACKUP_EXPORT_CHANNEL, createBackupExporter } from './backup-export';
+import { createPreferencesBridge, createSettingsStore, restoreWindowBounds } from './settings';
 
 app.setName('OtakuLog');
 app.setAppUserModelId('com.arata66.otakulog');
@@ -28,6 +29,7 @@ let stopping = false;
 let failureShown = false;
 let restartRequested = false;
 let faultQuitRequested = false;
+let settings: Awaited<ReturnType<typeof createSettingsStore>> | undefined;
 
 if (!app.requestSingleInstanceLock()) {
   allowQuit = true;
@@ -55,6 +57,7 @@ if (!app.requestSingleInstanceLock()) {
 
 async function closeBackend() {
   try {
+    await settings?.flush();
     if (!connection && starting) connection = await starting.catch(() => undefined);
     await connection?.stop();
     if (restartRequested) app.relaunch();
@@ -93,12 +96,21 @@ async function openWindow() {
   profile.on('will-download', (_event, item) => {
     item.setSaveDialogOptions({ title: '保存文件', defaultPath: path.join(app.getPath('documents'), item.getFilename()) });
   });
+  settings = await createSettingsStore(path.join(dataRoot, 'config', 'settings.json'));
+  if (stopping || allowQuit) return;
+  const primary = screen.getPrimaryDisplay();
+  const bounds = restoreWindowBounds(settings.window(), [primary.workArea,
+    ...screen.getAllDisplays().filter(display => display.id !== primary.id).map(display => display.workArea)]);
   window = new BrowserWindow({
-    title: 'OtakuLog', width: 1280, height: 880, minWidth: 760, minHeight: 560,
+    title: 'OtakuLog', ...bounds, minWidth: Math.min(760, bounds.width), minHeight: Math.min(560, bounds.height),
     backgroundColor: '#f4f5f7',
     webPreferences: { session: profile, preload: path.join(app.getAppPath(), 'dist', 'preload.js'),
       nodeIntegration: false, contextIsolation: true, sandbox: true }
   });
+  const preferences = createPreferencesBridge({ getWindow: () => window,
+    getOrigin: () => !stopping && !allowQuit && !failureShown ? connection?.origin : undefined, store: settings });
+  ipcMain.handle('otakulog:preferences-read', (event, ...args) => preferences.read(event, ...args));
+  ipcMain.handle('otakulog:preferences-update', (event, patch, ...args) => preferences.update(event, patch, ...args));
   const exporter = createBackupExporter({
     getWindow: () => window,
     getOrigin: () => !stopping && !allowQuit && !failureShown ? connection?.origin : undefined,
@@ -117,8 +129,57 @@ async function openWindow() {
     }
   });
   ipcMain.handle(BACKUP_EXPORT_CHANNEL, (event, ...args) => exporter.exportBackup(event, ...args));
-  window.on('close', event => { if (exporter.isBusy()) event.preventDefault(); });
-  window.removeMenu();
+  let captureTimer: ReturnType<typeof setTimeout> | undefined, windowWarningShown = false;
+  let persistedBounds = bounds, observedBounds = window.getNormalBounds();
+  const captureWindow = () => {
+    if (!window || window.isDestroyed() || window.isMinimized()) return;
+    const actual = window.getNormalBounds();
+    // Windows分数缩放下读写边界不对称，未调整的窗口沿用原尺寸，避免每次重开累积放大。
+    if (actual.x !== observedBounds.x || actual.y !== observedBounds.y
+      || actual.width !== observedBounds.width || actual.height !== observedBounds.height) persistedBounds = actual;
+    observedBounds = actual;
+    void settings!.updateWindow({ ...persistedBounds, maximized: window.isMaximized() }).catch(() => {
+      if (windowWarningShown || settings!.warning()) return;
+      windowWarningShown = true;
+      void dialog.showMessageBox({ type: 'warning', title: '窗口设置未保存',
+        message: '窗口位置未能保存，请检查资料目录的写入权限。', buttons: ['知道了'] });
+    });
+  };
+  const queueCapture = () => {
+    clearTimeout(captureTimer); captureTimer = setTimeout(captureWindow, 300);
+  };
+  window.on('resize', queueCapture); window.on('move', queueCapture);
+  window.on('maximize', queueCapture); window.on('unmaximize', queueCapture);
+  window.on('close', event => {
+    if (exporter.isBusy()) { event.preventDefault(); return; }
+    clearTimeout(captureTimer); captureWindow();
+  });
+  const openDirectory = async (directory: string) => {
+    const error = await shell.openPath(directory).catch(() => '无法打开目录');
+    if (error) await dialog.showMessageBox({ type: 'warning', title: '无法打开目录', message: '无法打开资料目录，请检查目录是否存在及访问权限。', buttons: ['知道了'] });
+  };
+  Menu.setApplicationMenu(Menu.buildFromTemplate([
+    { label: '文件', submenu: [
+      { label: '打开资料目录', click: () => openDirectory(dataRoot) },
+      { label: '打开数据目录', click: () => openDirectory(path.join(dataRoot, 'data')) },
+      { label: '打开日志目录', click: () => openDirectory(path.join(dataRoot, 'logs')) },
+      { type: 'separator' }, { label: '退出', role: 'quit' }
+    ] },
+    { label: '编辑', submenu: [
+      { label: '撤销', role: 'undo' }, { label: '重做', role: 'redo' }, { type: 'separator' },
+      { label: '剪切', role: 'cut' }, { label: '复制', role: 'copy' }, { label: '粘贴', role: 'paste' },
+      { label: '全选', role: 'selectAll' }
+    ] },
+    { label: '视图', submenu: [
+      { label: '实际大小', role: 'resetZoom' }, { label: '放大', role: 'zoomIn' }, { label: '缩小', role: 'zoomOut' }
+    ] },
+    { label: '帮助', submenu: [{ label: '关于 OtakuLog', click: () => {
+      void dialog.showMessageBox({ type: 'info', title: '关于 OtakuLog', message: 'OtakuLog ' + app.getVersion(),
+        detail: '资料保存在本机。跨电脑迁移请使用完整 JSON 备份。', buttons: ['知道了'] });
+    } }] }
+  ]));
+  observedBounds = window.getNormalBounds();
+  if (settings.window()?.maximized) window.maximize();
   window.on('closed', () => {
     window = undefined;
     app.quit();

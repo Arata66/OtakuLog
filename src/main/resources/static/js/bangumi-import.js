@@ -22,7 +22,7 @@ function openBangumiImport() {
     const state = { modal, preview: null, busy: null, page: 0, request: null, external: null, returnFocus: document.activeElement };
     bangumiImportState = state;
     modal.onclick = event => { if (event.target === modal) closeBangumiImport(); };
-    modal.addEventListener('keydown', event => { if (event.key === 'Escape') { event.stopPropagation(); closeBangumiImport(); } });
+    modal.addEventListener('keydown', event => { if (event.isComposing || event.keyCode === 229) return; if (event.key === 'Escape') { event.stopPropagation(); closeBangumiImport(); } });
     document.body.appendChild(modal); trapFocus(modal); document.getElementById('bgmImportUsername').focus();
 }
 

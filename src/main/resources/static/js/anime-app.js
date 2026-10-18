@@ -263,7 +263,7 @@
         function toggleTheme() {
             const root = document.documentElement, dark = root.getAttribute('data-theme') === 'dark';
             root.setAttribute('data-theme', dark ? '' : 'dark');
-            localStorage.setItem('otakulog-theme', dark ? 'light' : 'dark');
+            void window.otakulogPreferences.set('theme', dark ? 'light' : 'dark');
             updateThemeButton();
             updateChartColors();
         }
@@ -316,7 +316,7 @@
 
         function setAccent(accent) {
             document.documentElement.setAttribute('data-accent', accent);
-            localStorage.setItem('otakulog-accent', accent);
+            void window.otakulogPreferences.set('accent', accent);
             // 更新色板选中状态
             document.querySelectorAll('.accent-swatch').forEach(s => {
                 const active = s.dataset.accent === accent;
@@ -330,18 +330,15 @@
         }
 
         // 初始化主题色
-        (function() {
-            const saved = localStorage.getItem('otakulog-accent') || 'indigo';
+        function initAccent() {
+            const saved = window.otakulogPreferences?.get('accent') || 'indigo';
             document.documentElement.setAttribute('data-accent', saved);
-            // 延迟更新色板选中状态（等 DOM 加载完成）
-            document.addEventListener('DOMContentLoaded', function() {
-                document.querySelectorAll('.accent-swatch').forEach(s => {
-                    const active = s.dataset.accent === saved;
-                    s.classList.toggle('active', active);
-                    s.setAttribute('aria-pressed', active ? 'true' : 'false');
-                });
+            document.querySelectorAll('.accent-swatch').forEach(s => {
+                const active = s.dataset.accent === saved;
+                s.classList.toggle('active', active);
+                s.setAttribute('aria-pressed', active ? 'true' : 'false');
             });
-        })();
+        }
 
         /* Tabs */
         function switchTab(n) {
@@ -727,6 +724,7 @@
 
         function trapFocus(overlay) {
             overlay.addEventListener('keydown', function(e) {
+                if (e.isComposing || e.keyCode === 229) return;
                 if (e.key === 'Escape') {
                     e.stopPropagation();
                     if (overlay.id === 'editModal') closeEditModal();
@@ -1710,8 +1708,9 @@
         }
 
         /* Init */
-        function init() {
+        async function init() {
             if (window.__i) return; window.__i = true;
+            await window.otakulogPreferences?.ready;
             // 初始化 DOM 缓存
             $tbody = document.querySelector('tbody');
             $tableCard = document.querySelector('.table-card');
@@ -1781,10 +1780,14 @@
              'ep-day','ep-month']
               .forEach(k => $stat[k] = document.getElementById('stat-' + k));
 
-            const savedTheme = localStorage.getItem('otakulog-theme');
-            if (savedTheme === 'dark' || (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            const savedTheme = window.otakulogPreferences?.get('theme') || 'system';
+            if (savedTheme === 'dark' || (savedTheme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
                 document.documentElement.setAttribute('data-theme', 'dark');
             }
+            initAccent();
+            i18n.lang = window.otakulogPreferences?.get('language') || 'zh';
+            document.documentElement.lang = i18n.lang === 'en' ? 'en' : 'zh-CN';
+            window.otakulogPreferences?.showWarning();
             updateThemeButton();
             if (typeof i18n !== 'undefined') i18n.translatePage();
             updateChartColors();
@@ -1802,10 +1805,11 @@
             $filterStatus.addEventListener('change', () => performSearch());
             $sortBy.addEventListener('change', () => performSearch());
             $filterTag.addEventListener('input', debounce(() => performSearch(), 300));
-            $animeName.addEventListener('keydown', function(e) { if (e.key === 'Enter') { e.preventDefault(); searchBangumi(); } });
+            $animeName.addEventListener('keydown', function(e) { if (e.isComposing || e.keyCode === 229) return; if (e.key === 'Enter') { e.preventDefault(); searchBangumi(); } });
 
             // 快捷键支持
             document.addEventListener('keydown', function(e) {
+                if (e.isComposing || e.keyCode === 229) return;
                 // 如果焦点在输入框中，不触发快捷键
                 if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
                 // 如果弹窗打开，不触发快捷键
@@ -1826,6 +1830,7 @@
 
             // Escape 关闭弹窗
             document.addEventListener('keydown', function(e) {
+                if (e.isComposing || e.keyCode === 229) return;
                 if (e.key === 'Escape') {
                     const editModal = document.getElementById('editModal');
                     const detailModal = document.getElementById('detailModal');
