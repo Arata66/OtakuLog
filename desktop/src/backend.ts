@@ -20,6 +20,20 @@ export interface BackendConnection {
   stop: (timeoutMs?: number) => Promise<void>;
 }
 
+function dataProtectionFailure(code: unknown, launch: BackendLaunch): Error | undefined {
+  const reasons: Record<string, string> = {
+    ENGINE_MISMATCH: '资料库的引擎版本与当前程序不同。请用原程序导出完整备份，再在新程序的独立资料目录恢复。',
+    BACKUP_FAILED: '升级前备份未能完成，尚未开始迁移。请检查备份目录空间和写入权限。',
+    DATABASE_BUSY: '资料库正在被其他程序使用。请关闭对应的 OtakuLog 后重试。',
+    SCHEMA_NEWER: '资料结构比当前程序更新。请使用匹配的新版本打开。',
+    UPGRADE_BLOCKED: '资料升级未完成，已停止自动重试。请保留原资料和升级备份，并恢复到独立目录。'
+  };
+  if (typeof code !== 'string' || !Object.hasOwn(reasons, code)) return undefined;
+  const location = (name: string) => launch.args.find(arg => arg.startsWith(name + '='))?.slice(name.length + 1);
+  return new Error(reasons[code] + '\n资料目录：' + (location('--app.desktop.data-dir') ?? '未提供')
+    + '\n备份目录：' + (location('--app.desktop.backup-dir') ?? '未提供'));
+}
+
 export function createBackendLaunch(resources: string, directory: string,
   source: NodeJS.ProcessEnv = process.env): BackendLaunch {
   if (!path.isAbsolute(resources) || !path.isAbsolute(directory))
@@ -43,6 +57,7 @@ export function startBackend(options: {
   launch: BackendLaunch;
   version: string;
   timeoutMs?: number;
+  upgradeTimeoutMs?: number;
   onLog?: (text: string) => void;
 }): Promise<BackendConnection> {
   return new Promise((resolve, reject) => {
@@ -52,8 +67,11 @@ export function startBackend(options: {
     });
     let ready = false;
     let failed = false;
+    let protectionReported = false;
+    let protectionFailure: Error | undefined;
+    let upgrading = false;
     let pending = '';
-    const timeout = setTimeout(() => fail(new Error('后端启动超时，请查看运行日志')),
+    let timeout = setTimeout(() => fail(protectionFailure ?? new Error('后端启动超时，请查看运行日志')),
       options.timeoutMs ?? 60000);
 
     function fail(error: Error) {
@@ -71,7 +89,7 @@ export function startBackend(options: {
 
     child.on('error', () => fail(new Error('无法启动内置 Java，请检查程序文件是否完整')));
     child.stdin.on('error', () => fail(new Error('后端控制通道已关闭')));
-    child.on('exit', code => fail(new Error('后端在就绪前退出，退出码：' + code)));
+    child.on('exit', code => fail(protectionFailure ?? new Error('后端在就绪前退出，退出码：' + code)));
     child.stderr.setEncoding('utf8');
     child.stderr.on('data', (text: string) => log(text));
     child.stdout.setEncoding('utf8');
@@ -90,11 +108,31 @@ export function startBackend(options: {
       while ((newline = pending.indexOf('\n')) !== -1) {
         const line = pending.slice(0, newline).trimEnd();
         pending = pending.slice(newline + 1);
+        if (line === 'OTAKULOG_DESKTOP_UPGRADING') {
+          if (ready || failed || protectionReported || upgrading) continue;
+          upgrading = true;
+          clearTimeout(timeout);
+          timeout = setTimeout(() => fail(protectionFailure ?? new Error(
+            '资料升级超时。' + dataProtectionFailure('UPGRADE_BLOCKED', options.launch)!.message)), options.upgradeTimeoutMs ?? 600000);
+          continue;
+        }
+        if (line.startsWith('OTAKULOG_DESKTOP_FAILURE ')) {
+          if (ready || failed) continue;
+          protectionReported = true;
+          try {
+            const packet = JSON.parse(line.slice('OTAKULOG_DESKTOP_FAILURE '.length)) as { code?: unknown } | null;
+            protectionFailure = dataProtectionFailure(packet?.code, options.launch);
+          } catch {
+            // 故障包只接受固定原因，异常正文不能直接进入桌面提示。
+          }
+          // 等待 Spring 完成清理和释放资料锁，再允许用户重启。
+          continue;
+        }
         if (!line.startsWith('OTAKULOG_DESKTOP_READY ')) {
           log(line + '\n');
           continue;
         }
-        if (ready || failed) continue;
+        if (ready || failed || protectionReported) continue;
         try {
           const info = JSON.parse(line.slice('OTAKULOG_DESKTOP_READY '.length)) as {
             port: number; version: string;

@@ -47,6 +47,45 @@ test('当子进程一直未就绪时应该超时而不是无限等待', async ()
   await assert.rejects(startBackend({ ...options('silent'), timeoutMs: 1000 }), /后端启动超时/);
 });
 
+for (const [code, expected] of [
+  ['ENGINE_MISMATCH', /引擎版本/], ['BACKUP_FAILED', /升级前备份/], ['DATABASE_BUSY', /其他程序/],
+  ['SCHEMA_NEWER', /结构比当前程序更新/], ['UPGRADE_BLOCKED', /升级未完成/]
+]) {
+  test('当资料保护报告' + code + '时应该等待清理并显示固定原因及本次资料位置', async () => {
+    const directory = path.join(os.tmpdir(), '本次虚构资料');
+    const backup = path.join(os.tmpdir(), '本次虚构备份');
+    const launch = options('failure:' + code), logs = [];
+    launch.launch.args.push('--app.desktop.data-dir=' + directory, '--app.desktop.backup-dir=' + backup);
+    await assert.rejects(startBackend({ ...launch, onLog: text => logs.push(text) }), error => {
+      assert.match(error.message, expected);
+      assert.ok(error.message.includes(directory));
+      assert.ok(error.message.includes(backup));
+      assert.doesNotMatch(error.message, /不可信异常正文/);
+      return true;
+    });
+    assert.ok(logs.join('').includes('本次故障清理已结束'), '应等待后端释放本次资料锁');
+  });
+}
+
+test('当后端报告未知资料故障码时应该拒绝启动且不显示任意异常正文', async () => {
+  await assert.rejects(startBackend(options('failure:未知故障')), error => {
+    assert.match(error.message, /后端在就绪前退出/);
+    assert.doesNotMatch(error.message, /不可信异常正文/);
+    return true;
+  });
+});
+
+test('当真实升级超过普通启动时限时应该给备份迁移一次额外时间', async t => {
+  const connection = await startBackend({ ...options('upgrade-delay'), timeoutMs: 250, upgradeTimeoutMs: 1000 });
+  t.after(() => connection.child.kill());
+  assert.equal(connection.origin, 'http://127.0.0.1:12345');
+  await connection.stop();
+});
+
+test('当重复报告升级进度却始终未完成时应该仍在升级总时限退出', { timeout: 4000 }, async () => {
+  await assert.rejects(startBackend({ ...options('upgrade-flood'), timeoutMs: 1000, upgradeTimeoutMs: 250 }), /资料升级超时/);
+});
+
 async function localServer(t, handle, port = 0) {
   const server = http.createServer(handle);
   await new Promise((resolve, reject) => { server.once('error', reject); server.listen(port, '127.0.0.1', resolve); });

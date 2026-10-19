@@ -3,9 +3,13 @@ package com.otakulog.desktop;
 import com.zaxxer.hikari.HikariDataSource;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.flyway.FlywayConfigurationCustomizer;
+import org.springframework.boot.autoconfigure.flyway.FlywayMigrationStrategy;
+import org.springframework.boot.autoconfigure.flyway.FlywayDataSource;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
+import org.springframework.context.annotation.Primary;
+import org.springframework.jdbc.datasource.DriverManagerDataSource;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -23,14 +27,35 @@ public class DesktopDataDirectoryConfiguration {
     }
 
     @Bean(destroyMethod = "close")
-    public HikariDataSource desktopDataSource(@Value("${app.desktop.data-dir:}") String directory) {
+    public DesktopUpgradeGuard desktopUpgradeGuard(@Value("${app.desktop.data-dir:}") String directory,
+            @Value("${app.desktop.backup-dir:}") String backupDirectory) {
         Path dataDirectory = validateDirectory(directory);
+        Path backup = backupDirectory.isBlank() ? dataDirectory.resolve("backups") : Path.of(backupDirectory);
+        if (!backup.isAbsolute()) throw new IllegalArgumentException("桌面备份目录必须为绝对路径");
+        if (backup.toString().contains(";")) throw new IllegalArgumentException("桌面备份目录不能包含分号");
+        return new DesktopUpgradeGuard(dataDirectory, backup.normalize());
+    }
+
+    @Bean
+    public FlywayMigrationStrategy desktopMigrationStrategy(DesktopUpgradeGuard guard) {
+        return guard::migrate;
+    }
+
+    @Bean
+    @FlywayDataSource
+    public DriverManagerDataSource desktopMigrationDataSource(DesktopUpgradeGuard guard) {
+        // Flyway 在定制器之前就会读取连接，必须从首次配置起使用可完全关闭的非池连接。
+        return new DriverManagerDataSource(guard.jdbcUrl(), "sa", "");
+    }
+
+    @Bean(destroyMethod = "close")
+    @Primary
+    public HikariDataSource desktopDataSource(DesktopUpgradeGuard guard) {
         var dataSource = new HikariDataSource();
         dataSource.setDriverClassName("org.h2.Driver");
         // 从已验证目录派生连接，防止开发者的数据库环境变量切换桌面资料库。
         // 确认保存后立即结束主进程也需保留记录，提交不能继续等待默认延迟落盘。
-        dataSource.setJdbcUrl("jdbc:h2:file:" + dataDirectory.resolve("otakulog").toString().replace('\\', '/')
-                + ";DB_CLOSE_ON_EXIT=FALSE;WRITE_DELAY=0");
+        dataSource.setJdbcUrl(guard.jdbcUrl());
         dataSource.setUsername("sa");
         dataSource.setPassword("");
         return dataSource;

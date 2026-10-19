@@ -1,7 +1,8 @@
 const path = require('node:path');
 const { _electron } = require('@playwright/test');
 
-const desktop = path.resolve(__dirname, '../..');
+const desktop = process.env.OTAKULOG_DESKTOP_APP_DIR || path.resolve(__dirname, '../..');
+if (!path.isAbsolute(desktop)) throw new Error('受测桌面程序目录必须使用绝对路径');
 function applicationLaunchOptions(directory, executable = process.env.OTAKULOG_DESKTOP_EXECUTABLE) {
   if (executable && !path.isAbsolute(executable)) throw new Error('受测程序必须使用绝对路径');
   const env = {};
