@@ -33,6 +33,7 @@ export function createBackendLaunch(resources: string, directory: string,
     args: ['-Dfile.encoding=UTF-8', '-jar', path.join(resources, 'backend', 'otakulog.jar'),
       '--spring.profiles.active=desktop', '--server.address=127.0.0.1', '--server.port=0',
       '--app.desktop.managed=true', '--app.desktop.data-dir=' + directory,
+      '--app.desktop.backup-dir=' + path.join(directory, '..', 'backups'),
       '--app.ai.enabled=false', '--app.ai.api-key='],
     env
   };

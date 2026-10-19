@@ -266,6 +266,7 @@ class AnimeServiceImplTest {
     }
 
     @Test
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)
     void 当番剧已有BangumiId时应该直接返回当前数据() {
         AnimeVO saved = animeService.addAnime(
                 createDetailedDTO("已有补链", 12, "2024冬", 8.0, "校园", 1234, null, false, "2024-01-01", null));
@@ -276,13 +277,15 @@ class AnimeServiceImplTest {
     }
 
     @Test
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)
     void 当搜索结果存在精确匹配时应该写入BangumiId并补齐封面() {
         AnimeVO saved = animeService.addAnime(
                 createDetailedDTO("孤独摇滚", 12, "2022秋", 9.0, "音乐", null, null, false, "2022-10-01", null));
 
-        when(bangumiService.search(eq("孤独摇滚"), eq(5))).thenReturn(List.of(
-                createBangumiResult(999, "孤独摇滚", "孤独摇滚", "https://img.test/bocchi.jpg", 8.8)
-        ));
+        when(bangumiService.search(eq("孤独摇滚"), eq(5))).thenAnswer(invocation -> {
+            assertFalse(org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive(), "外部搜索不能持有写入事务");
+            return List.of(createBangumiResult(999, "孤独摇滚", "孤独摇滚", "https://img.test/bocchi.jpg", 8.8));
+        });
 
         AnimeVO matched = animeService.matchBangumi(saved.getId());
 
@@ -291,6 +294,22 @@ class AnimeServiceImplTest {
     }
 
     @Test
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)
+    void 当等待匹配期间用户改名时应该拒绝旧结果并保留手工封面() {
+        AnimeVO saved = animeService.addAnime(createDTO("虚构旧名", 12, "2026秋", 8.0));
+        when(bangumiService.search(eq("虚构旧名"), eq(5))).thenAnswer(invocation -> {
+            var current = animeRepository.findById(saved.getId()).orElseThrow();
+            current.setName("虚构新名"); current.setCoverUrl("https://example.invalid/manual.jpg"); animeRepository.saveAndFlush(current);
+            return List.of(createBangumiResult(888, "虚构旧名", "虚构旧名", "https://example.invalid/stale.jpg", 8.0));
+        });
+        assertThrows(com.otakulog.common.ConflictException.class, () -> animeService.matchBangumi(saved.getId()));
+        var current = animeRepository.findById(saved.getId()).orElseThrow();
+        assertEquals("虚构新名", current.getName()); assertNull(current.getBangumiId());
+        assertEquals("https://example.invalid/manual.jpg", current.getCoverUrl());
+    }
+
+    @Test
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)
     void 当搜索结果没有精确匹配时应该抛出异常() {
         AnimeVO saved = animeService.addAnime(
                 createDetailedDTO("未匹配番剧", 12, "2024春", 7.0, "悬疑", null, null, false, "2024-04-01", null));
@@ -306,6 +325,7 @@ class AnimeServiceImplTest {
     }
 
     @Test
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)
     void 当批量补链部分成功部分失败时应该返回准确统计() {
         animeService.addAnime(createDetailedDTO("命运石之门", 24, "2011春", 9.5, "科幻", null, null, false, "2024-01-01", null));
         animeService.addAnime(createDetailedDTO("匹配失败作品", 12, "2024冬", 6.5, "悬疑", null, null, false, "2024-02-01", null));

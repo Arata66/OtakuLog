@@ -279,6 +279,9 @@ public class BackupService {
         return new Analysis(matches, groupMatches, conflicts, result);
     }
 
+    // 只检查文件自身的结构、字段与关联，不能把当前本地合并冲突当作旧备份损坏。
+    public void validateDocument(String json) { parse(json); }
+
     private Input parse(String json) {
         try {
             JsonNode root = mapper.readTree(json);

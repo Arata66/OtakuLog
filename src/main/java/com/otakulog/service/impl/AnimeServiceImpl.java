@@ -20,6 +20,7 @@ import com.otakulog.service.BangumiService;
 import com.otakulog.service.WatchProgressService;
 import com.otakulog.util.SortUtil;
 import com.otakulog.service.BackupService;
+import com.otakulog.service.BangumiMatchStore;
 import com.otakulog.service.BangumiImportService;
 
 import org.springframework.data.domain.Page;
@@ -44,6 +45,7 @@ public class AnimeServiceImpl implements AnimeService {
     private final TagRepository tagRepository;
     private final WatchProgressService watchProgress;
     private final BackupService backup;
+    private final BangumiMatchStore matchStore;
     private final BangumiImportService bangumiImport;
     private final com.otakulog.repository.ExternalCollectionRepository externalCollections;
     private final com.otakulog.service.RecommendationService recommendations;
@@ -52,7 +54,7 @@ public class AnimeServiceImpl implements AnimeService {
                             EpisodeRecordRepository episodeRecordRepository, TagRepository tagRepository,
                             WatchProgressService watchProgress, BackupService backup, BangumiImportService bangumiImport,
                             AnimeMemoryRepository memoryRepository, MemoryInsightRepository insightRepository,
-                            com.otakulog.repository.ExternalCollectionRepository externalCollections,com.otakulog.service.RecommendationService recommendations) {
+                            com.otakulog.repository.ExternalCollectionRepository externalCollections,com.otakulog.service.RecommendationService recommendations, BangumiMatchStore matchStore) {
         this.animeRepository = animeRepository;
         this.memoryRepository = memoryRepository;
         this.insightRepository = insightRepository;
@@ -64,6 +66,7 @@ public class AnimeServiceImpl implements AnimeService {
         this.bangumiImport = bangumiImport;
         this.externalCollections = externalCollections;
         this.recommendations = recommendations;
+        this.matchStore = matchStore;
     }
 
     @Override
@@ -488,31 +491,26 @@ public class AnimeServiceImpl implements AnimeService {
     }
 
     @Override
-    @Transactional
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)
     public AnimeVO matchBangumi(Long id) {
-        Anime anime = animeRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("未找到该番剧"));
+        AnimeVO anime = matchStore.read(id);
 
         if (anime.getBangumiId() != null) {
-            return toVO(anime);
+            return anime;
         }
 
         List<BangumiResult> results = bangumiService.search(anime.getName(), 5);
         for (BangumiResult r : results) {
             if (anime.getName().equalsIgnoreCase(r.getName())
                     || anime.getName().equalsIgnoreCase(r.getNameCn())) {
-                anime.setBangumiId(r.getId());
-                if (anime.getCoverUrl() == null && r.getImage() != null) {
-                    anime.setCoverUrl(r.getImage());
-                }
-                return toVO(animeRepository.save(anime));
+                return matchStore.apply(id, anime.getName(), r);
             }
         }
         throw new IllegalArgumentException("未在 Bangumi 找到匹配结果");
     }
 
     @Override
-    @Transactional
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)
     public Map<String, Object> batchMatchBangumi() {
         List<Anime> noBangumi = animeRepository.findByBangumiIdIsNull();
         int matched = 0;

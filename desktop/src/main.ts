@@ -179,6 +179,7 @@ async function openWindow() {
       { label: '打开资料目录', click: () => openDirectory(dataRoot) },
       { label: '打开数据目录', click: () => openDirectory(path.join(dataRoot, 'data')) },
       { label: '打开日志目录', click: () => openDirectory(path.join(dataRoot, 'logs')) },
+      { label: '打开备份目录', click: () => openDirectory(path.join(dataRoot, 'backups')) },
       { type: 'separator' }, { label: '退出', role: 'quit' }
     ] },
     { label: '编辑', submenu: [

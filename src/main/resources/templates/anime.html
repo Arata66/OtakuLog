@@ -81,6 +81,8 @@
         </div>
 
         <!-- Tabs -->
+        <p th:if="${desktopManaged}" class="memory-note">资料保存在本机；记录、感想、手工观点、统计和完整备份无需联网。Bangumi、推荐、以图搜番、AI 和 WebDAV 需要网络。</p>
+        <p th:if="${desktopManaged}" id="desktopBackupStatus" class="memory-note" role="status" aria-live="polite"></p>
         <div class="tabs" role="tablist" aria-label="页面导航">
             <button type="button" class="tab active" role="tab" aria-selected="true" aria-controls="tab-list" data-i18n="tab.list" data-ui-click="switchTab" data-ui-args="[&quot;list&quot;]">番剧列表</button>
             <button type="button" class="tab" role="tab" aria-selected="false" aria-controls="tab-charts" data-i18n="tab.charts" data-ui-click="switchTab" data-ui-args="[&quot;charts&quot;]">数据图表</button>
@@ -403,5 +405,6 @@
     <script th:src="@{/js/watch-actions.js}"></script>
     <script th:src="@{/js/daily-watch.js}"></script>
     <script th:if="${desktopManaged}" th:src="@{/js/desktop-ai.js}"></script>
+    <script th:if="${desktopManaged}" th:src="@{/js/desktop-backup.js}"></script>
 </body>
 </html>

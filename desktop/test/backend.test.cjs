@@ -15,6 +15,7 @@ test('当启动内置后端时应该固定运行时和隔离资料目录并清�
   });
   assert.equal(launch.file, path.join(resources, 'runtime', 'bin', 'java.exe'));
   assert.ok(launch.args.includes('--app.desktop.data-dir=' + directory));
+  assert.ok(launch.args.includes('--app.desktop.backup-dir=' + path.join(directory, '..', 'backups')));
   assert.ok(launch.args.includes('--app.desktop.managed=true'));
   assert.equal(launch.env.DEEPSEEK_API_KEY, undefined);
   assert.equal(launch.env.APP_AI_ENABLED, undefined);
