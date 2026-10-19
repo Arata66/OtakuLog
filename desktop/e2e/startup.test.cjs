@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { launchApplication } = require('./helpers/application.cjs');
+const { launchApplication, openAddForm } = require('./helpers/application.cjs');
 
 const desktop = path.resolve(__dirname, '..');
 
@@ -23,6 +23,7 @@ test('当没有系统运行时入口时应该免登录打开独立窗口并在�
   assert.equal(await current.page.evaluate(() => typeof require), 'undefined');
   assert.equal(await current.page.evaluate(async () =>
     (await globalThis.navigator.permissions.query({ name: 'geolocation' })).state), 'denied');
+  await openAddForm(current.page);
   await current.page.locator('#animeName').fill('虚构桌面联动验收');
   await current.page.locator('#totalEpisodes').fill('12');
   await current.page.locator('#animeSeason').fill('2026秋');

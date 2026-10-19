@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { expect } = require('@playwright/test');
-const { launchApplication } = require('./helpers/application.cjs');
+const { launchApplication, openAddForm, selectTableView } = require('./helpers/application.cjs');
 
 test('当本地保存触发每日备份或备份失败时应该保留首份文件并明确提示而不丢记录', { timeout: 180000 }, async t => {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'otakulog-daily-backup-'));
@@ -22,6 +22,7 @@ test('当本地保存触发每日备份或备份失败时应该保留首份文�
   const { page, application } = current;
   const daily = path.join(directory, 'backups', 'daily');
   assert.equal(fs.existsSync(daily), false);
+  await openAddForm(page);
   await page.locator('#animeName').fill('虚构每日备份作品');
   await page.locator('#totalEpisodes').fill('12');
   await page.locator('#animeSeason').fill('2026秋');
@@ -36,6 +37,7 @@ test('当本地保存触发每日备份或备份失败时应该保留首份文�
   const file = path.join(daily, fs.readdirSync(daily).find(name => name.endsWith('.json'))), first = fs.readFileSync(file);
   assert.equal(JSON.parse(first).version, 6);
   assert.equal(JSON.parse(first).anime[0].data.name, '虚构每日备份作品');
+  await selectTableView(page);
   const edit = async remark => {
     await page.locator('.table-card tbody tr').filter({ hasText: '虚构每日备份作品' }).getByRole('button', { name: '编辑', exact: true }).click();
     await page.locator('#m-remark').fill(remark);

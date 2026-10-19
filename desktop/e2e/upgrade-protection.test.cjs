@@ -5,7 +5,7 @@ const os = require('node:os');
 const path = require('node:path');
 const { createHash } = require('node:crypto');
 const { expect } = require('@playwright/test');
-const { launchApplication } = require('./helpers/application.cjs');
+const { launchApplication, openAddForm } = require('./helpers/application.cjs');
 
 test('当资料引擎版本不匹配时应该在开库前拒绝并显示恢复位置且原记录仍能重开', { timeout: 120000 }, async t => {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'otakulog-upgrade-protection-'));
@@ -26,6 +26,7 @@ test('当资料引擎版本不匹配时应该在开库前拒绝并显示恢复�
       contentType: 'application/json', body: '{"code":503,"message":"虚构离线放送服务"}' }));
   };
   current = await launchApplication(directory, undefined, { configure: offlineCalendar });
+  await openAddForm(current.page);
   await current.page.locator('#animeName').fill('虚构引擎保护记录');
   await current.page.locator('#totalEpisodes').fill('12');
   await current.page.locator('#animeSeason').fill('2026秋');

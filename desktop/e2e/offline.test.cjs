@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { expect } = require('@playwright/test');
-const { launchApplication } = require('./helpers/application.cjs');
+const { launchApplication, openAddForm, selectDesktopPage, selectTableView } = require('./helpers/application.cjs');
 
 async function readBackup(page) {
   const result = await page.evaluate(async () => {
@@ -33,6 +33,7 @@ async function saveByUi(page, pathname, action) {
 }
 
 async function fillAnime(page, name, status, score) {
+  await openAddForm(page);
   await page.locator('#animeName').fill(name);
   await page.locator('#totalEpisodes').fill('12');
   await page.locator('#animeSeason').fill('2026秋');
@@ -85,6 +86,7 @@ test('当渲染器模拟断网且没有Key时应该完成本地业务并跨资�
     await fillAnime(page, '虚构离线航行', 'watching', '8');
     await page.locator('#animeTags').fill('虚构奇幻,日常');
     const created = await saveByUi(page, '/api/anime/add', () => page.locator('#animeForm button[type="submit"]').click());
+    await selectTableView(page);
     const row = page.locator('.table-card tbody tr').filter({ hasText: '虚构离线航行' });
     await expect(row.locator('.ep')).toHaveText('1 / 12');
     await row.getByRole('button', { name: '编辑', exact: true }).click();
@@ -140,13 +142,14 @@ test('当渲染器模拟断网且没有Key时应该完成本地业务并跨资�
     await expect(page.locator('#stat-planning')).toHaveText('1');
     await expect(page.locator('#stat-episodes')).toHaveText('2 / 24');
     await expect(page.locator('#stat-avg-score')).toHaveText('8.0');
-    await page.getByRole('tab', { name: '数据图表', exact: true }).click();
+    await selectDesktopPage(page, 'charts');
     await page.waitForFunction(() => Object.values(globalThis.Chart.instances).some(chart => chart.canvas.id === 'c1'));
     assert.deepEqual(await page.evaluate(() => Object.values(globalThis.Chart.instances).find(chart => chart.canvas.id === 'c1').data.datasets[0].data), [1, 0, 1, 0]);
 
     const savedFile = path.join(sourceDirectory, '离线完整备份.json');
     // 只替代系统保存框的用户选择，实际导出仍走桌面文件与真实本地 HTTP。
     await application.evaluate(({ dialog }, filePath) => { dialog.showSaveDialog = async () => ({ canceled: false, filePath }); }, savedFile);
+    await selectDesktopPage(page, 'settings');
     await page.locator('[data-ui-click="exportData"]').click();
     await expect(page.getByText('备份已保存', { exact: true })).toBeVisible();
     const backup = JSON.parse(fs.readFileSync(savedFile, 'utf8'));
@@ -185,6 +188,7 @@ test('当渲染器模拟断网且没有Key时应该完成本地业务并跨资�
     assert.ok(fs.existsSync(path.join(restoredDirectory, 'data', 'otakulog.mv.db')));
     ({ page } = await launch(restoredDirectory));
     assert.deepEqual(businessData(await readBackup(page)), businessData(backup), '重开程序后仍须保留全部恢复资料');
+    await selectTableView(page);
     const restoredRow = page.locator('.table-card tbody tr').filter({ hasText: '虚构离线航行·修订' });
     await expect(restoredRow.locator('.ep')).toHaveText('2 / 12');
     await restoredRow.getByRole('button', { name: '写感想', exact: true }).click();

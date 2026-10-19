@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { expect } = require('@playwright/test');
-const { launchApplication } = require('./helpers/application.cjs');
+const { launchApplication, openAddForm, selectDesktopPage, selectTableView } = require('./helpers/application.cjs');
 
 async function readBackup(page) {
   // 受管会话在专用分区，备份必须由该页面同源读取。
@@ -67,6 +67,7 @@ test('当远程脚本字体不可用时应该用真实本地资源完成新增�
     ['/js/vendor/Sortable.min.js', '/js/vendor/chart.umd.js', '/js/vendor/marked.min.js', '/js/vendor/purify.min.js'].sort());
   assert.deepEqual(await page.evaluate(async () => ({ workers: (await globalThis.navigator.serviceWorker.getRegistrations()).length,
     controlled: Boolean(globalThis.navigator.serviceWorker.controller), caches: await globalThis.caches.keys() })), { workers: 0, controlled: false, caches: [] });
+  await openAddForm(page);
   await page.locator('#animeName').fill('虚构本地资源验收');
   await page.locator('#totalEpisodes').fill('12');
   await page.locator('#animeSeason').fill('2026秋');
@@ -84,6 +85,7 @@ test('当远程脚本字体不可用时应该用真实本地资源完成新增�
   assert.equal(created.data.status, 'watching');
   assert.equal(created.data.currentEpisode, 1);
   const animeKey = 'a:' + created.data.id;
+  await selectTableView(page);
   const row = page.locator('.table-card tbody tr').filter({ hasText: '虚构本地资源验收' });
   await expect(row).toBeVisible();
   await expect(row.locator('.ep')).toHaveText('1 / 12');
@@ -119,7 +121,7 @@ test('当远程脚本字体不可用时应该用真实本地资源完成新增�
   await expect(page.locator('#memoryStatus')).toHaveText('感想已保存。');
   await expect(page.locator('#animeMemorySection')).toContainText('虚构的本地安全验收感想');
   await page.locator('#detailModal').getByRole('button', { name: '关闭', exact: true }).click();
-  await page.getByRole('tab', { name: '数据图表', exact: true }).click();
+  await selectDesktopPage(page, 'charts');
   await page.waitForFunction(() => Object.keys(globalThis.Chart.instances).length > 0);
   assert.equal(await page.evaluate(() => Boolean(globalThis.__remarkInjected)), false);
   assert.deepEqual(current.remote.filter(value => ['script', 'font', 'stylesheet'].includes(value.type)), []);

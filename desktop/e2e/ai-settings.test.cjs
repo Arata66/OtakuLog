@@ -5,7 +5,7 @@ const os = require('node:os');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const { expect } = require('@playwright/test');
-const { launchApplication } = require('./helpers/application.cjs');
+const { launchApplication, openAddForm, selectDesktopPage, selectTableView } = require('./helpers/application.cjs');
 
 test('当用户配置自己的Key时应该密文保存并重开恢复且清除后不影响本地资料', { timeout: 180000 }, async t => {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'otakulog-ai-e2e-'));
@@ -18,7 +18,9 @@ test('当用户配置自己的Key时应该密文保存并重开恢复且清除�
   });
   current = await launchApplication(directory);
   let { page, application } = current;
+  await selectDesktopPage(page, 'settings');
   await expect(page.locator('#desktopSettingsBtn')).toBeVisible({ timeout: 3000 });
+  await openAddForm(page);
   await page.locator('#animeName').fill('虚构密钥配置记录');
   await page.locator('#totalEpisodes').fill('12');
   await page.locator('#animeSeason').fill('2026秋');
@@ -30,6 +32,7 @@ test('当用户配置自己的Key时应该密文保存并重开恢复且清除�
   ]);
   const createdValue = await created.json();
   assert.equal(createdValue.code, 200);
+  await selectDesktopPage(page, 'settings');
   await page.locator('#desktopSettingsBtn').click();
   const modal = page.getByRole('dialog', { name: 'AI 服务' });
   await expect(modal).toBeVisible();
@@ -68,6 +71,7 @@ test('当用户配置自己的Key时应该密文保存并重开恢复且清除�
   assert.equal(restored.settings.dailyLimit, 3);
   const restoredUsage = await page.evaluate(async () => (await (await globalThis.fetch('/api/taste/ai/usage')).json()));
   assert.equal(restoredUsage.data.configured, true);
+  await selectDesktopPage(page, 'settings');
   await page.locator('#desktopSettingsBtn').click();
   const reopened = page.getByRole('dialog', { name: 'AI 服务' });
   await expect(reopened.getByLabel('自己的 API Key')).toHaveValue('');
@@ -80,6 +84,7 @@ test('当用户配置自己的Key时应该密文保存并重开恢复且清除�
   await reopened.getByRole('button', { name: '关闭', exact: true }).click();
   const after = await page.evaluate(async () => (await (await globalThis.fetch('/api/anime/export')).json()));
   assert.deepEqual(after.anime, JSON.parse(backup).anime);
+  await selectTableView(page);
   await expect(page.locator('.table-card tbody tr').filter({ hasText: '虚构密钥配置记录' })).toBeVisible();
   await page.evaluate(id => globalThis.openEditModal(id), createdValue.data.id);
   await page.locator('#m-remark').fill('底层未保存的虚构草稿');

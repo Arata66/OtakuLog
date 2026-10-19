@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { setTimeout: delay } = require('node:timers/promises');
-const { launchApplication } = require('./helpers/application.cjs');
+const { launchApplication, openAddForm } = require('./helpers/application.cjs');
 
 async function until(read, message, timeout = 30000) {
   const deadline = Date.now() + timeout;
@@ -49,6 +49,7 @@ test('当主进程在启动中或运行中异常退出时应该收回Java并允�
           '故障必须发生在Spring完成启动前');
     }
     else {
+      await openAddForm(current.page);
       await current.page.locator('#animeName').fill('虚构崩溃恢复记录');
       await current.page.locator('#totalEpisodes').fill('12');
       await current.page.locator('#animeSeason').fill('2026秋');

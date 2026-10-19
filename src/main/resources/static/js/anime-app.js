@@ -1,5 +1,5 @@
         const SM = { watching: '追中', finished: '已完成', planning: '计划', dropped: '放弃' };
-        let viewMode = localStorage.getItem('otakulog-view') || 'table';
+        let viewMode = localStorage.getItem('otakulog-view') || (document.querySelector('meta[name="otakulog-desktop-managed"]')?.content === 'true' ? 'gallery' : 'table');
         let currentPage = 0, isLoading = false, hasMore = true;
         let totalElements = 0, loadedCount = 0;
         let displayedAnime = [];
@@ -33,6 +33,10 @@
         let _lastFocusedBeforeModal = null;
         function rememberFocus() { _lastFocusedBeforeModal = document.activeElement; }
         function restoreFocus() { if (_lastFocusedBeforeModal && typeof _lastFocusedBeforeModal.focus === 'function' && document.contains(_lastFocusedBeforeModal)) { _lastFocusedBeforeModal.focus(); } _lastFocusedBeforeModal = null; }
+        function modalContainer() {
+            const addDialog = document.getElementById('desktopAddDialog');
+            return window.otakulogDesktopCollection && addDialog?.open ? addDialog : document.body;
+        }
         function debounce(fn, ms) { let t; return function(...a) { clearTimeout(t); t = setTimeout(() => fn.apply(this, a), ms); }; }
         function esc(s) { if (s == null) return ''; const d = document.createElement('div'); d.appendChild(document.createTextNode(s)); return d.innerHTML.replace(/"/g, '&quot;'); }
         let pendingDesktopWrites = 0, desktopExitGuardRegistered = false;
@@ -138,11 +142,16 @@
         }
         function progressPercent(anime) { return anime.totalEpisodes > 0 ? Math.round(anime.currentEpisode / anime.totalEpisodes * 100) : 0; }
         function firstLetter(text) { return text ? text.charAt(0) : '?'; }
+        function coverFallbackText(name, failed = false) {
+            return document.querySelector('meta[name="otakulog-desktop-managed"]')?.content === 'true'
+                ? (failed ? '封面暂不可用' : '暂无封面') : firstLetter(name);
+        }
         function coverHtml(anime, className, emptyClass, emptyText) {
+            const desktop = document.querySelector('meta[name="otakulog-desktop-managed"]')?.content === 'true';
             if (anime.coverUrl) {
-                return `<img data-src="${esc(anime.coverUrl)}" loading="lazy" class="${className}" data-ui-image="placeholder" data-ui-empty-class="${emptyClass}" data-ui-empty-text="${esc(firstLetter(anime.name))}">`;
+                return `<img data-src="${esc(anime.coverUrl)}" alt="${esc(anime.name)} 封面" loading="lazy" class="${className}" data-ui-image="placeholder" data-ui-empty-class="${emptyClass}" data-ui-empty-text="${esc(coverFallbackText(anime.name, true))}">`;
             }
-            return `<div class="${emptyClass}">${esc(emptyText || firstLetter(anime.name))}</div>`;
+            return `<div class="${emptyClass}">${desktop ? '暂无封面' : esc(emptyText || firstLetter(anime.name))}</div>`;
         }
         function statusBadgeHtml(status) {
             const safeStatus = esc(status);
@@ -356,9 +365,16 @@
             if (n === 'timeline') loadTL();
             if (n === 'calendar') loadCalendar();
             if (n === 'list') loadDailyWatch();
+            window.otakulogDesktopCollection?.syncNavigation(n);
         }
         function goToAddTracking(name) {
             if (!closeDetailModal()) return;
+            if (window.otakulogDesktopCollection) {
+                if (!window.otakulogDesktopCollection.openAdd(true)) return;
+                document.getElementById('animeName').value = name;
+                searchBangumi();
+                return;
+            }
             switchTab('list');
             setTimeout(() => {
                 document.getElementById('animeName').value = name;
@@ -394,12 +410,18 @@
         /* Add anime */
         async function addAnime(e) {
             e.preventDefault();
+            const desktopForm = window.otakulogDesktopCollection ? document.getElementById('animeForm') : null;
+            if (desktopForm?.inert) return;
             const bd = document.getElementById('animeBroadcastDay').value;
             const bgId = document.getElementById('animeBangumiId').value;
             const statusVal = document.getElementById('animeStatus') ? document.getElementById('animeStatus').value : 'watching';
             const b = { name: document.getElementById('animeName').value, totalEpisodes: parseInt(document.getElementById('totalEpisodes').value), season: document.getElementById('animeSeason').value, score: parseFloat(document.getElementById('animeScore').value), remark: document.getElementById('animeRemark').value, coverUrl: document.getElementById('animeCover').value || null, startDate: document.getElementById('animeStartDate').value || null, endDate: document.getElementById('animeEndDate').value || null, tags: document.getElementById('animeTags').value || null, watchSeason: document.getElementById('animeWatchSeason').value || null, broadcastDay: bd ? parseInt(bd) : null, bangumiId: bgId ? parseInt(bgId) : null, status: statusVal, legacy: document.getElementById('animeLegacy').checked };
-            const r = await fetchApi('/api/anime/add', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b) });
-            if (r && r.code === 200) { toast('已添加', 'success'); document.getElementById('animeForm').reset(); closeBangumi(); performSearch(); updateStats(); } else if (r) toast(r.message || '添加失败', 'error');
+            // 在途输入不能被成功后的复位吞掉，也不能重复提交同一份草稿。
+            if (desktopForm) desktopForm.inert = true;
+            let r;
+            try { r = await fetchApi('/api/anime/add', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b) }); }
+            finally { if (desktopForm) desktopForm.inert = false; }
+            if (r && r.code === 200) { toast('已添加', 'success'); document.getElementById('animeForm').reset(); closeBangumi(); window.otakulogDesktopCollection?.afterAnimeSaved(); performSearch(); updateStats(); } else if (r) toast(r.message || '添加失败', 'error');
         }
 
         /* Bangumi search */
@@ -508,8 +530,10 @@
             html += '</div>';
             card.innerHTML = html;
             overlay.appendChild(card);
-            document.body.appendChild(overlay);
+            // 原生添加窗口之外的节点处于不可交互状态，识图结果需留在当前窗口内。
+            modalContainer().appendChild(overlay);
             trapFocus(overlay);
+            overlay.querySelector('button')?.focus();
         }
 
         /* Detail modal */
@@ -544,7 +568,7 @@
             const a = _cache[id];
             if (!a) { toast('未找到该番剧', 'error'); return; }
             const pct = a.totalEpisodes > 0 ? Math.round(a.currentEpisode / a.totalEpisodes * 100) : 0;
-            const cover = a.coverUrl ? `<img src="${esc(a.coverUrl)}" class="detail-cover" data-ui-image="placeholder" data-ui-empty-class="detail-cover-empty" data-ui-empty-text="${esc(a.name.charAt(0))}">` : `<div class="detail-cover-empty">${esc(a.name.charAt(0))}</div>`;
+            const cover = a.coverUrl ? `<img src="${esc(a.coverUrl)}" alt="${esc(a.name)} 封面" class="detail-cover" data-ui-image="placeholder" data-ui-empty-class="detail-cover-empty" data-ui-empty-text="${esc(coverFallbackText(a.name, true))}">` : `<div class="detail-cover-empty">${esc(coverFallbackText(a.name))}</div>`;
             const bangumiLink = a.bangumiId ? `<a href="https://bgm.tv/subject/${a.bangumiId}" target="_blank" rel="noopener" class="detail-bangumi-link">在 Bangumi 查看 ↗</a>` : '';
             const overlay = document.createElement('div'); overlay.className = 'detail-overlay'; overlay.id = 'detailModal'; overlay.dataset.animeId = String(id); overlay.onclick = function(e) { if (e.target === overlay) closeDetailModal(); };
             const card = document.createElement('div'); card.className = 'detail-card'; card.setAttribute('role', 'dialog'); card.setAttribute('aria-modal', 'true'); card.setAttribute('aria-label', '番剧详情');
@@ -726,6 +750,7 @@
             overlay.addEventListener('keydown', function(e) {
                 if (e.isComposing || e.keyCode === 229) return;
                 if (e.key === 'Escape') {
+                    if (overlay.id === 'traceMoeModal') e.preventDefault();
                     e.stopPropagation();
                     if (overlay.id === 'editModal') closeEditModal();
                     else if (overlay.id === 'traceMoeModal') closeTraceMoeModal();
@@ -1320,6 +1345,7 @@
         }
 
         function addToTrackingFromBrowse(bangumiId, name, eps, date, image) {
+            if (window.otakulogDesktopCollection && !window.otakulogDesktopCollection.openAdd(true)) return;
             document.getElementById('animeBangumiId').value = bangumiId;
             document.getElementById('animeName').value = name;
             if (eps) document.getElementById('totalEpisodes').value = eps;
@@ -1338,8 +1364,10 @@
                     document.getElementById('animeBroadcastDay').value = jsDay === 0 ? 7 : jsDay;
                 } catch(e) {}
             }
-            switchTab('list');
-            setTimeout(() => document.querySelector('.add-form')?.scrollIntoView({ behavior: 'smooth' }), 200);
+            if (!window.otakulogDesktopCollection) {
+                switchTab('list');
+                setTimeout(() => document.querySelector('.add-form')?.scrollIntoView({ behavior: 'smooth' }), 200);
+            }
             toast('已填充 ' + name, 'success');
         }
 
@@ -1365,7 +1393,7 @@
             }
             const d = detailRes.data;
             const displayName = d.nameCn || d.name || '';
-            const cover = d.coverUrl ? `<img src="${esc(d.coverUrl)}" class="detail-cover" data-ui-image="placeholder" data-ui-empty-class="detail-cover-empty" data-ui-empty-text="${esc(displayName.charAt(0))}">` : `<div class="detail-cover-empty">${esc(displayName.charAt(0))}</div>`;
+            const cover = d.coverUrl ? `<img src="${esc(d.coverUrl)}" alt="${esc(displayName)} 封面" class="detail-cover" data-ui-image="placeholder" data-ui-empty-class="detail-cover-empty" data-ui-empty-text="${esc(coverFallbackText(displayName, true))}">` : `<div class="detail-cover-empty">${esc(coverFallbackText(displayName))}</div>`;
 
             let tagsHtml = '';
             if (d.tags && d.tags.length > 0) {
@@ -1794,13 +1822,16 @@
             registerServiceWorker();
             updateStats(); performSearch();
             const savedTab = localStorage.getItem('otakulog-tab');
-            if (savedTab && savedTab !== 'list') switchTab(savedTab);
+            if (savedTab && savedTab !== 'list' && document.getElementById('tab-' + savedTab)) switchTab(savedTab);
             if (viewMode !== 'table') {
                 $tableCard.classList.add('hidden');
                 $viewTable.classList.remove('active');
                 if (viewMode === 'detail') { $detailView.classList.add('active'); $viewDetail.classList.add('active'); }
                 if (viewMode === 'gallery') { $galleryView.classList.add('active'); $viewGallery.classList.add('active'); }
             }
+            $viewTable.setAttribute('aria-pressed', viewMode === 'table' ? 'true' : 'false');
+            $viewDetail.setAttribute('aria-pressed', viewMode === 'detail' ? 'true' : 'false');
+            $viewGallery.setAttribute('aria-pressed', viewMode === 'gallery' ? 'true' : 'false');
             $searchName.addEventListener('input', debounce(() => performSearch(), 300));
             $filterStatus.addEventListener('change', () => performSearch());
             $sortBy.addEventListener('change', () => performSearch());

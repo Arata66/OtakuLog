@@ -18,9 +18,26 @@
     <script th:src="@{/js/preferences.js}"></script>
     <script th:src="@{/js/i18n.js}"></script>
     <link rel="stylesheet" th:href="@{/css/anime.css}">
+    <link th:if="${desktopManaged}" rel="stylesheet" th:href="@{/css/desktop-collection.css}">
 </head>
-<body>
+<body th:classappend="${desktopManaged} ? 'desktop-collection' : ''">
     <div class="tw" id="tw" aria-live="polite" aria-atomic="true"></div>
+    <aside th:if="${desktopManaged}" class="desktop-sidebar">
+        <a class="desktop-brand" href="#tab-list" data-ui-click="switchTab" data-ui-args="[&quot;list&quot;]" aria-label="OtakuLog 番剧收藏">
+            <span class="desktop-brand-mark" aria-hidden="true"><i class="ph ph-stack"></i></span>
+            <span>OtakuLog<small>番剧收藏馆</small></span>
+        </a>
+        <nav id="desktopCollectionNav" aria-label="应用导航">
+            <span class="desktop-nav-caption">我的资料库</span>
+            <button type="button" data-desktop-tab="list" data-ui-click="switchTab" data-ui-args="[&quot;list&quot;]" aria-current="page" aria-controls="tab-list"><i class="ph ph-books" aria-hidden="true"></i><span>番剧收藏</span></button>
+            <button type="button" data-desktop-tab="insights" data-ui-click="switchTab" data-ui-args="[&quot;insights&quot;]" aria-controls="tab-insights"><i class="ph ph-notebook" aria-hidden="true"></i><span>观影总结</span></button>
+            <button type="button" data-desktop-tab="charts" data-ui-click="switchTab" data-ui-args="[&quot;charts&quot;]" aria-controls="tab-charts"><i class="ph ph-chart-bar" aria-hidden="true"></i><span>数据图表</span></button>
+            <button type="button" data-desktop-tab="calendar" data-ui-click="switchTab" data-ui-args="[&quot;calendar&quot;]" aria-controls="tab-calendar"><i class="ph ph-calendar-blank" aria-hidden="true"></i><span>日历</span></button>
+            <button type="button" data-desktop-tab="timeline" data-ui-click="switchTab" data-ui-args="[&quot;timeline&quot;]" aria-controls="tab-timeline"><i class="ph ph-path" aria-hidden="true"></i><span>时间线</span></button>
+            <button type="button" class="desktop-nav-settings" data-desktop-tab="settings" data-ui-click="switchTab" data-ui-args="[&quot;settings&quot;]" aria-controls="tab-settings"><i class="ph ph-sliders-horizontal" aria-hidden="true"></i><span>设置</span></button>
+        </nav>
+        <div class="desktop-sidebar-note"><span class="desktop-local-dot" aria-hidden="true"></span>本机资料<small>离线也能记番、写感想</small></div>
+    </aside>
     <div class="mobile-nav"><div class="mobile-nav-inner">
         <button class="mobile-nav-btn active" data-ui-click="mobileTab" data-ui-args="[&quot;list&quot;,0]" aria-label="列表" aria-pressed="true"><i class="ph ph-list mobile-nav-icon" aria-hidden="true"></i><span>列表</span></button>
         <button class="mobile-nav-btn" data-ui-click="mobileTab" data-ui-args="[&quot;charts&quot;,1]" aria-label="图表" aria-pressed="false"><i class="ph ph-chart-bar mobile-nav-icon" aria-hidden="true"></i><span>图表</span></button>
@@ -44,9 +61,14 @@
     <div class="app">
         <!-- Header -->
         <div class="header">
-            <div>
+            <div class="website-brand">
                 <div class="logo">OtakuLog</div>
                 <div class="logo-sub" data-i18n="app.subtitle">追番日记</div>
+            </div>
+            <div th:if="${desktopManaged}" class="desktop-page-heading">
+                <p class="desktop-kicker">让喜欢的故事，留在这里</p>
+                <h1 id="desktopPageTitle">我的番剧</h1>
+                <p id="desktopPageDescription">继续观看，或者记下今天的感想。</p>
             </div>
             <div class="header-right">
                 <div class="menu-anchor">
@@ -62,7 +84,7 @@
                 </div>
                 <button class="btn-h" id="langToggle" data-ui-click="toggleLanguage" title="Switch to English" aria-label="Switch to English" data-i18n-title="lang.target" data-i18n-aria-label="lang.target">EN</button>
                 <button class="btn-h" id="themeToggle" data-ui-click="toggleTheme" title="切换为深色" aria-label="切换为深色" data-i18n-title="btn.toDark" data-i18n-aria-label="btn.toDark"><i class="ph ph-moon" aria-hidden="true"></i><span id="themeLabel" data-i18n="btn.dark">深色</span></button>
-                <button th:if="${desktopManaged}" class="btn-h" id="desktopSettingsBtn" data-ui-click="openDesktopAiSettings" aria-haspopup="dialog">设置</button>
+                <button th:if="${desktopManaged}" class="btn-h" id="desktopSettingsBtn" data-ui-click="openDesktopAiSettings" aria-haspopup="dialog"><i class="ph ph-sparkle" aria-hidden="true"></i>配置 AI 服务</button>
                 <div class="menu-anchor">
                     <button class="btn-h" data-ui-click="toggleSyncMenu" id="syncBtn" aria-haspopup="menu" aria-expanded="false" aria-controls="syncMenu"><i class="ph ph-cloud" aria-hidden="true"></i>同步</button>
                     <div id="syncMenu" class="dropdown-menu is-hidden" role="menu" aria-label="同步菜单">
@@ -77,11 +99,12 @@
                 <button class="btn-h" data-ui-click="exportData">导出</button>
                 <label class="btn-h file-btn">导入 <input class="hidden-input" type="file" accept=".json" data-ui-change="importData"></label>
                 <form th:unless="${desktopManaged}" th:action="@{/logout}" method="post" class="inline-form"><button type="submit" class="btn-h ghost">退出</button></form>
+                <button th:if="${desktopManaged}" type="button" class="btn-add desktop-add-button" id="desktopAddButton" aria-haspopup="dialog" aria-controls="desktopAddDialog"><i class="ph ph-plus" aria-hidden="true"></i>添加番剧</button>
             </div>
         </div>
 
         <!-- Tabs -->
-        <p th:if="${desktopManaged}" class="memory-note">资料保存在本机；记录、感想、手工观点、统计和完整备份无需联网。Bangumi、推荐、以图搜番、AI 和 WebDAV 需要网络。</p>
+        <p th:if="${desktopManaged}" id="desktopLocalNote" class="memory-note">资料保存在本机；记录、感想、手工观点、统计和完整备份无需联网。Bangumi、推荐、以图搜番、AI 和 WebDAV 需要网络。</p>
         <p th:if="${desktopManaged}" id="desktopBackupStatus" class="memory-note" role="status" aria-live="polite"></p>
         <div class="tabs" role="tablist" aria-label="页面导航">
             <button type="button" class="tab active" role="tab" aria-selected="true" aria-controls="tab-list" data-i18n="tab.list" data-ui-click="switchTab" data-ui-args="[&quot;list&quot;]">番剧列表</button>
@@ -175,6 +198,7 @@
             </div>
 
             <!-- Table (JS-rendered) -->
+            <div th:if="${desktopManaged}" class="desktop-library-heading"><div><span class="desktop-kicker">收藏里的每一部，都是一段时光</span><h2>全部番剧</h2></div><span class="desktop-cover-note"><i class="ph ph-image" aria-hidden="true"></i>你的封面，你的收藏</span></div>
             <div class="search-strip">
                 <div class="search-field"><label for="searchName" data-i18n="search.label">搜索</label>
                 <input type="text" id="searchName" data-i18n-placeholder="search.name" placeholder="输入番剧名称..."></div>
@@ -208,6 +232,28 @@
 
             <div class="pagination-indicator is-hidden" id="paginationIndicator"></div>
             <div id="scrollSentinel" class="scroll-sentinel"></div>
+        </div>
+
+        <div th:if="${desktopManaged}" id="tab-insights" class="tab-content" aria-label="观影总结"></div>
+        <div th:if="${desktopManaged}" id="tab-settings" class="tab-content" aria-label="设置">
+            <div class="desktop-settings-grid">
+                <section class="desktop-setting-section" aria-labelledby="desktopAppearanceTitle">
+                    <h2 id="desktopAppearanceTitle"><i class="ph ph-palette" aria-hidden="true"></i>外观</h2>
+                    <p>选一抹喜欢的颜色，让收藏馆更像自己。</p>
+                    <div id="desktopAppearanceControls" class="desktop-setting-controls"></div>
+                </section>
+                <section class="desktop-setting-section" aria-labelledby="desktopDataTitle">
+                    <h2 id="desktopDataTitle"><i class="ph ph-hard-drives" aria-hidden="true"></i>资料与备份</h2>
+                    <p>完整备份用于保留记录与跨电脑迁移；导入前会先显示预览。</p>
+                    <div id="desktopDataControls" class="desktop-setting-controls"></div>
+                    <div id="desktopBackupNotes" class="desktop-backup-notes"></div>
+                </section>
+                <section class="desktop-setting-section" aria-labelledby="desktopAiSectionTitle">
+                    <h2 id="desktopAiSectionTitle"><i class="ph ph-sparkle" aria-hidden="true"></i>AI 辅助整理<span>可选</span></h2>
+                    <p>使用你自己的 API Key。只有明确发送才会调用，服务商可能收取费用；不开启也能正常记番和整理观点。</p>
+                    <div id="desktopAiControls" class="desktop-setting-controls"></div>
+                </section>
+            </div>
         </div>
 
         <!-- ===== Charts ===== -->
@@ -378,6 +424,11 @@
         </div>
     </div>
 
+    <dialog th:if="${desktopManaged}" id="desktopAddDialog" class="desktop-add-dialog" aria-labelledby="desktopAddTitle">
+        <div class="desktop-dialog-heading"><div><p class="desktop-kicker">收藏新的故事</p><h2 id="desktopAddTitle">添加番剧</h2></div><button type="button" class="btn-h" id="desktopAddClose">关闭</button></div>
+        <div id="desktopAddContent"></div>
+    </dialog>
+
     <!-- 分组面板 -->
     <div id="groupPanel" class="group-panel" role="dialog" aria-modal="true" aria-labelledby="groupPanelTitle">
         <div class="group-card">
@@ -406,5 +457,6 @@
     <script th:src="@{/js/daily-watch.js}"></script>
     <script th:if="${desktopManaged}" th:src="@{/js/desktop-ai.js}"></script>
     <script th:if="${desktopManaged}" th:src="@{/js/desktop-backup.js}"></script>
+    <script th:if="${desktopManaged}" th:src="@{/js/desktop-collection.js}"></script>
 </body>
 </html>

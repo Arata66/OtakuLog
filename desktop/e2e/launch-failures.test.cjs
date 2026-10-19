@@ -7,7 +7,7 @@ const net = require('node:net');
 const { spawn } = require('node:child_process');
 const { setTimeout: delay } = require('node:timers/promises');
 const { expect } = require('@playwright/test');
-const { launchApplication, applicationLaunchOptions } = require('./helpers/application.cjs');
+const { launchApplication, applicationLaunchOptions, openAddForm } = require('./helpers/application.cjs');
 
 async function until(read, message, timeout = 30000) {
   const deadline = Date.now() + timeout;
@@ -76,7 +76,7 @@ test('当8080已占用且启动中或运行中重复打开时应该唤醒原窗�
   assert.equal(await secondLaunch(state.directory), 0);
   await expect.poll(() => application.evaluate(({ app }) => app.__duplicates)).toBe(1);
   await page.waitForURL(/^http:\/\/127\.0\.0\.1:\d+\/$/, { timeout: 90000 });
-  await page.locator('#animeName').waitFor();
+  await page.locator('#animeName').waitFor({ state: 'attached' });
   const backend = await until(() => javaPid(state.directory), '未找到本次Java'); state.pids.add(backend);
   assert.notEqual(new URL(page.url()).port, '8080');
   await application.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].minimize());
@@ -127,6 +127,7 @@ test('当后端在就绪前或业务运行中退出时应该提示一次并拒�
   state.current = await launchApplication(state.directory); await heldFailure(state.current.application);
   const { application, page } = state.current;
   backend = await until(() => javaPid(state.directory), '运行期未找到本次Java'); state.pids.add(backend);
+  await openAddForm(page);
   await page.locator('#animeName').fill('虚构后端故障保留记录'); await page.locator('#totalEpisodes').fill('12');
   await page.locator('#animeSeason').fill('2026秋'); await page.locator('#animeScore').fill('8');
   await page.locator('#animeStatus').selectOption('planning');
@@ -143,6 +144,7 @@ test('当后端在就绪前或业务运行中退出时应该提示一次并拒�
   process.kill(backend, 'SIGKILL');
   await expect.poll(() => application.evaluate(({ app }) => app.__faults.length)).toBe(1);
   assert.equal((await page.evaluate(() => globalThis.otakulogDesktop.exportBackup())).status, 'failed');
+  await openAddForm(page);
   await page.locator('#animeName').fill('虚构不能保存的记录');
   await page.locator('#totalEpisodes').fill('12'); await page.locator('#animeSeason').fill('2026秋');
   await page.locator('#animeScore').fill('8'); await page.locator('#animeStatus').selectOption('planning');

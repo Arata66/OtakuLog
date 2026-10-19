@@ -5,7 +5,7 @@ const os = require('node:os');
 const path = require('node:path');
 const net = require('node:net');
 const { expect } = require('@playwright/test');
-const { launchApplication } = require('./helpers/application.cjs');
+const { launchApplication, openAddForm, selectDesktopPage } = require('./helpers/application.cjs');
 
 test('当端口变化重开时应该保留偏好和窗口并支持菜单及输入法组合键', { timeout: 180000 }, async t => {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'otakulog-preferences-e2e-'));
@@ -22,6 +22,7 @@ test('当端口变化重开时应该保留偏好和窗口并支持菜单及输�
   assert.equal(await page.evaluate(() => typeof globalThis.otakulogPreferences), 'object');
   await page.evaluate(() => globalThis.otakulogPreferences.ready);
   const firstPort = Number(new URL(page.url()).port);
+  await selectDesktopPage(page, 'settings');
   if (await page.locator('html').getAttribute('data-theme') === 'dark') await page.locator('#themeToggle').click();
   await page.locator('#themeToggle').click();
   await page.locator('#accentBtn').click(); await page.locator('[data-accent="jade"]').click();
@@ -70,6 +71,7 @@ test('当端口变化重开时应该保留偏好和窗口并支持菜单及输�
     return paths;
   });
   assert.deepEqual(opened, [path.join(directory, 'data'), path.join(directory, 'logs')]);
+  await openAddForm(page);
   for (const zoom of [1, 1.25, 1.5]) {
     await application.evaluate(({ BrowserWindow }, factor) => BrowserWindow.getAllWindows()[0].webContents.setZoomFactor(factor), zoom);
     assert.equal(await application.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].webContents.getZoomFactor()), zoom);
@@ -111,6 +113,7 @@ test('当设置损坏或写入失败时应该可见提示并保留原文件', { 
   const before = fs.existsSync(file) ? fs.readFileSync(file) : undefined;
   if (before) fs.unlinkSync(file);
   fs.mkdirSync(file); fs.writeFileSync(path.join(file, '保留.txt'), '原内容');
+  await selectDesktopPage(current.page, 'settings');
   await current.page.locator('#themeToggle').click();
   await expect(current.page.getByText('设置未能保存，本次选择仅在当前窗口生效。请检查设置文件和资料目录的写入权限。', { exact: true })).toBeVisible();
   assert.equal(fs.readFileSync(path.join(file, '保留.txt'), 'utf8'), '原内容');

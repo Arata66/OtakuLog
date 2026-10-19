@@ -22,7 +22,9 @@ async function launchApplication(directory, executable = process.env.OTAKULOG_DE
     if (configure) await configure(application, page);
     if (waitForReady) {
       await page.waitForURL(/^http:\/\/127\.0\.0\.1:\d+\/$/, { timeout: 90000 });
-      await page.locator('#animeName').waitFor();
+      await page.locator('#animeName').waitFor({ state: 'attached' });
+      if (await page.locator('body.desktop-collection').count())
+        await page.waitForFunction(() => Boolean(globalThis.otakulogDesktopCollection));
     }
     return { application, page, startupMs: Date.now() - started };
   } catch (error) {
@@ -31,4 +33,26 @@ async function launchApplication(directory, executable = process.env.OTAKULOG_DE
   }
 }
 
-module.exports = { launchApplication, applicationLaunchOptions };
+async function openAddForm(page) {
+  if (await page.locator('#desktopAddButton').count()
+    && !await page.locator('#desktopAddDialog').evaluate(dialog => dialog.open))
+    await page.locator('#desktopAddButton').click();
+  await page.locator('#animeName').waitFor();
+}
+
+async function selectDesktopPage(page, name) {
+  const sidebar = page.locator('#desktopCollectionNav [data-desktop-tab="' + name + '"]');
+  if (await sidebar.count()) await sidebar.click();
+  else if (name !== 'settings') {
+    const labels = { list: '番剧列表', charts: '数据图表', calendar: '放送日历', timeline: '观影时间线' };
+    await page.getByRole('tab', { name: labels[name], exact: true }).click();
+  }
+}
+
+async function selectTableView(page) {
+  await selectDesktopPage(page, 'list');
+  if (await page.locator('#viewTable').getAttribute('aria-pressed') !== 'true')
+    await page.locator('#viewTable').click();
+}
+
+module.exports = { launchApplication, applicationLaunchOptions, openAddForm, selectDesktopPage, selectTableView };

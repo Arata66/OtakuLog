@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { expect } = require('@playwright/test');
-const { launchApplication } = require('./helpers/application.cjs');
+const { launchApplication, openAddForm, selectDesktopPage } = require('./helpers/application.cjs');
 
 test('当桌面使用原生备份时应该正确处理取消保存失败及真实文件恢复', { timeout: 180000 }, async t => {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'otakulog-native-backup-'));
@@ -39,6 +39,8 @@ test('当桌面使用原生备份时应该正确处理取消保存失败及真�
   assert.equal(await (await child.asElement().contentFrame()).evaluate(() => typeof globalThis.otakulogDesktop), 'undefined');
   await child.evaluate(frame => frame.remove());
 
+  await openAddForm(page);
+
   await page.locator('#animeName').fill('虚构原生备份验收');
   await page.locator('#totalEpisodes').fill('12');
   await page.locator('#animeSeason').fill('2026秋');
@@ -53,6 +55,7 @@ test('当桌面使用原生备份时应该正确处理取消保存失败及真�
   await application.evaluate(({ app, dialog }) => {
     dialog.showSaveDialog = () => new Promise(resolve => { app.__backupDialogs++; app.__releaseBackupChoice = resolve; });
   });
+  await selectDesktopPage(page, 'settings');
   const button = page.locator('[data-ui-click="exportData"]');
   await button.click();
   await expect.poll(() => application.evaluate(({ app }) => app.__backupDialogs)).toBe(1);
@@ -107,9 +110,11 @@ test('当桌面使用原生备份时应该正确处理取消保存失败及真�
   assert.equal(final.anime.length, 1); assert.equal(final.anime[0].data.name, '虚构原生备份验收');
   assert.equal(final.anime[0].data.remark, '虚构原文：中文与星星🌟');
   await page.evaluate(() => globalThis.performSearch());
+  await selectDesktopPage(page, 'list');
   await page.getByText('虚构原生备份验收', { exact: true }).first().waitFor();
   assert.deepEqual(errors, []);
 
+  await selectDesktopPage(page, 'settings');
   await application.evaluate(({ app, dialog }) => {
     dialog.showSaveDialog = () => new Promise(resolve => { app.__backupDialogs++; app.__releaseBackupChoice = resolve; });
     dialog.showMessageBox = async () => { app.__faultAnswered = true; return { response: 1 }; };
