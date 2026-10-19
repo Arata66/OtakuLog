@@ -31,7 +31,7 @@ test('当桌面使用原生备份时应该正确处理取消保存失败及真�
     assert.equal(await application.evaluate(({ app }) => app.__backupDialogs), 0, '启动页不得弹出保存框');
   } });
   const { application, page } = current;
-  assert.deepEqual(await page.evaluate(() => Object.keys(globalThis.otakulogDesktop)), ['exportBackup', 'getPreferences', 'updatePreferences']);
+  assert.deepEqual(await page.evaluate(() => Object.keys(globalThis.otakulogDesktop)), ['exportBackup', 'getPreferences', 'updatePreferences', 'getAiSettings', 'updateAiSettings']);
   assert.equal(await page.evaluate(() => typeof require), 'undefined');
   const child = await page.locator('body').evaluateHandle(body => {
     const frame = body.ownerDocument.createElement('iframe'); frame.src = 'about:blank'; body.appendChild(frame); return frame;

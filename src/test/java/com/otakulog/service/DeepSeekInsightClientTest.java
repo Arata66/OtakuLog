@@ -2,6 +2,7 @@ package com.otakulog.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.otakulog.config.TasteAiProperties;
+import com.otakulog.config.TasteAiRuntime;
 import com.otakulog.dto.TasteAiDTO.*;
 import com.otakulog.enums.*;
 import com.sun.net.httpserver.HttpServer;
@@ -36,7 +37,7 @@ class DeepSeekInsightClientTest {
     }
     @AfterEach void 关闭假服务() { server.stop(0); }
     Input input() { return new Input(UUID.randomUUID().toString(), 0L, Map.of("content", "配乐动人"), "前两集", MemoryContext.NOTE, "fake", 4); }
-    ProviderResult extract() { return new DeepSeekInsightClient(properties).extract(input()); }
+    ProviderResult extract() { return new DeepSeekInsightClient(properties, new TasteAiRuntime(properties)).extract(input()); }
     @Test void 当发送时应该只发所选文字且禁用思考与流式响应() throws Exception {
         assertTrue(extract().succeeded()); var json = mapper.readTree(sent); assertEquals("deepseek-flash", json.path("model").asText());
         assertEquals("disabled", json.path("thinking").path("type").asText()); assertEquals(1200, json.path("max_tokens").asInt());

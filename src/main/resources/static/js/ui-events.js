@@ -59,6 +59,7 @@ const uiCallbacks = new Map([
     ['openAnimeMemory', (_element, _event, args) => openAnimeMemory(...args)],
     ['openBangumiSubject', (_element, _event, args) => { const id = Number(args[0]); if (Number.isSafeInteger(id) && id > 0) window.open('https://bgm.tv/subject/' + id, '_blank'); }],
     ['openDailyAnime', (_element, _event, args) => openDailyAnime(...args)],
+    ['openDesktopAiSettings', () => { if (typeof openDesktopAiSettings === 'function') openDesktopAiSettings(); }],
     ['openDetailModal', (_element, _event, args) => openDetailModal(...args)],
     ['openEditModal', (_element, _event, args) => openEditModal(...args)],
     ['openRecommendationBases', (_element, _event, args) => openRecommendationBases(...args)],

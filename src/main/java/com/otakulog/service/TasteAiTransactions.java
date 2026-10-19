@@ -3,6 +3,7 @@ package com.otakulog.service;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.otakulog.common.*;
 import com.otakulog.config.TasteAiProperties;
+import com.otakulog.config.TasteAiRuntime;
 import com.otakulog.dto.MemoryInsightDTO;
 import com.otakulog.dto.TasteAiDTO.*;
 import com.otakulog.entity.*;
@@ -27,14 +28,16 @@ public class TasteAiTransactions {
     private final MemoryInsightRepository insights;
     private final MemoryInsightService validation;
     private final TasteAiProperties properties;
+    private final TasteAiRuntime runtime;
     @PersistenceContext private EntityManager entityManager;
     public TasteAiTransactions(AiCallRepository calls, AiQuotaRepository quotas, AnimeRepository anime,
-            AnimeMemoryRepository memories, MemoryInsightRepository insights, MemoryInsightService validation, TasteAiProperties properties) {
+            AnimeMemoryRepository memories, MemoryInsightRepository insights, MemoryInsightService validation, TasteAiProperties properties, TasteAiRuntime runtime) {
         this.calls = calls; this.quotas = quotas; this.anime = anime; this.memories = memories;
-        this.insights = insights; this.validation = validation; this.properties = properties;
+        this.insights = insights; this.validation = validation; this.properties = properties; this.runtime = runtime;
     }
     @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
     public Preview preview(Long animeId, Long memoryId, Request request) {
+        var settings = runtime.snapshot();
         Input input = input(ownedMemory(animeId, memoryId), request);
         long today = callsToday(LocalDate.now());
         int estimated = (input.selectedCharacters() + DeepSeekInsightClient.SYSTEM_PROMPT.length()
@@ -42,13 +45,14 @@ public class TasteAiTransactions {
         BigDecimal cost = properties.getInputPricePerMillion().multiply(BigDecimal.valueOf(estimated))
                 .add(properties.getOutputPricePerMillion().multiply(BigDecimal.valueOf(TasteAiProperties.MAX_OUTPUT_TOKENS)))
                 .divide(BigDecimal.valueOf(1000000));
-        return new Preview(properties.configured(), "DeepSeek", TasteAiProperties.MODEL, TasteAiProperties.PROMPT_VERSION,
+        return new Preview(settings.configured(), "DeepSeek", TasteAiProperties.MODEL, TasteAiProperties.PROMPT_VERSION,
                 input.sourceVersion(), input.selections(), input.scope(), input.context(), input.inputHash(), input.selectedCharacters(),
-                estimated, TasteAiProperties.MAX_OUTPUT_TOKENS, cost, true, today, properties.getDailyLimit(),
-                Math.max(0, properties.getDailyLimit() - today), cache(input).map(AiCall::getRequestKey).orElse(null));
+                estimated, TasteAiProperties.MAX_OUTPUT_TOKENS, cost, true, today, settings.dailyLimit(),
+                Math.max(0, settings.dailyLimit() - today), cache(input).map(AiCall::getRequestKey).orElse(null));
     }
     @Transactional(isolation = Isolation.READ_COMMITTED, propagation = Propagation.REQUIRES_NEW)
     public Reservation reserve(Long animeId, Long memoryId, Request request) {
+        var settings = runtime.snapshot();
         validation.validateKey(request.requestKey());
         AiQuota quota = lockQuota();
         anime.findByIdForUpdate(animeId).orElseThrow(() -> new ResourceNotFoundException("番剧不存在"));
@@ -61,13 +65,13 @@ public class TasteAiTransactions {
         }
         Optional<AiCall> cache = cache(input);
         if (cache.isPresent()) return new Reservation(animeId, memoryId, cache.get().getRequestKey(), null, result(cache.get(), true));
-        if (!properties.configured()) throw new IllegalArgumentException("AI 整理尚未配置，仍可手工整理");
+        if (!settings.configured()) throw new IllegalArgumentException("AI 整理尚未配置，仍可手工整理");
         if (insights.countByMemoryId(memoryId) > 194) throw new ConflictException("记忆观点剩余容量不足 6 条，请先整理已有观点");
         LocalDateTime now = LocalDateTime.now(); LocalDate today = now.toLocalDate();
         long ledger = dayLedgerCount(today);
         int reserved = today.equals(quota.getQuotaDate()) ? Math.max(quota.getReservedCalls(), (int) Math.min(Integer.MAX_VALUE, ledger))
                 : (int) Math.min(Integer.MAX_VALUE, ledger);
-        if (reserved >= properties.getDailyLimit()) throw new ConflictException("今日 AI 整理次数已用完");
+        if (reserved >= settings.dailyLimit()) throw new ConflictException("今日 AI 整理次数已用完");
         if (calls.existsByStatusAndHistoryOnlyFalseAndCreatedAtGreaterThanEqualAndCreatedAtLessThanEqual(AiCallStatus.RUNNING, now.minusSeconds(120), now))
             throw new ConflictException("仍有整理请求运行中，请先核对请求状态，可能已计费");
         quota.setQuotaDate(today); quota.setReservedCalls(reserved + 1); quotas.save(quota);
@@ -118,10 +122,11 @@ public class TasteAiTransactions {
     }
     @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
     public UsageSummary usage() {
+        var settings = runtime.snapshot();
         LocalDate day = LocalDate.now(); long today = callsToday(day); Object[] total = calls.usageTotals();
         if (total.length == 1 && total[0] instanceof Object[] nested) total = nested;
-        return new UsageSummary(properties.configured(), TasteAiProperties.MODEL, day, today, properties.getDailyLimit(),
-                Math.max(0, properties.getDailyLimit() - today), number(total[0]), number(total[1]), number(total[2]));
+        return new UsageSummary(settings.configured(), TasteAiProperties.MODEL, day, today, settings.dailyLimit(),
+                Math.max(0, settings.dailyLimit() - today), number(total[0]), number(total[1]), number(total[2]));
     }
     private long number(Object value) { return value == null ? 0 : ((Number) value).longValue(); }
     private AiQuota lockQuota() { return quotas.findSingletonForUpdate().orElseThrow(() -> new ConflictException("AI 预算行缺失，请检查数据库迁移")); }

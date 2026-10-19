@@ -62,6 +62,7 @@
                 </div>
                 <button class="btn-h" id="langToggle" data-ui-click="toggleLanguage" title="Switch to English" aria-label="Switch to English" data-i18n-title="lang.target" data-i18n-aria-label="lang.target">EN</button>
                 <button class="btn-h" id="themeToggle" data-ui-click="toggleTheme" title="切换为深色" aria-label="切换为深色" data-i18n-title="btn.toDark" data-i18n-aria-label="btn.toDark"><i class="ph ph-moon" aria-hidden="true"></i><span id="themeLabel" data-i18n="btn.dark">深色</span></button>
+                <button th:if="${desktopManaged}" class="btn-h" id="desktopSettingsBtn" data-ui-click="openDesktopAiSettings" aria-haspopup="dialog">设置</button>
                 <div class="menu-anchor">
                     <button class="btn-h" data-ui-click="toggleSyncMenu" id="syncBtn" aria-haspopup="menu" aria-expanded="false" aria-controls="syncMenu"><i class="ph ph-cloud" aria-hidden="true"></i>同步</button>
                     <div id="syncMenu" class="dropdown-menu is-hidden" role="menu" aria-label="同步菜单">
@@ -401,5 +402,6 @@
     <script th:src="@{/js/episode-history.js}"></script>
     <script th:src="@{/js/watch-actions.js}"></script>
     <script th:src="@{/js/daily-watch.js}"></script>
+    <script th:if="${desktopManaged}" th:src="@{/js/desktop-ai.js}"></script>
 </body>
 </html>

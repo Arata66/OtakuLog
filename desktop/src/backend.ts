@@ -3,6 +3,10 @@ import { randomBytes } from 'node:crypto';
 import path from 'node:path';
 import { request as httpRequest } from 'node:http';
 
+export class BackendControlError extends Error {
+  constructor(public readonly status: number) { super('后端控制请求失败：' + status); }
+}
+
 export interface BackendLaunch {
   file: string;
   args: string[];
@@ -12,7 +16,7 @@ export interface BackendLaunch {
 export interface BackendConnection {
   child: ChildProcessWithoutNullStreams;
   origin: string;
-  control: (operation: 'bootstrap' | 'shutdown', body?: unknown) => Promise<Response>;
+  control: (operation: 'bootstrap' | 'shutdown' | 'ai-settings-lock' | 'ai-settings-cancel' | 'ai-settings', body?: unknown) => Promise<Response>;
   stop: (timeoutMs?: number) => Promise<void>;
 }
 
@@ -100,7 +104,7 @@ export function startBackend(options: {
           ready = true;
           clearTimeout(timeout);
           const origin = 'http://127.0.0.1:' + info.port;
-          const control = (operation: 'bootstrap' | 'shutdown', body?: unknown) => new Promise<Response>((done, error) => {
+          const control: BackendConnection['control'] = (operation, body) => new Promise<Response>((done, error) => {
             // 仅连接已握手子进程的回环端口，避免 fetch 的网页端口限制误伤本机控制通道。
             const signal = AbortSignal.timeout(5000);
             const fail = (failure: Error) => error(signal.aborted ? new Error('后端控制请求超时') : failure);
@@ -113,7 +117,7 @@ export function startBackend(options: {
               const status = response.statusCode ?? 500;
               if (status < 200 || status >= 300) {
                 response.destroy();
-                error(new Error('后端控制请求失败：' + status));
+                error(new BackendControlError(status));
                 return;
               }
               const chunks: Buffer[] = [];

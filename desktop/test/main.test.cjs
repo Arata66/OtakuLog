@@ -63,6 +63,8 @@ function startup(options = {}) {
       if (name === 'node:path') return path;
       if (name === './paths') return { resolveDataRoot: () => __dirname };
       if (name === './settings') return { ...require('../dist/settings.js'), createSettingsStore: async () => store };
+      if (name === './ai-settings') return { createAiSettingsStore: async () => ({ configuration: () => ({ enabled: false, apiKey: '', dailyLimit: 20 }) }),
+        createAiSettingsBridge: () => ({ isBusy: () => false }) };
       if (name === './backup-export') {
         if (!options.exporting) return require('../dist/backup-export.js');
         return { BACKUP_EXPORT_CHANNEL: 'otakulog:backup-export', createBackupExporter(config) {

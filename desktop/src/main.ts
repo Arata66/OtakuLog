@@ -1,10 +1,11 @@
-import { app, BrowserWindow, dialog, ipcMain, Menu, screen, session, shell } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, Menu, safeStorage, screen, session, shell } from 'electron';
 import fs from 'node:fs';
 import path from 'node:path';
 import { createBackendLaunch, startBackend, type BackendConnection } from './backend';
 import { resolveDataRoot } from './paths';
 import { BACKUP_EXPORT_CHANNEL, createBackupExporter } from './backup-export';
 import { createPreferencesBridge, createSettingsStore, restoreWindowBounds } from './settings';
+import { createAiSettingsBridge, createAiSettingsStore } from './ai-settings';
 
 app.setName('OtakuLog');
 app.setAppUserModelId('com.arata66.otakulog');
@@ -97,6 +98,7 @@ async function openWindow() {
     item.setSaveDialogOptions({ title: '保存文件', defaultPath: path.join(app.getPath('documents'), item.getFilename()) });
   });
   settings = await createSettingsStore(path.join(dataRoot, 'config', 'settings.json'));
+  const aiStore = await createAiSettingsStore(path.join(dataRoot, 'secrets', 'ai.json'), safeStorage);
   if (stopping || allowQuit) return;
   const primary = screen.getPrimaryDisplay();
   const bounds = restoreWindowBounds(settings.window(), [primary.workArea,
@@ -111,6 +113,20 @@ async function openWindow() {
     getOrigin: () => !stopping && !allowQuit && !failureShown ? connection?.origin : undefined, store: settings });
   ipcMain.handle('otakulog:preferences-read', (event, ...args) => preferences.read(event, ...args));
   ipcMain.handle('otakulog:preferences-update', (event, patch, ...args) => preferences.update(event, patch, ...args));
+  const ai = createAiSettingsBridge({ store: aiStore, getWindow: () => window,
+    getOrigin: () => !stopping && !allowQuit && !failureShown ? connection?.origin : undefined,
+    control: (operation, body) => {
+      if (!connection) return Promise.reject(new Error('后端尚未就绪'));
+      return connection.control(operation, body);
+    },
+    onSyncFailure: async () => {
+      void showFailure(new Error('AI 设置同步未完成，请重新启动并核对配置'));
+      await connection?.stop().catch(() => {});
+    },
+    onIdle: () => { if (faultQuitRequested && !stopping && !allowQuit) app.quit(); }
+  });
+  ipcMain.handle('otakulog:ai-settings-read', (event, ...args) => ai.read(event, ...args));
+  ipcMain.handle('otakulog:ai-settings-update', (event, patch, ...args) => ai.update(event, patch, ...args));
   const exporter = createBackupExporter({
     getWindow: () => window,
     getOrigin: () => !stopping && !allowQuit && !failureShown ? connection?.origin : undefined,
@@ -151,7 +167,7 @@ async function openWindow() {
   window.on('resize', queueCapture); window.on('move', queueCapture);
   window.on('maximize', queueCapture); window.on('unmaximize', queueCapture);
   window.on('close', event => {
-    if (exporter.isBusy()) { event.preventDefault(); return; }
+    if (exporter.isBusy() || ai.isBusy()) { event.preventDefault(); return; }
     clearTimeout(captureTimer); captureWindow();
   });
   const openDirectory = async (directory: string) => {
@@ -173,6 +189,7 @@ async function openWindow() {
     { label: '视图', submenu: [
       { label: '实际大小', role: 'resetZoom' }, { label: '放大', role: 'zoomIn' }, { label: '缩小', role: 'zoomOut' }
     ] },
+    { label: '设置', submenu: [{ label: 'AI 服务', click: () => window?.webContents.send('otakulog:open-ai-settings') }] },
     { label: '帮助', submenu: [{ label: '关于 OtakuLog', click: () => {
       void dialog.showMessageBox({ type: 'info', title: '关于 OtakuLog', message: 'OtakuLog ' + app.getVersion(),
         detail: '资料保存在本机。跨电脑迁移请使用完整 JSON 备份。', buttons: ['知道了'] });
@@ -238,6 +255,7 @@ async function openWindow() {
   connection.child.once('exit', () => {
     if (!stopping && !allowQuit) void showFailure(new Error('本地服务已退出，请重新打开程序'));
   });
+  await connection.control('ai-settings', aiStore.configuration());
   await window.loadURL(connection.origin);
 }
 

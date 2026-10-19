@@ -1,0 +1,102 @@
+const { test } = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
+const crypto = require('node:crypto');
+const { expect } = require('@playwright/test');
+const { launchApplication } = require('./helpers/application.cjs');
+
+test('当用户配置自己的Key时应该密文保存并重开恢复且清除后不影响本地资料', { timeout: 180000 }, async t => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'otakulog-ai-e2e-'));
+  const file = path.join(directory, 'secrets', 'ai.json'), secret = 'fake-e2e-' + crypto.randomUUID();
+  let current;
+  t.after(async () => {
+    await current?.application.evaluate(({ dialog }) => { dialog.showMessageBoxSync = () => 1; });
+    await current?.application.close();
+    fs.rmSync(directory, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+  });
+  current = await launchApplication(directory);
+  let { page, application } = current;
+  await expect(page.locator('#desktopSettingsBtn')).toBeVisible({ timeout: 3000 });
+  await page.locator('#animeName').fill('虚构密钥配置记录');
+  await page.locator('#totalEpisodes').fill('12');
+  await page.locator('#animeSeason').fill('2026秋');
+  await page.locator('#animeScore').fill('8');
+  await page.locator('#animeStatus').selectOption('planning');
+  const [created] = await Promise.all([
+    page.waitForResponse(response => new URL(response.url()).pathname === '/api/anime/add' && response.request().method() === 'POST'),
+    page.locator('#animeForm button[type="submit"]').click()
+  ]);
+  const createdValue = await created.json();
+  assert.equal(createdValue.code, 200);
+  await page.locator('#desktopSettingsBtn').click();
+  const modal = page.getByRole('dialog', { name: 'AI 服务' });
+  await expect(modal).toBeVisible();
+  await expect(modal.getByLabel('启用 AI 辅助整理')).not.toBeChecked();
+  await modal.getByLabel('自己的 API Key').fill(secret);
+  await modal.getByLabel('启用 AI 辅助整理').check();
+  await modal.getByLabel('每日调用次数上限').fill('3');
+  await modal.getByRole('button', { name: '保存设置', exact: true }).click();
+  await expect(modal.getByRole('status')).toContainText('已保存');
+  await expect(modal.getByLabel('自己的 API Key')).toHaveValue('');
+  const state = await page.evaluate(() => globalThis.otakulogDesktop.getAiSettings());
+  assert.equal(state.ok, true);
+  assert.equal(state.settings.enabled, true);
+  assert.equal(state.settings.hasKey, true);
+  assert.equal(state.settings.dailyLimit, 3);
+  assert.equal(JSON.stringify(state).includes(secret), false);
+  assert.equal(fs.readFileSync(file, 'utf8').includes(secret), false);
+  const encryptedKey = JSON.parse(fs.readFileSync(file, 'utf8')).encryptedKey;
+  const decrypted = await application.evaluate(({ safeStorage }, value) => safeStorage.decryptString(Buffer.from(value, 'base64')), encryptedKey);
+  assert.equal(decrypted, secret, '应使用当前 Windows 用户的系统加密');
+  await modal.getByRole('button', { name: '关闭', exact: true }).click();
+  const usage = await page.evaluate(async () => (await (await globalThis.fetch('/api/taste/ai/usage')).json()));
+  assert.equal(usage.code, 200);
+  assert.equal(usage.data.callsToday, 0, '保存设置不应调用模型或消耗额度');
+  const backup = await page.evaluate(async () => (await globalThis.fetch('/api/anime/export')).text());
+  assert.equal(backup.includes(secret), false);
+  const storage = await page.evaluate(() => JSON.stringify([Object.entries(globalThis.localStorage), Object.entries(globalThis.sessionStorage)]));
+  assert.equal(storage.includes(secret), false);
+  for (const name of fs.readdirSync(path.join(directory, 'logs'))) {
+    assert.equal(fs.readFileSync(path.join(directory, 'logs', name), 'utf8').includes(secret), false);
+  }
+  await application.close(); current = undefined;
+  current = await launchApplication(directory); ({ page } = current);
+  const restored = await page.evaluate(() => globalThis.otakulogDesktop.getAiSettings());
+  assert.equal(restored.settings.enabled, true);
+  assert.equal(restored.settings.dailyLimit, 3);
+  const restoredUsage = await page.evaluate(async () => (await (await globalThis.fetch('/api/taste/ai/usage')).json()));
+  assert.equal(restoredUsage.data.configured, true);
+  await page.locator('#desktopSettingsBtn').click();
+  const reopened = page.getByRole('dialog', { name: 'AI 服务' });
+  await expect(reopened.getByLabel('自己的 API Key')).toHaveValue('');
+  await reopened.getByRole('button', { name: '清除已保存密钥', exact: true }).click();
+  await expect(reopened.getByRole('status')).toContainText('已清除');
+  assert.equal(JSON.parse(fs.readFileSync(file, 'utf8')).encryptedKey, null);
+  const cleared = await page.evaluate(() => globalThis.otakulogDesktop.getAiSettings());
+  assert.equal(cleared.settings.hasKey, false);
+  assert.equal(cleared.settings.enabled, false);
+  await reopened.getByRole('button', { name: '关闭', exact: true }).click();
+  const after = await page.evaluate(async () => (await (await globalThis.fetch('/api/anime/export')).json()));
+  assert.deepEqual(after.anime, JSON.parse(backup).anime);
+  await expect(page.locator('.table-card tbody tr').filter({ hasText: '虚构密钥配置记录' })).toBeVisible();
+  await page.evaluate(id => globalThis.openEditModal(id), createdValue.data.id);
+  await page.locator('#m-remark').fill('底层未保存的虚构草稿');
+  await current.application.evaluate(({ Menu }) => {
+    Menu.getApplicationMenu().items.find(item => item.label === '设置').submenu.items.find(item => item.label === 'AI 服务').click();
+  });
+  const layered = page.getByRole('dialog', { name: 'AI 服务' });
+  await expect(layered.getByLabel('每日调用次数上限')).toBeEnabled();
+  await layered.getByLabel('每日调用次数上限').fill('2');
+  page.once('dialog', dialog => dialog.dismiss());
+  await layered.getByLabel('每日调用次数上限').press('Escape');
+  await expect(layered).toBeVisible();
+  assert.equal(await page.locator('#editModal').count(), 1, '取消设置关闭后应保留底层编辑弹窗');
+  await expect(page.locator('#m-remark')).toHaveValue('底层未保存的虚构草稿');
+  await layered.getByLabel('每日调用次数上限').fill('3');
+  await layered.getByLabel('每日调用次数上限').press('Escape');
+  await expect(layered).not.toBeVisible();
+  await expect(page.locator('#m-remark')).toHaveValue('底层未保存的虚构草稿');
+  await page.locator('#editModal').getByRole('button', { name: '取消', exact: true }).click();
+});

@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.StreamReadFeature;
 import com.fasterxml.jackson.databind.*;
 import com.otakulog.config.TasteAiProperties;
+import com.otakulog.config.TasteAiRuntime;
 import com.otakulog.dto.TasteAiDTO.*;
 import com.otakulog.enums.*;
 import org.springframework.stereotype.Service;
@@ -25,11 +26,13 @@ public class DeepSeekInsightClient {
             + "最多6条，quote最多800字符，statement最多500字符，factor最多100字符，均不可为空白，不输出额外字段或文本。";
     private static final int MAX_RESPONSE_BYTES = 262144;
     private final TasteAiProperties properties;
+    private final TasteAiRuntime runtime;
     private final HttpClient http;
     private final ObjectMapper json = new ObjectMapper(JsonFactory.builder().enable(StreamReadFeature.STRICT_DUPLICATE_DETECTION).build())
             .enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS);
-    public DeepSeekInsightClient(TasteAiProperties properties) {
+    public DeepSeekInsightClient(TasteAiProperties properties, TasteAiRuntime runtime) {
         properties.validate(); this.properties = properties;
+        this.runtime = runtime;
         http = HttpClient.newBuilder().connectTimeout(Duration.ofMillis(properties.getConnectTimeoutMs()))
                 .followRedirects(HttpClient.Redirect.NEVER).build();
     }
@@ -45,7 +48,7 @@ public class DeepSeekInsightClient {
             messages.addObject().put("role", "user").put("content", selected.toString());
             var request = HttpRequest.newBuilder(URI.create(properties.getEndpoint()))
                     .timeout(Duration.ofMillis(properties.getResponseTimeoutMs())).header("Content-Type", "application/json")
-                    .header("Authorization", "Bearer " + properties.getApiKey()).POST(HttpRequest.BodyPublishers.ofString(body.toString())).build();
+                    .header("Authorization", "Bearer " + runtime.snapshot().apiKey()).POST(HttpRequest.BodyPublishers.ofString(body.toString())).build();
             // JDK 请求超时只保证响应头；额外截止时间覆盖完整正文读取。
             HttpResponse<byte[]> response = sendWithDeadline(request);
             JsonNode root = json.readTree(response.body()); usage = readUsage(root.path("usage"));

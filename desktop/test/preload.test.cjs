@@ -6,23 +6,29 @@ const vm = require('node:vm');
 
 test('当隔离预加载脚本初始化时应该只向主框架暴露固定导出与白名单偏好操作', async () => {
   for (const isMainFrame of [true, false]) {
-    const exposed = [], calls = [];
+    const exposed = [], calls = [], listeners = [];
     vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../dist/preload.js'), 'utf8'), {
       exports: {}, process: { isMainFrame },
       require(name) {
         assert.equal(name, 'electron', '沙箱预加载不应依赖Node文件或其他模块');
         return { contextBridge: { exposeInMainWorld: (key, value) => exposed.push({ key, value }) },
-          ipcRenderer: { invoke: async (...args) => { calls.push(args); return { status: 'cancelled' }; } } };
+          ipcRenderer: { on: (channel, callback) => listeners.push([channel, callback]),
+            invoke: async (...args) => { calls.push(args); return { status: 'cancelled' }; } } };
       }
     });
     if (!isMainFrame) { assert.deepEqual(exposed, []); continue; }
     assert.equal(exposed[0].key, 'otakulogDesktop');
-    assert.deepEqual(Object.keys(exposed[0].value), ['exportBackup', 'getPreferences', 'updatePreferences']);
+    assert.deepEqual(Object.keys(exposed[0].value), ['exportBackup', 'getPreferences', 'updatePreferences', 'getAiSettings', 'updateAiSettings']);
     assert.equal(Object.isFrozen(exposed[0].value), true);
     assert.deepEqual(await exposed[0].value.exportBackup('/任意路径', '任意通道'), { status: 'cancelled' });
     assert.deepEqual(calls, [['otakulog:backup-export']]);
     await exposed[0].value.getPreferences('/任意路径');
     await exposed[0].value.updatePreferences({ theme: 'dark' }, '任意通道');
     assert.deepEqual(JSON.parse(JSON.stringify(calls.slice(1))), [['otakulog:preferences-read'], ['otakulog:preferences-update', { theme: 'dark' }]]);
+    await exposed[0].value.getAiSettings('额外参数');
+    await exposed[0].value.updateAiSettings({ enabled: false, dailyLimit: 20, keyAction: 'clear' }, '任意通道');
+    assert.deepEqual(JSON.parse(JSON.stringify(calls.slice(3))), [['otakulog:ai-settings-read'],
+      ['otakulog:ai-settings-update', { enabled: false, dailyLimit: 20, keyAction: 'clear' }]]);
+    assert.deepEqual(listeners.map(value => value[0]), ['otakulog:open-ai-settings']);
   }
 });
