@@ -5,6 +5,11 @@ function uiAction(name, args = [], type = 'click') {
 }
 
 const uiCallbacks = new Map([
+    ['openDesktopAppMenu', async () => {
+        try {
+            if (!await window.otakulogDesktop?.openAppMenu()) toast('应用菜单暂不可用，请重新打开程序。', 'error');
+        } catch { toast('应用菜单暂不可用，请重新打开程序。', 'error'); }
+    }],
     ['applyMemoryReviewFilters', () => loadMemoryReview(0)],
     ['loadMemoryReview', (_element, _event, args) => loadMemoryReview(...args)],
     ['refreshMemoryReview', () => refreshMemoryReview()],

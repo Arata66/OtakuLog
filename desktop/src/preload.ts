@@ -5,6 +5,7 @@ import type { AiSettingsPatch, AiSettingsResult } from './ai-settings';
 
 if (process.isMainFrame) {
   contextBridge.exposeInMainWorld('otakulogDesktop', Object.freeze({
+    openAppMenu: (): Promise<boolean> => ipcRenderer.invoke('otakulog:app-menu'),
     exportBackup: (): Promise<BackupExportResult> => ipcRenderer.invoke('otakulog:backup-export'),
     getPreferences: (): Promise<PreferencesResult> => ipcRenderer.invoke('otakulog:preferences-read'),
     updatePreferences: (patch: Partial<Preferences>): Promise<PreferencesResult> => ipcRenderer.invoke('otakulog:preferences-update', patch),

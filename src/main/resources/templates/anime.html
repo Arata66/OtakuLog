@@ -103,6 +103,7 @@
                 <label class="btn-h file-btn">导入 <input class="hidden-input" type="file" accept=".json" data-ui-change="importData"></label>
                 <form th:unless="${desktopManaged}" th:action="@{/logout}" method="post" class="inline-form"><button type="submit" class="btn-h ghost">退出</button></form>
                 <button th:if="${desktopManaged}" type="button" class="btn-add desktop-add-button" id="desktopAddButton" aria-haspopup="dialog" aria-controls="desktopAddDialog"><i class="ph ph-plus" aria-hidden="true"></i>添加番剧</button>
+                <button th:if="${desktopManaged}" type="button" id="desktopAppMenuButton" class="btn-h desktop-app-menu-button" data-ui-click="openDesktopAppMenu" title="应用菜单" aria-label="应用菜单" aria-haspopup="menu"><i class="ph ph-dots-three" aria-hidden="true"></i></button>
             </div>
         </div>
 

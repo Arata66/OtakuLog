@@ -229,6 +229,7 @@
 .desktop-collection #desktopCollectionNav button:focus-visible,
 .desktop-collection .desktop-brand:focus-visible,
 .desktop-collection .desktop-add-button:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; }
+.desktop-collection .header-right .desktop-app-menu-button { width: 44px; min-height: 44px; padding: 0; flex-shrink: 0; font-size: 20px; }
 
 @media (min-width: 1000px) {
     .desktop-collection #detailModal[data-anime-id] > .detail-card {
@@ -302,7 +303,7 @@
     .desktop-collection .desktop-kicker { font-size: 10px; }
     .desktop-collection .desktop-page-heading h1 { font-size: 26px; }
     .desktop-collection #desktopPageDescription { font-size: 12px; max-width: 260px; }
-    .desktop-collection .header-right { flex-wrap: wrap; max-width: 135px; }
+    .desktop-collection .header-right { flex-wrap: wrap; max-width: 186px; }
     .desktop-collection .header-right .btn-h { min-height: 36px; }
     .desktop-collection .desktop-add-button { padding: 10px 12px; font-size: 12px; }
     .desktop-collection .gallery-grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 16px 12px; }

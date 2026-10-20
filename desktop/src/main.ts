@@ -6,6 +6,7 @@ import { resolveDataRoot } from './paths';
 import { BACKUP_EXPORT_CHANNEL, createBackupExporter } from './backup-export';
 import { createPreferencesBridge, createSettingsStore, restoreWindowBounds } from './settings';
 import { createAiSettingsBridge, createAiSettingsStore } from './ai-settings';
+import { createAppMenuBridge } from './app-menu';
 
 app.setName('OtakuLog');
 app.setAppUserModelId('com.arata66.otakulog');
@@ -113,6 +114,11 @@ async function openWindow() {
     getOrigin: () => !stopping && !allowQuit && !failureShown ? connection?.origin : undefined, store: settings });
   ipcMain.handle('otakulog:preferences-read', (event, ...args) => preferences.read(event, ...args));
   ipcMain.handle('otakulog:preferences-update', (event, patch, ...args) => preferences.update(event, patch, ...args));
+  const showAppMenu = createAppMenuBridge({ getWindow: () => window,
+    getOrigin: () => !stopping && !allowQuit && !failureShown ? connection?.origin : undefined,
+    showMenu: owner => { Menu.getApplicationMenu()?.popup({ window: owner }); }
+  });
+  ipcMain.handle('otakulog:app-menu', (event, ...args) => showAppMenu(event, ...args));
   const ai = createAiSettingsBridge({ store: aiStore, getWindow: () => window,
     getOrigin: () => !stopping && !allowQuit && !failureShown ? connection?.origin : undefined,
     control: (operation, body) => {
@@ -196,6 +202,7 @@ async function openWindow() {
         detail: '资料保存在本机。跨电脑迁移请使用完整 JSON 备份。', buttons: ['知道了'] });
     } }] }
   ]));
+  window.setMenuBarVisibility(false);
   observedBounds = window.getNormalBounds();
   if (settings.window()?.maximized) window.maximize();
   window.on('closed', () => {
