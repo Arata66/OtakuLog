@@ -18,6 +18,7 @@
     <script th:src="@{/js/preferences.js}"></script>
     <script th:src="@{/js/i18n.js}"></script>
     <link rel="stylesheet" th:href="@{/css/anime.css}">
+    <link rel="stylesheet" th:href="@{/css/memory-review.css}">
     <link th:if="${desktopManaged}" rel="stylesheet" th:href="@{/css/desktop-collection.css}">
 </head>
 <body th:classappend="${desktopManaged} ? 'desktop-collection' : ''">
@@ -31,6 +32,7 @@
             <span class="desktop-nav-caption">我的资料库</span>
             <button type="button" data-desktop-tab="list" data-ui-click="switchTab" data-ui-args="[&quot;list&quot;]" aria-current="page" aria-controls="tab-list"><i class="ph ph-books" aria-hidden="true"></i><span>番剧收藏</span></button>
             <button type="button" data-desktop-tab="insights" data-ui-click="switchTab" data-ui-args="[&quot;insights&quot;]" aria-controls="tab-insights"><i class="ph ph-notebook" aria-hidden="true"></i><span>观影总结</span></button>
+            <button type="button" data-desktop-tab="memories" data-ui-click="switchTab" data-ui-args="[&quot;memories&quot;]" aria-controls="tab-memories"><i class="ph ph-book-open-text" aria-hidden="true"></i><span>感想回顾</span></button>
             <button type="button" data-desktop-tab="charts" data-ui-click="switchTab" data-ui-args="[&quot;charts&quot;]" aria-controls="tab-charts"><i class="ph ph-chart-bar" aria-hidden="true"></i><span>数据图表</span></button>
             <button type="button" data-desktop-tab="calendar" data-ui-click="switchTab" data-ui-args="[&quot;calendar&quot;]" aria-controls="tab-calendar"><i class="ph ph-calendar-blank" aria-hidden="true"></i><span>日历</span></button>
             <button type="button" data-desktop-tab="timeline" data-ui-click="switchTab" data-ui-args="[&quot;timeline&quot;]" aria-controls="tab-timeline"><i class="ph ph-path" aria-hidden="true"></i><span>时间线</span></button>
@@ -43,6 +45,7 @@
         <button class="mobile-nav-btn" data-ui-click="mobileTab" data-ui-args="[&quot;charts&quot;,1]" aria-label="图表" aria-pressed="false"><i class="ph ph-chart-bar mobile-nav-icon" aria-hidden="true"></i><span>图表</span></button>
         <button class="mobile-nav-btn" data-ui-click="mobileTab" data-ui-args="[&quot;calendar&quot;,2]" aria-label="日历" aria-pressed="false"><i class="ph ph-calendar mobile-nav-icon" aria-hidden="true"></i><span>日历</span></button>
         <button class="mobile-nav-btn" data-ui-click="mobileTab" data-ui-args="[&quot;timeline&quot;,3]" aria-label="时间线" aria-pressed="false"><i class="ph ph-trend-up mobile-nav-icon" aria-hidden="true"></i><span>时间线</span></button>
+        <button class="mobile-nav-btn" data-ui-click="mobileTab" data-ui-args="[&quot;memories&quot;,4]" aria-label="感想回顾" aria-pressed="false"><i class="ph ph-book-open-text mobile-nav-icon" aria-hidden="true"></i><span>感想</span></button>
         <button class="mobile-nav-btn" data-ui-click="scrollToAdd" aria-label="添加番剧"><i class="ph ph-plus mobile-nav-icon" aria-hidden="true"></i><span>添加</span></button>
     </div></div>
     <div class="batch-toolbar" id="batchToolbar">
@@ -111,6 +114,7 @@
             <button type="button" class="tab" role="tab" aria-selected="false" aria-controls="tab-charts" data-i18n="tab.charts" data-ui-click="switchTab" data-ui-args="[&quot;charts&quot;]">数据图表</button>
             <button type="button" class="tab" role="tab" aria-selected="false" aria-controls="tab-calendar" data-i18n="tab.calendar" data-ui-click="switchTab" data-ui-args="[&quot;calendar&quot;]">日历</button>
             <button type="button" class="tab" role="tab" aria-selected="false" aria-controls="tab-timeline" data-i18n="tab.timeline" data-ui-click="switchTab" data-ui-args="[&quot;timeline&quot;]">时间线</button>
+            <button type="button" class="tab" role="tab" aria-selected="false" aria-controls="tab-memories" data-ui-click="switchTab" data-ui-args="[&quot;memories&quot;]">感想回顾</button>
         </div>
 
         <!-- ===== List ===== -->
@@ -234,6 +238,19 @@
             <div id="scrollSentinel" class="scroll-sentinel"></div>
         </div>
 
+        <div id="tab-memories" class="tab-content" aria-label="感想回顾">
+            <div class="review-intro"><h2>感想回顾</h2><p>翻阅不同作品里写下的感受。书写月份仅表示记录时间，观看日期仍以你明确填写的为准。</p></div>
+            <form id="memoryReviewForm" class="review-filters" data-ui-submit="applyMemoryReviewFilters">
+                <label for="memoryReviewAnime">作品<select id="memoryReviewAnime" class="app-input"><option value="">全部作品</option></select></label>
+                <label for="memoryReviewContext">语境<select id="memoryReviewContext" class="app-input"><option value="">全部语境</option><option value="NOTE">随手记</option><option value="INITIAL">初看</option><option value="REFLECTION">回望</option><option value="REWATCH">重看</option></select></label>
+                <label for="memoryReviewMonth">书写月份<input id="memoryReviewMonth" class="app-input" type="month" min="1000-01" max="9999-12"></label>
+                <label for="memoryReviewOrder">顺序<select id="memoryReviewOrder" class="app-input"><option value="newest">从新到旧</option><option value="oldest">从旧到新</option></select></label>
+                <div class="review-filter-actions"><button type="submit" class="a-btn">应用筛选</button><button type="button" class="a-btn" data-ui-click="resetMemoryReview">清除筛选</button><button type="button" class="a-btn" data-ui-click="refreshMemoryReview">刷新</button></div>
+            </form>
+            <p id="memoryReviewStatus" class="review-status" role="status" aria-live="polite"></p>
+            <div id="memoryReviewResults" class="review-results" aria-busy="false"></div>
+            <div id="memoryReviewPages" class="review-pages"></div>
+        </div>
         <div th:if="${desktopManaged}" id="tab-insights" class="tab-content" aria-label="观影总结"></div>
         <div th:if="${desktopManaged}" id="tab-settings" class="tab-content" aria-label="设置">
             <div class="desktop-settings-grid">
@@ -451,6 +468,7 @@
     <script th:src="@{/js/recommendations.js}"></script>
     <script th:src="@{/js/recommendation-bases.js}"></script>
     <script th:src="@{/js/anime-memory.js}"></script>
+    <script th:src="@{/js/memory-review.js}"></script>
     <script th:src="@{/js/taste-profile.js}"></script>
     <script th:src="@{/js/episode-history.js}"></script>
     <script th:src="@{/js/watch-actions.js}"></script>

@@ -25,6 +25,7 @@
     padding: 32px 16px 24px;
     background: var(--card);
     border-right: 1px solid var(--border-light);
+    overflow-y: auto;
 }
 .desktop-collection .desktop-brand {
     display: flex;

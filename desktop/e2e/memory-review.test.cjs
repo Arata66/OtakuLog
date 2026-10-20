@@ -1,0 +1,94 @@
+const { test } = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
+const { expect } = require('@playwright/test');
+const { launchApplication, selectDesktopPage } = require('./helpers/application.cjs');
+
+test('当跨作品回顾旧感想时应该筛选原文并精确返回原分页编辑且保留草稿保护', { timeout: 150000 }, async t => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'otakulog-memory-review-'));
+  let current, succeeded = false;
+  const errors = [], aiRequests = [];
+  t.after(async () => {
+    await current?.application.close().catch(() => {});
+    if (!succeeded) { console.error('感想回顾证据保留：' + directory); return; }
+    assert.equal(path.dirname(path.resolve(directory)), path.resolve(os.tmpdir()));
+    assert.match(path.basename(directory), /^otakulog-memory-review-/);
+    fs.rmSync(directory, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+  });
+  current = await launchApplication(directory, undefined, { configure: async (application, page) => {
+    await application.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setContentSize(1280, 900));
+    page.on('pageerror', error => errors.push(error.message));
+    page.on('request', request => { if (request.url().includes('/insights/ai/')) aiRequests.push(request.url()); });
+    await page.route('**/api/watch/airing', route => route.fulfill({ status: 503, json: { code: 503 } }));
+  } });
+  const { page, application } = current;
+  const fixture = await page.evaluate(async () => {
+    const headers = { 'Content-Type': 'application/json',
+      [globalThis.document.querySelector('meta[name="_csrf_header"]').content]: globalThis.document.querySelector('meta[name="_csrf"]').content };
+    const post = async (url, body) => {
+      const result = await (await globalThis.fetch(url, { method: 'POST', headers, body: JSON.stringify(body) })).json();
+      if (result.code !== 200) throw new Error('虚构样例创建失败');
+      return result.data;
+    };
+    const create = name => post('/api/anime/add', { name, totalEpisodes: 12, season: '虚构季度', score: 8, status: 'watching' });
+    const first = await create('虚构星海旅人'), second = await create('虚构夏日海岸');
+    const content = '虚构回顾样例：初看时记住了旅途中的相遇，重看时会留意人物如何理解彼此。\n\n'.repeat(12);
+    const add = (id, text, context) => post('/api/anime/' + id + '/memories', { key: globalThis.crypto.randomUUID(), content: text, context });
+    const original = await add(first.id, content, 'INITIAL');
+    for (let i = 0; i < 21; i++) await add(first.id, '虚构随手记 ' + i, 'NOTE');
+    await add(second.id, '虚构重看：这次更喜欢片尾音乐。', 'REWATCH');
+    return { first: first.id, original: original.id, content, month: original.createdAt.slice(0, 7) };
+  });
+  await selectDesktopPage(page, 'memories');
+  await expect(page.locator('#memoryReviewStatus')).toContainText('23 条感想');
+  await page.locator('#memoryReviewAnime').selectOption(String(fixture.first));
+  await page.locator('#memoryReviewContext').selectOption('INITIAL');
+  await page.locator('#memoryReviewMonth').fill(fixture.month);
+  await page.getByRole('button', { name: '应用筛选', exact: true }).click();
+  await expect(page.locator('#memoryReviewStatus')).toContainText('1 条感想');
+  const card = page.locator('[data-review-memory-id="' + fixture.original + '"]');
+  await card.locator('summary').click();
+  await expect(card.locator('.memory-original')).toHaveText(fixture.content);
+  await card.getByRole('button', { name: '在作品中查看', exact: true }).click();
+  const original = page.locator('#memoryList [data-memory-id="' + fixture.original + '"]');
+  await expect(original).toBeFocused();
+  await expect(page.locator('#memoryPages')).toContainText('第 2 / 2 页');
+  await expect(page.locator('#detailStatus')).toHaveText('追中');
+  await original.getByRole('button', { name: '编辑', exact: true }).click();
+  await expect(page.locator('#memoryContent')).toHaveValue(fixture.content);
+  await page.locator('#memoryContent').fill('虚构修改：回顾之后补充了新的想法。');
+  await page.locator('#memorySave').click();
+  await expect(page.locator('#memoryStatus')).toHaveText('感想已保存。');
+  await page.locator('#detailModal').getByRole('button', { name: '关闭', exact: true }).click();
+  await expect(card).toContainText('虚构修改：回顾之后补充了新的想法。');
+  await card.getByRole('button', { name: '在作品中查看', exact: true }).click();
+  await expect(original).toBeFocused();
+  await original.getByRole('button', { name: '编辑', exact: true }).click();
+  await page.locator('#memoryContent').fill('虚构未保存草稿');
+  page.once('dialog', dialog => dialog.dismiss());
+  await page.locator('#detailModal').getByRole('button', { name: '关闭', exact: true }).click();
+  await expect(page.locator('#memoryContent')).toHaveValue('虚构未保存草稿');
+  page.once('dialog', dialog => dialog.accept());
+  await page.locator('#detailModal').getByRole('button', { name: '关闭', exact: true }).click();
+  await page.route('**/api/memories?*', route => route.fulfill({ status: 503, json: { code: 503, message: '虚构读取失败' } }));
+  await page.getByRole('button', { name: '刷新', exact: true }).click();
+  await expect(page.locator('#memoryReviewResults')).toContainText('虚构读取失败');
+  await page.unroute('**/api/memories?*');
+  await page.locator('#memoryReviewResults').getByRole('button', { name: '重试', exact: true }).click();
+  await expect(card).toContainText('虚构修改：回顾之后补充了新的想法。');
+  await page.getByRole('button', { name: '清除筛选', exact: true }).click();
+  await expect(page.locator('#memoryReviewStatus')).toContainText('23 条感想');
+  const screenshots = path.resolve(__dirname, '../test-results'); fs.mkdirSync(screenshots, { recursive: true });
+  await page.screenshot({ path: path.join(screenshots, 'memory-review-light.png'), animations: 'disabled' });
+  await application.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setContentSize(760, 700));
+  await expect.poll(() => page.evaluate(() => globalThis.document.documentElement.scrollWidth <= globalThis.innerWidth + 1)).toBe(true);
+  await application.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setContentSize(1280, 900));
+  await selectDesktopPage(page, 'settings'); await page.locator('#themeToggle').click();
+  await selectDesktopPage(page, 'memories');
+  await expect(page.locator('#memoryReviewStatus')).toContainText('23 条感想');
+  await page.screenshot({ path: path.join(screenshots, 'memory-review-dark.png'), animations: 'disabled' });
+  assert.deepEqual(errors, []); assert.deepEqual(aiRequests, []);
+  succeeded = true;
+});

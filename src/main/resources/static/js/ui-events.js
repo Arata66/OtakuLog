@@ -5,6 +5,11 @@ function uiAction(name, args = [], type = 'click') {
 }
 
 const uiCallbacks = new Map([
+    ['applyMemoryReviewFilters', () => loadMemoryReview(0)],
+    ['loadMemoryReview', (_element, _event, args) => loadMemoryReview(...args)],
+    ['refreshMemoryReview', () => refreshMemoryReview()],
+    ['resetMemoryReview', () => resetMemoryReview()],
+    ['openMemoryReviewEntry', (_element, _event, args) => openMemoryReviewEntry(...args)],
     ['addAnime', (_element, event) => addAnime(event)],
     ['addToTrackingFromBrowse', (_element, _event, args) => addToTrackingFromBrowse(...args)],
     ['batchDelete', (_element, _event, args) => batchDelete(...args)],

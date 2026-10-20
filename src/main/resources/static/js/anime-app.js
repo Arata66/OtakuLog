@@ -354,7 +354,7 @@
             document.querySelectorAll('.tab').forEach(t => { t.classList.remove('active'); t.setAttribute('aria-selected', 'false'); });
             document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
             const tabs = document.querySelectorAll('.tab');
-            const tabNames = ['list', 'charts', 'calendar', 'timeline'];
+            const tabNames = ['list', 'charts', 'calendar', 'timeline', 'memories'];
             const idx = tabNames.indexOf(n);
             if (idx >= 0 && tabs[idx]) { tabs[idx].classList.add('active'); tabs[idx].setAttribute('aria-selected', 'true'); }
             const content = document.getElementById('tab-' + n);
@@ -365,6 +365,7 @@
             if (n === 'timeline') loadTL();
             if (n === 'calendar') loadCalendar();
             if (n === 'list') loadDailyWatch();
+            if (n === 'memories' && typeof loadMemoryReview === 'function') loadMemoryReview();
             window.otakulogDesktopCollection?.syncNavigation(n);
         }
         function goToAddTracking(name) {
@@ -562,7 +563,7 @@
             input.focus({ preventScroll: true });
         }
 
-        function openDetailModal(id) {
+        function openDetailModal(id, memoryPage = 0, memoryId = null) {
             if (document.getElementById('detailModal') && !closeDetailModal()) return;
             rememberFocus();
             const a = _cache[id];
@@ -597,7 +598,12 @@
                 </div>`;
             overlay.appendChild(card); document.body.appendChild(overlay);
             trapFocus(overlay);
-            loadAnimeMemories(id);
+            loadAnimeMemories(id, memoryPage).then(() => {
+                if (memoryId == null || document.getElementById('detailModal')?.dataset.animeId !== String(id)) return;
+                const entry = document.querySelector(`#animeMemorySection [data-memory-id="${Number(memoryId)}"]`);
+                if (!entry) { toast('感想位置已变化，请在回顾页刷新后重新打开。', 'error'); return; }
+                entry.setAttribute('tabindex', '-1'); entry.scrollIntoView({ block: 'start' }); entry.focus({ preventScroll: true });
+            });
             loadEpisodeHistory(id);
             syncWatchButtons();
             if (a.bangumiId) loadBangumiDetail(a.bangumiId);
@@ -741,7 +747,10 @@
             const m = document.getElementById('detailModal');
             if (m && !force && typeof canLeaveAnimeMemory === 'function' && !canLeaveAnimeMemory()) return false;
             if (m && typeof closeTasteMemory === 'function') closeTasteMemory(true);
-            if (m) { m.remove?.(); restoreFocus(); }
+            if (m) {
+                m.remove?.(); restoreFocus();
+                if (document.getElementById('tab-memories')?.classList.contains('active') && typeof refreshMemoryReview === 'function') refreshMemoryReview();
+            }
             return true;
         }
         function closeTraceMoeModal() { const m = document.getElementById('traceMoeModal'); if (m) m.remove(); restoreFocus(); }

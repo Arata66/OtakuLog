@@ -1,10 +1,11 @@
-const CACHE_NAME = 'otakulog-v28';
+const CACHE_NAME = 'otakulog-v29';
 const STATIC_ASSETS = [
     '/js/vendor/chart.umd.js',
     '/js/vendor/Sortable.min.js',
     '/js/vendor/marked.min.js',
     '/js/vendor/purify.min.js',
     '/css/anime.css',
+    '/css/memory-review.css',
     '/css/vendor/phosphor/regular.css',
     '/css/vendor/phosphor/Phosphor.woff2',
     '/js/ui-events.js',
@@ -13,6 +14,7 @@ const STATIC_ASSETS = [
     '/js/recommendations.js',
     '/js/recommendation-bases.js',
     '/js/anime-memory.js',
+    '/js/memory-review.js',
     '/js/taste-profile.js',
     '/js/episode-history.js',
     '/js/watch-actions.js',

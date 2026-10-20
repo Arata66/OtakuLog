@@ -1,0 +1,32 @@
+#tab-memories { max-width: 1040px; }
+.review-intro { margin-bottom: 24px; }
+.review-intro h2 { font-size: 24px; color: var(--text); margin-bottom: 10px; }
+.review-intro p { color: var(--text-dim); font-size: 13px; line-height: 1.8; }
+.desktop-collection .review-intro h2 { display: none; }
+.review-filters { display: grid; grid-template-columns: minmax(160px, 1.5fr) repeat(3, minmax(110px, 1fr)); gap: 14px; padding: 20px; border: 1px solid var(--border-light); border-radius: 12px; background: var(--card); }
+.review-filters label { min-width: 0; font-size: 12px; color: var(--text-mid); }
+.review-filters .app-input { display: block; width: 100%; min-width: 0; min-height: 44px; margin-top: 8px; padding: 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--text); font: inherit; }
+.review-filter-actions { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 10px; }
+.review-filter-actions button { min-height: 44px; }
+.review-filter-actions button[type="submit"] { background: var(--primary); border-color: var(--primary); color: #fff; }
+.review-filters input[type="month"] { color-scheme: light; }
+html[data-theme="dark"] .review-filters input[type="month"] { color-scheme: dark; }
+.review-status { min-height: 24px; margin: 18px 0 8px; color: var(--text-dim); font-size: 12px; }
+.review-results { min-width: 0; }
+.review-entry { padding: 26px 28px; margin-bottom: 18px; border: 1px solid var(--border-light); border-radius: 12px; background: var(--card); }
+.review-entry-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 20px; }
+.review-entry-heading h3 { color: var(--text); font-size: 18px; line-height: 1.6; overflow-wrap: anywhere; margin-bottom: 8px; }
+.review-entry-heading > button { flex-shrink: 0; min-height: 44px; }
+.review-entry .memory-original, .review-entry .memory-preview { font-size: 14px; line-height: 2; }
+.review-entry .memory-original, .review-entry .memory-preview, .review-entry .memory-reason { max-width: 72ch; }
+.review-pages { display: flex; align-items: center; flex-wrap: wrap; gap: 14px; margin: 24px 0; color: var(--text-dim); font-size: 12px; }
+.review-filters .app-input:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+@media (max-width: 1000px) {
+    .review-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 520px) {
+    .review-filters { padding: 16px; gap: 12px; }
+    .review-entry { padding: 20px 18px; }
+    .review-entry-heading { flex-direction: column; gap: 12px; }
+    .review-entry-heading h3 { font-size: 17px; }
+}

@@ -18,6 +18,15 @@ import java.util.List;
 @Repository
 public interface AnimeRepository extends JpaRepository<Anime, Long> {
 
+    interface MemoryReviewWork {
+        Long getId();
+        String getName();
+    }
+
+    @Query("select a.id as id, a.name as name from Anime a where exists "
+            + "(select m.id from AnimeMemory m where m.animeId = a.id) order by a.name, a.id")
+    List<MemoryReviewWork> findMemoryReviewWorks();
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT a FROM Anime a WHERE a.id = :id")
     java.util.Optional<Anime> findByIdForUpdate(@org.springframework.data.repository.query.Param("id") Long id);
