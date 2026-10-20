@@ -90,11 +90,35 @@ test('当桌面使用收藏馆时应该保留真实封面地址并通过原入�
     card.getByRole('button', { name: '下一集', exact: true }).click()
   ]);
   assert.equal((await advanced.json()).data.currentEpisode, 2);
+  await application.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setContentSize(1280, 900));
   await card.locator('.g-name').click();
   await expect(page.locator('#detailModal')).toBeVisible();
-  await page.locator('#memoryContent').fill('虚构收藏馆验收感想：愿意继续看角色的成长。');
+  const memory = '虚构收藏馆验收感想：愿意继续看角色的成长，之后回望时再比较自己对故事的理解。\n\n'.repeat(12);
+  await page.locator('#memoryContent').fill(memory);
   await page.locator('#memorySave').click();
   await expect(page.locator('#memoryStatus')).toHaveText('感想已保存。');
+  const detailHeader = page.locator('#detailModal .detail-header');
+  const headerTop = (await detailHeader.boundingBox()).y;
+  await page.locator('#animeMemorySection').getByRole('button', { name: '回看感想', exact: true }).click();
+  await expect(page.locator('#memoryList')).toBeFocused();
+  await page.locator('#memoryList summary').click();
+  await expect(page.locator('#memoryList .memory-original')).toHaveText(memory);
+  assert.ok(Math.abs((await detailHeader.boundingBox()).y - headerTop) < 1);
+  await expect(page.locator('#detailModal').getByRole('button', { name: '关闭', exact: true })).toBeInViewport();
+  await page.locator('#memoryList').getByRole('button', { name: '回到输入', exact: true }).click();
+  await expect(page.locator('#memoryContent')).toBeFocused();
+  const screenshots = path.resolve(__dirname, '../test-results');
+  fs.mkdirSync(screenshots, { recursive: true });
+  await page.locator('#detailModal .detail-body').evaluate(body => { body.scrollTop = 0; });
+  await page.screenshot({ path: path.join(screenshots, 'collection-detail-light.png'), animations: 'disabled' });
+  for (const width of [1000, 760]) {
+    await application.evaluate(({ BrowserWindow }, value) => BrowserWindow.getAllWindows()[0].setContentSize(value, 700), width);
+    await expect.poll(() => page.locator('#detailModal .detail-card').evaluate(element => element.scrollWidth <= element.clientWidth + 1)).toBe(true);
+    await page.locator('#animeMemorySection').getByRole('button', { name: '回看感想', exact: true }).click();
+    await expect(page.locator('#memoryList')).toBeFocused();
+    await page.locator('#memoryList').getByRole('button', { name: '回到输入', exact: true }).click();
+    await expect(page.locator('#memoryContent')).toBeFocused();
+  }
   await page.locator('#detailModal').getByRole('button', { name: '关闭', exact: true }).click();
 
   await selectTableView(page);
@@ -106,8 +130,6 @@ test('当桌面使用收藏馆时应该保留真实封面地址并通过原入�
     await expect.poll(() => page.evaluate(() => globalThis.document.documentElement.scrollWidth <= globalThis.innerWidth + 1)).toBe(true);
   }
   await application.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setContentSize(1280, 900));
-  const screenshots = path.resolve(__dirname, '../test-results');
-  fs.mkdirSync(screenshots, { recursive: true });
   await selectDesktopPage(page, 'settings');
   if (await page.locator('html').getAttribute('data-theme') === 'dark') await page.locator('#themeToggle').click();
   await selectDesktopPage(page, 'list');
@@ -118,6 +140,10 @@ test('当桌面使用收藏馆时应该保留真实封面地址并通过原入�
   await selectDesktopPage(page, 'list');
   await page.evaluate(() => globalThis.scrollTo(0, 0));
   await page.screenshot({ path: path.join(screenshots, 'collection-dark.png'), animations: 'disabled' });
+  await card.locator('.g-name').click();
+  await expect(page.locator('#memoryContent')).toBeVisible();
+  await page.screenshot({ path: path.join(screenshots, 'collection-detail-dark.png'), animations: 'disabled' });
+  await page.locator('#detailModal').getByRole('button', { name: '关闭', exact: true }).click();
   const backup = await page.evaluate(async () => (await (await globalThis.fetch('/api/anime/export')).json()));
   assert.equal(backup.anime.find(entry => entry.data.name === withCover.name).data.coverUrl, cover);
   assert.equal(backup.anime.find(entry => entry.data.name === withoutCover.name).data.coverUrl, null);
