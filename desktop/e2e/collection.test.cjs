@@ -20,6 +20,7 @@ test('当桌面使用收藏馆时应该保留真实封面地址并通过原入�
     fs.rmSync(directory, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   });
   current = await launchApplication(directory, undefined, { configure: async (_application, page) => {
+    await _application.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setContentSize(1000, 600));
     page.on('pageerror', error => errors.push(error.message));
     await page.route('**/api/watch/airing', route => route.fulfill({ status: 503,
       contentType: 'application/json', body: '{"code":503,"message":"虚构离线放送服务"}' }));
@@ -75,10 +76,13 @@ test('当桌面使用收藏馆时应该保留真实封面地址并通过原入�
   const withoutCover = await add('虚构暂无封面作品', '');
   const brokenCover = await add('虚构封面加载失败作品', 'https://covers.example.invalid/missing.png');
   const card = page.locator('#gc-' + withCover.id);
+  // 封面进入视口才触发懒加载，不能依赖开发机屏幕高度。
+  await card.scrollIntoViewIfNeeded();
   await expect(card.locator('.g-cover')).toHaveAttribute('src', cover);
   await expect.poll(() => card.locator('.g-cover').evaluate(image => image.complete && image.naturalWidth > 0)).toBe(true);
   await expect(page.locator('#gc-' + withoutCover.id + ' .g-cover-empty')).toBeVisible();
   await expect(page.locator('#gc-' + withoutCover.id + ' img')).toHaveCount(0);
+  await page.locator('#gc-' + brokenCover.id).scrollIntoViewIfNeeded();
   await expect(page.locator('#gc-' + brokenCover.id + ' .g-cover-empty')).toBeVisible();
 
   const [advanced] = await Promise.all([
