@@ -12,7 +12,7 @@
     width: calc(100% - var(--collection-sidebar));
     max-width: 1600px;
     margin: 0 0 0 var(--collection-sidebar);
-    padding: 38px clamp(24px, 3.2vw, 52px) 72px;
+    padding: 32px clamp(24px, 3.2vw, 52px) 72px;
     min-width: 0;
 }
 .desktop-collection .desktop-sidebar {
@@ -103,7 +103,7 @@
 .desktop-collection .desktop-local-dot { display: inline-block; width: 6px; height: 6px; background: var(--sage); border-radius: 50%; margin-right: 7px; }
 .desktop-collection .header {
     border: 0;
-    margin-bottom: 30px;
+    margin-bottom: 24px;
     padding: 0;
     align-items: center;
     gap: 20px;
@@ -115,15 +115,16 @@
 .desktop-collection .header-right { flex-wrap: nowrap; flex-shrink: 0; gap: 10px; }
 .desktop-collection .desktop-add-button { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 12px 18px; border-radius: 9px; min-height: 44px; font-weight: 600; white-space: nowrap; }
 .desktop-collection .desktop-add-button .ph { font-size: 18px; }
-.desktop-collection #desktopBackupStatus { margin: -10px 0 24px; padding: 10px 14px; border-radius: 8px; background: var(--primary-soft); font-size: 11px; line-height: 1.8; color: var(--text-mid); overflow-wrap: anywhere; }
+.desktop-collection #desktopBackupStatus { margin: -10px 0 18px; padding: 8px 12px; border-radius: 8px; background: var(--primary-soft); font-size: 11px; line-height: 1.8; color: var(--text-mid); overflow-wrap: anywhere; }
 .desktop-collection #desktopBackupStatus:empty { display: none; }
-.desktop-collection .daily-watch { margin: 0 0 32px; padding: 22px 24px; border-radius: 14px; border-color: var(--border-light); background: var(--card); }
+.desktop-collection .daily-watch { margin: 0 0 24px; padding: 18px 20px; border-radius: 14px; border-color: var(--border-light); background: var(--card); }
 .desktop-collection .daily-heading h2 { font-size: 19px; font-weight: 650; }
-.desktop-collection .daily-heading { margin-bottom: 12px; }
+.desktop-collection .daily-heading { margin-bottom: 8px; }
 .desktop-collection .daily-columns { gap: 24px; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); }
 .desktop-collection .daily-columns section { min-width: 0; }
 .desktop-collection .daily-columns section + section { padding-left: 24px; }
-.desktop-collection .daily-row { flex-wrap: wrap; gap: 6px 14px; padding: 11px 0; }
+.desktop-collection .daily-rows { max-height: 132px; overflow-y: auto; scrollbar-width: thin; scrollbar-gutter: stable; overscroll-behavior: contain; }
+.desktop-collection .daily-row { flex-wrap: wrap; gap: 6px 14px; padding: 8px 0; }
 .desktop-collection .daily-row-info { flex: 1 1 150px; }
 .desktop-collection .daily-title { min-height: 30px; font-weight: 600; }
 .desktop-collection .daily-actions { gap: 6px; }
@@ -131,7 +132,7 @@
 .desktop-collection .daily-record { background: var(--primary-soft); border-color: transparent; color: var(--primary); font-weight: 600; }
 .desktop-collection .daily-empty { font-size: 12px; line-height: 1.9; padding: 16px 0 8px; }
 .desktop-collection .daily-note { font-size: 11px; }
-.desktop-collection .desktop-library-heading { display: flex; align-items: end; justify-content: space-between; gap: 18px; margin: 0 0 18px; }
+.desktop-collection .desktop-library-heading { display: flex; align-items: end; justify-content: space-between; gap: 18px; margin: 0 0 12px; }
 .desktop-collection .desktop-library-heading h2 { font-size: 23px; font-weight: 700; letter-spacing: -0.5px; margin-top: 6px; }
 .desktop-collection .desktop-library-heading .desktop-kicker { font-size: 10px; color: var(--text-dim); }
 .desktop-collection .desktop-cover-note { color: var(--text-dim); font-size: 11px; white-space: nowrap; display: flex; align-items: center; gap: 6px; padding-bottom: 4px; }
